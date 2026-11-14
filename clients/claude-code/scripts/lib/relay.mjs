@@ -10,9 +10,9 @@
 //   strata_handoff_complete  says it's done, with where the repository ended up.
 //
 // Sign-in and the server are the plugin's own (store.mjs): the token from /strata:login (an API key the server made for
-// this person), and STRATA_URL or the saved server URL. The project is the repository's (git.mjs projectOf), or
-// STRATA_PROJECT. The server decides who may do what (apps/web/server/handoffs/service.ts); nothing here is trusted for
-// that.
+// this person), and STRATA_URL or the saved server URL. The project is git.mjs projectOf's, the same as the hooks' and
+// strata_record's (STRATA_PROJECT overrides it for all of them). The server decides who may do what
+// (apps/web/server/handoffs/service.ts); nothing here is trusted for that.
 import { execFileSync, spawn } from "node:child_process";
 import { activeSession } from "./active.mjs";
 import { normalizeRemote, projectOf } from "./git.mjs";
@@ -117,7 +117,7 @@ export function relayDeps(cwd) {
     apiUrl: appOrigin(),
     token: getAuth()?.token ?? null,
     cwd,
-    project: process.env.STRATA_PROJECT?.trim() || projectOf(cwd),
+    project: projectOf(cwd),
     sessionID: activeSession(cwd),
   };
 }

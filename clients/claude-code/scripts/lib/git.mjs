@@ -48,7 +48,13 @@ export function normalizeRemote(remote) {
   return host && path ? `${host.toLowerCase()}/${path}` : null;
 }
 
+// STRATA_PROJECT names the project outright (a demo, or a repository whose remote isn't its name). Read here, so the
+// hooks, notes, strata_record and Relay all put one session's work in the same project.
+const projectOverride = () => process.env.STRATA_PROJECT?.trim() || null;
+
 export function projectOf(cwd) {
+  const override = projectOverride();
+  if (override) return override;
   const remote = run(cwd, "git", ["config", "--get", "remote.origin.url"]);
   const normalized = normalizeRemote(remote);
   if (normalized) return normalized;
@@ -129,7 +135,7 @@ export function gitContext(cwd) {
       root: cwd,
       repoKey: cwd,
       remote: "",
-      project: basename(cwd) || "default",
+      project: projectOverride() ?? (basename(cwd) || "default"),
       branch: "",
       files: [],
       jira: [],
@@ -157,7 +163,7 @@ export function gitContext(cwd) {
     root,
     repoKey,
     remote,
-    project: normalizeRemote(remote) ?? basename(root) ?? "default",
+    project: projectOverride() ?? normalizeRemote(remote) ?? basename(root) ?? "default",
     branch,
     ...(head ? { head, path } : {}),
     files,
