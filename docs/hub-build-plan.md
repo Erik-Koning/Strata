@@ -55,14 +55,19 @@ page, a session page, an overview by role. Nothing reads approved work team-wide
   through one read model, duplicates within a session dropped. The double review is fixed later.
 - **D4. An Anthropic provider** for Ask Strata and drafting, read from `ANTHROPIC_API_KEY` (the operator adds the key
   to `.env.local`; agents never read that file). Until the key is there, Ask Strata answers with cited excerpts.
-- **D5. Ask Strata searches Atlas and talks through the Anthropic SDK.** Approved team work is copied into one
+- **D5. Ask Strata searches Atlas and talks through LangChain.** Approved team work is copied into one
   collection, `team_search`, with two Atlas indexes on it: a vector index whose embeddings Atlas makes itself
   (automated embedding with Voyage's `voyage-4`, billed by Atlas per token, no embedding code of ours) and a full-text
-  Atlas Search index. A question runs both and merges them with `$rankFusion`. The chat uses `@anthropic-ai/sdk` (its
-  tool runner and streaming; P4 adds the dependency) with tools that read through F1's modules as the asker, never raw
-  database access, so the privacy rules hold whatever the model asks for. Drafting stays on the provider's `fetch`. The
-  cluster is an M10, which automated embedding needs; before P4 starts, the operator confirms in Atlas that it runs
-  MongoDB 8.0 or later (`$rankFusion`) and that storage auto-scaling is on (automated embedding pauses without disk).
+  Atlas Search index. A question runs both and merges them with `$rankFusion`. The chat goes through LangChain's
+  `ChatAnthropic` (`@langchain/anthropic` with `@langchain/core`, both already dependencies), not the Anthropic SDK's
+  tool runner: its tools are bound with LangChain tool calling (`bindTools`, the loop ours) and it streams, and the
+  tools read through F1's modules as the asker, never raw database access, so the privacy rules hold whatever the
+  model asks for. The provider's summaries, drafts and answers already go through the same `ChatAnthropic`, with
+  structured output for drafts and answers; embeddings stay on the provider's `fetch`. The cluster is an M10, which
+  automated embedding needs; before P4 starts, the operator confirms in Atlas that it runs MongoDB 8.0 or later
+  (`$rankFusion`) and that storage auto-scaling is on (automated embedding pauses without disk).
+  **Status:** only the search layer exists (`team_search` and its two index definitions, `server/hub/search.ts`, kept
+  in step by the records routes, summary storage and `hub:backfill`). Ask on D5's route and UI are still to do (P4).
 
 ## Rules every agent follows
 
@@ -154,10 +159,11 @@ Each owns one route folder, one `server/hub/<feature>.ts` built on F1's read mod
 - **P3. Context gaps** (`/gaps`): open gaps ranked by how often they come back, split into agents and people; take
   ownership, resolve with a link to the doc, ADR or comment that answers it; resolved gaps listed with when they stopped
   recurring; filters by product and source.
-- **P4. Ask Strata** (`/ask` and `app/api/ask/route.ts`, per D5): a chat over approved work that streams its answer.
+- **P4. Ask Strata** (`/ask` and `app/api/ask/route.ts`, per D5; **still to do**: only D5's search layer exists, not
+  the route or the UI): a chat over approved work that streams its answer.
   The route checks the caller with `requireViewer()`, takes the conversation from the page (nothing is stored but
-  unanswered questions) and runs Claude Opus 5.5 (`claude-opus-5-5`) through the SDK's tool runner with these tools,
-  each a thin call into F1's modules as the asker:
+  unanswered questions) and runs Claude Opus 5.5 (`claude-opus-5-5`) through LangChain's `ChatAnthropic` with these
+  tools bound by LangChain tool calling, each a thin call into F1's modules as the asker:
   - `search_team_records(query, kind?, productId?, since?)`: `searchTeam`, returning numbered sources.
   - `get_record(id)` and `get_session(id)`: the whole record or session, and where it came from.
   - `get_product(id)`: what a product is and does, its What's new and In progress.
@@ -168,8 +174,12 @@ Each owns one route folder, one `server/hub/<feature>.ts` built on F1's read mod
   runs at `high` and adds code execution with programmatic tool calling, so Claude can script many searches and
   aggregations and bring back only the result. Server-side fallback (`fallbacks: "default"`) as in the provider, a
   cap on tool rounds and on questions per person per hour, the system prompt and tools cached. A first-week path per
-  product for new joiners. Without `ANTHROPIC_API_KEY`, the page shows the search results as cited excerpts. Tests
-  with a fake Anthropic client.
+  product for new joiners. `ChatAnthropic` is made as the provider makes it: `apiKey: config().anthropicKey`, the API
+  URL set, `clientOptions.authToken: null`, and only when the key is set; never a bare `new ChatAnthropic()`, which
+  falls back to whatever else the machine holds (`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL`, a
+  developer's `ant auth login`) and would bill their own account. Without the key, the page shows the search results
+  as cited excerpts. Tests with a fake chat model or a fake `fetch` through `clientOptions`, including one with no key
+  set.
 - **P5. Review and sessions** (`/review` from My Day, `/sessions/[id]`): drafts grouped by session, approve, edit,
   discard, approve all; each session's page with its summary, findings, links, tool time and where each finding came
   from. Per D2, this rebases PR #4.
@@ -178,7 +188,9 @@ Each owns one route folder, one `server/hub/<feature>.ts` built on F1's read mod
 
 - **Overview by role** (`/`): what's waiting for my review, then by role (`HOME_FOCUS`): an engineer sees their drafts
   and their products; a manager or exec sees what shipped, time lost and open gaps across their products.
-- **Knowledge graph, first version**: a "Related" panel on records, sessions and products (same ticket, same code area,
+- **Knowledge graph, first version** (v1, built but untested: `server/hub/graph.ts` and `components/graph`, no tests
+  yet; each panel logs a failed query and renders nothing, so it never breaks its page): a "Related" panel on records,
+  sessions and products (same ticket, same code area,
   same gap), and a small graph of a product's areas, records, tickets and gaps on its page. Insights flagged for review
   when later PRs change their code area.
 - **Weekly digest**: `/digest`, the week's What's new and In progress per followed product, ready to email later.

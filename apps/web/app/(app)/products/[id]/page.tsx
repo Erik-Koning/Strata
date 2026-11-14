@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
+import { ProductGraphPanel } from "../../../../components/graph/product-graph.tsx";
+import { RelatedPanel } from "../../../../components/graph/related.tsx";
 import { InProgress } from "../../../../components/products/in-progress.tsx";
 import { RepoChips } from "../../../../components/products/refs.tsx";
 import { Areas, AskLink, OpenGaps, Tickets, TimeSinks } from "../../../../components/products/side.tsx";
@@ -44,6 +46,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
         <div className="flex min-w-0 flex-col gap-6">
           <WhatsNew weeks={weeks} sinceWeeks={WHATS_NEW_WEEKS} />
           <InProgress work={work} moreWork={moreWork} />
+          <ProductGraphPanel productId={product.id} viewerId={viewer.userId} />
         </div>
         <aside className="flex min-w-0 flex-col gap-6" aria-label="About this product">
           <AskLink productId={product.id} name={product.name} />
@@ -51,6 +54,7 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
           <OpenGaps productId={product.id} top={gaps.top} open={gaps.open} />
           <Areas areas={areas} people={people} />
           <Tickets refs={refs} />
+          <RelatedPanel subject={{ productId: product.id }} viewerId={viewer.userId} />
         </aside>
       </div>
     </>

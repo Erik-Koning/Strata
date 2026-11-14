@@ -2,7 +2,7 @@
 // an approved record is shared with everyone who has access, as access.ts says. Approved insights and workflow
 // findings are copied into memories so the next session can recall them; editing or discarding an approved one
 // retires that memory, and approving it again brings the same memory back. Each decision also brings the hub's
-// products and gaps up to date.
+// products, gaps and Ask Strata's search copy up to date.
 import { createHash } from "node:crypto";
 import { type MemoryKind, RecordQuery, RecordUpdate, type RecordView, redact } from "@strata/contracts";
 import { type Filter, MongoServerError, ObjectId } from "mongodb";
@@ -14,6 +14,7 @@ import { memories, type RecordDoc, records } from "../collections.ts";
 import { ApiError, check, json, parseBody, route } from "../http.ts";
 import { syncGaps } from "../hub/gaps.ts";
 import { ensureProductsFor } from "../hub/products.ts";
+import { indexSessionsLater, searchSyncPending } from "../hub/search.ts";
 import { indexesReady } from "../indexes.ts";
 import { normalize } from "../memory/extract.ts";
 import { addMemory, textKey as memoryTextKey } from "../memory/store.ts";
@@ -113,9 +114,11 @@ function syncGapsLater(doc: RecordDoc): void {
   });
 }
 
-// Resolves once the hub syncs started by decisions have finished: for tests, and for a clean shutdown.
+// Resolves once the hub syncs started by decisions have finished (the gaps, and the search copy of approved work): for
+// tests, and for a clean shutdown.
 export async function hubPending(): Promise<void> {
   while (gapSync) await gapSync;
+  await searchSyncPending();
 }
 
 // Whether another approved record holds this memory: one with the same words in the same scope shares it, since
@@ -246,6 +249,7 @@ export async function editRecord(
   if (doc.status === "approved") {
     await retireMemory(doc);
     syncGapsLater(doc);
+    indexSessionsLater([doc.sessionID]);
   }
   await audit({
     actor: auditActor(caller),
@@ -287,6 +291,7 @@ export async function approve(caller: Caller, id: string): Promise<RecordDoc> {
     console.error("hub: making the record's product failed", error);
   }
   syncGapsLater(doc);
+  indexSessionsLater([doc.sessionID]);
   await audit({
     actor: auditActor(caller),
     action: "record.approve",
@@ -318,6 +323,7 @@ export async function discard(caller: Caller, id: string): Promise<RecordDoc> {
   if (doc.status === "approved") {
     await retireMemory(doc);
     syncGapsLater(doc);
+    indexSessionsLater([doc.sessionID]);
   }
   await audit({
     actor: auditActor(caller),

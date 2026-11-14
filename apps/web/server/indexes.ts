@@ -1,6 +1,7 @@
 // Every index the app relies on, created idempotently: `pnpm db:indexes` runs this at environment start and on release,
 // and the database tests run it on their own database. The vector index is an Atlas Search index (the atlas-local image
-// runs it), which becomes queryable a little after it's created: `wait` polls until it is.
+// runs it), which becomes queryable a little after it's created: `wait` polls until it is. Ask Strata's two search
+// indexes are the exception: only `pnpm db:indexes` makes them (ensureTeamSearchIndexes, below).
 
 import { embeddingModelId, provider, STUB_DIMENSIONS, STUB_MODEL } from "./ai/provider.ts";
 import {
@@ -26,6 +27,18 @@ import { db } from "./db.ts";
 
 const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+// Ask Strata's search over approved work (hub/search.ts, docs/hub-build-plan.md D5): one collection, and two Atlas
+// Search indexes on it that only `pnpm db:indexes` makes (ensureTeamSearchIndexes), never ensureIndexes. The semantic
+// index has Atlas embed every document with Voyage's voyage-4, billed per token, so a test's database, or a route
+// warming up a fresh one, must never build it.
+export const TEAM_SEARCH = "team_search";
+export const TEAM_SEARCH_SEMANTIC = "team_search_semantic";
+export const TEAM_SEARCH_TEXT = "team_search_text";
+export const TEAM_SEARCH_MODEL = "voyage-4";
+// The fields a question can narrow the search by, in both indexes.
+const TEAM_SEARCH_FILTERS = ["org", "kind", "productId", "at"] as const;
+const teamSearch = () => db().collection(TEAM_SEARCH);
+
 export async function ensureIndexes({
   wait = false,
   timeoutMs = 120_000,
@@ -50,6 +63,7 @@ export async function ensureIndexes({
     "signal_daily",
     "gaps",
     "draft_claims",
+    TEAM_SEARCH,
   ])
     if (!existing.has(name))
       await db()
@@ -146,6 +160,11 @@ export async function ensureIndexes({
     gaps().createIndex({ status: 1, productId: 1, lastSeen: -1 }, { name: "by_status" }),
     gaps().createIndex({ sourceIds: 1 }, { name: "by_source" }),
     gaps().createIndex({ text: "text" }, { name: "text" }),
+    // Ask Strata's copy of approved work (hub/search.ts): rewritten a session at a time, and searched by its words when
+    // the Atlas Search indexes below aren't there. These are plain indexes, made everywhere; the two below are not.
+    teamSearch().createIndex({ sessionId: 1 }, { name: "by_session" }),
+    teamSearch().createIndex({ org: 1, at: -1 }, { name: "by_org_recent" }),
+    teamSearch().createIndex({ title: "text", text: "text" }, { name: "text" }),
     // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);
   const vector = await ensureVectorIndex(wait, timeoutMs);
@@ -307,6 +326,104 @@ export async function vectorIndexInfo(): Promise<VectorIndexInfo> {
     matches,
     definition: found?.latestDefinition ?? null,
   };
+}
+
+// The two indexes on team_search: a vector index whose embeddings Atlas makes itself from `text`, and a full-text index
+// on the title and text. Both can be narrowed by the same fields.
+export function teamSearchIndexDefinitions() {
+  return {
+    semantic: {
+      fields: [
+        { type: "autoEmbed", modality: "text", path: "text", model: TEAM_SEARCH_MODEL },
+        ...TEAM_SEARCH_FILTERS.map((path) => ({ type: "filter", path })),
+      ],
+    },
+    text: {
+      mappings: {
+        dynamic: false,
+        fields: {
+          title: { type: "string" },
+          text: { type: "string" },
+          org: { type: "token" },
+          kind: { type: "token" },
+          productId: { type: "token" },
+          at: { type: "date" },
+        },
+      },
+    },
+  };
+}
+
+export interface SearchIndexReport {
+  name: string;
+  action: "created" | "updated" | "unchanged" | "unavailable";
+  // The index's own status (PENDING, BUILDING, READY, …), when there is one.
+  status: string | null;
+}
+
+type Definition = Record<string, unknown>;
+const fieldsOf = (definition: Definition | undefined) =>
+  ((definition?.fields ?? []) as { type?: string; path?: string; model?: string }[]).map((f) => ({
+    type: f.type ?? "",
+    path: f.path ?? "",
+    model: f.model ?? "",
+  }));
+
+// Whether an index already indexes what it should. Atlas fills in defaults, so only what matters is compared: an update
+// rebuilds the index, and for the semantic one that means embedding every document again.
+function sameSemantic(found: Definition | undefined): boolean {
+  const fields = fieldsOf(found);
+  const embedded = fields.find((f) => f.type === "autoEmbed");
+  const filters = new Set(fields.filter((f) => f.type === "filter").map((f) => f.path));
+  return (
+    embedded?.path === "text" &&
+    embedded.model === TEAM_SEARCH_MODEL &&
+    filters.size === TEAM_SEARCH_FILTERS.length &&
+    TEAM_SEARCH_FILTERS.every((path) => filters.has(path))
+  );
+}
+
+function sameText(found: Definition | undefined): boolean {
+  const wanted = teamSearchIndexDefinitions().text.mappings.fields as Record<string, { type: string }>;
+  const have = ((found?.mappings as Definition | undefined)?.fields ?? {}) as Record<string, unknown>;
+  const typeOf = (field: unknown) =>
+    (Array.isArray(field) ? field : [field]).map((f) => (f as { type?: string } | null)?.type ?? "");
+  return Object.entries(wanted).every(([path, field]) => typeOf(have[path]).includes(field.type));
+}
+
+// Makes Ask Strata's two search indexes, or updates one whose definition no longer matches. Only `pnpm db:indexes`
+// calls this. It doesn't wait: Atlas builds them in the background, and searchTeam uses its text fallback until both
+// are queryable.
+export async function ensureTeamSearchIndexes(): Promise<SearchIndexReport[]> {
+  const { semantic, text } = teamSearchIndexDefinitions();
+  const wanted = [
+    { name: TEAM_SEARCH_SEMANTIC, type: "vectorSearch", definition: semantic, same: sameSemantic },
+    { name: TEAM_SEARCH_TEXT, type: "search", definition: text, same: sameText },
+  ] as const;
+  await db()
+    .createCollection(TEAM_SEARCH)
+    .catch(() => undefined);
+  let found: { name?: string; status?: string; latestDefinition?: Definition }[];
+  try {
+    found = await teamSearch().listSearchIndexes().toArray();
+  } catch {
+    // A MongoDB without Atlas Search: Ask searches with the text index.
+    return wanted.map((w) => ({ name: w.name, action: "unavailable", status: null }));
+  }
+  const reports: SearchIndexReport[] = [];
+  for (const w of wanted) {
+    const index = found.find((f) => f.name === w.name);
+    if (!index) {
+      await teamSearch().createSearchIndex({ name: w.name, type: w.type, definition: w.definition });
+      reports.push({ name: w.name, action: "created", status: "PENDING" });
+    } else if (w.same(index.latestDefinition)) {
+      reports.push({ name: w.name, action: "unchanged", status: index.status ?? null });
+    } else {
+      await teamSearch().updateSearchIndex(w.name, w.definition);
+      reports.push({ name: w.name, action: "updated", status: index.status ?? null });
+    }
+  }
+  return reports;
 }
 
 // Where MONGODB_URI points, without saying its host: Atlas (a mongodb+srv URI or an Atlas host name), or a MongoDB of
