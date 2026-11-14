@@ -1,6 +1,7 @@
-import { writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { MemoryEvent } from "@strata/contracts";
+import { type MemoryEvent, parseEvent } from "@strata/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { handle } from "../src/hooks.ts";
 import { OUTBOX } from "../src/outbox.ts";
@@ -78,10 +79,112 @@ describe("the hooks", () => {
     expect(await handle({ ...input, hook_event_name: "PostToolUse" }, deps)).toBe("");
     expect(await handle({ ...input, hook_event_name: "PostToolUseFailure" }, deps)).toBe("");
     expect(queued(store).map((e) => e.payload)).toEqual([
-      { tool: "Bash", status: "ok" },
-      { tool: "Bash", status: "error" },
+      { tool: "Bash", status: "ok", command: { class: "other" } },
+      { tool: "Bash", status: "error", command: { class: "other" } },
     ]);
+    const written = JSON.stringify(queued(store));
+    for (const leak of ["cat", ".env", "SECRET"]) expect(written).not.toContain(leak);
     expect(api!.requests).toHaveLength(0);
+  });
+
+  it("record a shell command as its kind, how long it ran and how it exited, never the command", async () => {
+    const { store, deps } = await harness();
+    await handle(
+      {
+        session_id: "s1",
+        prompt_id: "p-1",
+        hook_event_name: "PostToolUseFailure",
+        tool_name: "Bash",
+        tool_input: { command: "cd services/invoices && pnpm test --run" },
+        tool_use_id: "toolu_01ABC",
+        error: "Exit code 1\nFAIL src/retry.test.ts",
+        duration_ms: 4187.4,
+      },
+      deps,
+    );
+    await handle(
+      { session_id: "s1", hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: {}, duration_ms: 12 },
+      deps,
+    );
+    const [bash, edit] = queued(store);
+    expect(bash).toMatchObject({ kind: "tool", promptID: "p-1" });
+    expect(bash?.payload).toEqual({
+      tool: "Bash",
+      status: "error",
+      ms: 4187,
+      toolUseID: "toolu_01ABC",
+      command: { class: "test", exit: 1, fp: expect.stringMatching(/^[0-9a-f]{16}$/) },
+    });
+    expect(JSON.stringify(bash)).not.toContain("pnpm");
+    expect(edit?.payload).toEqual({ tool: "Edit", status: "ok", ms: 12 });
+  });
+
+  it("send where the work is when a session starts, and again only when the branch or commit changes", async () => {
+    const { store, deps } = await harness();
+    const repo = tempHome();
+    const git = (...args: string[]) =>
+      execFileSync("git", ["-C", repo, "-c", "user.name=t", "-c", "user.email=t@example.com", ...args], {
+        stdio: "pipe",
+      });
+    git("init", "-q", "-b", "feat/PAY-412-invoice-retry");
+    git("remote", "add", "origin", "git@github.com:acme/billing.git");
+    git("commit", "-q", "--allow-empty", "-m", "first");
+    mkdirSync(join(repo, "services", "invoices"), { recursive: true });
+    const cwd = join(repo, "services", "invoices");
+
+    await handle({ session_id: "s1", hook_event_name: "SessionStart", source: "startup", cwd }, deps);
+    const [start] = queued(store);
+    expect(start?.payload).toEqual({
+      event: "start",
+      source: "startup",
+      git: {
+        remote: "github.com/acme/billing",
+        branch: "feat/PAY-412-invoice-retry",
+        head: expect.stringMatching(/^[0-9a-f]{40}$/),
+        path: "services/invoices",
+      },
+      refs: [{ type: "ticket", id: "PAY-412" }],
+    });
+
+    await handle({ session_id: "s1", hook_event_name: "Stop", cwd }, deps);
+    expect(queued(store)).toHaveLength(1);
+
+    git("commit", "-q", "--allow-empty", "-m", "second");
+    await handle({ session_id: "s1", hook_event_name: "Stop", cwd }, deps);
+    const head = (event: MemoryEvent | undefined) =>
+      (event?.payload as { git?: { head?: string } } | undefined)?.git?.head;
+    const context = queued(store)[1];
+    expect(context?.payload).toMatchObject({ event: "context", git: { branch: "feat/PAY-412-invoice-retry" } });
+    expect(head(context)).toMatch(/^[0-9a-f]{40}$/);
+    expect(head(context)).not.toBe(head(start));
+  });
+
+  it("queue only events the contract knows, each one valid, through a whole session", async () => {
+    const { store, deps } = await harness();
+    const transcript = join(tempHome(), "t.jsonl");
+    writeFileSync(transcript, JSON.stringify({ type: "user", uuid: "u1", message: { role: "user", content: "Hi." } }));
+    const turn = { session_id: "s1", prompt_id: "p-1" };
+    await handle({ ...turn, hook_event_name: "SessionStart", source: "startup" }, deps);
+    await handle({ ...turn, hook_event_name: "UserPromptSubmit", prompt: "Run the tests." }, deps);
+    await handle(
+      {
+        ...turn,
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "npm test" },
+        duration_ms: 9,
+      },
+      deps,
+    );
+    await handle({ ...turn, hook_event_name: "PreCompact", trigger: "auto", transcript_path: transcript }, deps);
+    await handle({ ...turn, hook_event_name: "PostCompact", trigger: "auto", compact_summary: "Tests ran." }, deps);
+    await handle({ ...turn, hook_event_name: "Stop", last_assistant_message: "They pass." }, deps);
+    await handle({ ...turn, hook_event_name: "SessionEnd", reason: "other" }, deps);
+    const events = queued(store);
+    expect(new Set(events.map((e) => e.kind))).toEqual(
+      new Set(["session", "prompt", "tool", "transcript", "event", "assistant"]),
+    );
+    for (const event of events) expect(parseEvent(event)).toMatchObject({ ok: true, known: true });
   });
 
   it("before compaction, capture the transcript and ask for a summary, printing nothing", async () => {

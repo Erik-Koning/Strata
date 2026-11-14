@@ -1,4 +1,6 @@
-// The health check the environment and the container poll: 200 when the database answers, with the vector index's state.
+// The health check the environment and the container poll: 200 when the database answers, with the vector index's state
+// and the contract versions the API accepts.
+import { CONTRACT_VERSION, MIN_CONTRACT_VERSION } from "@strata/contracts";
 import { db } from "../../../server/db.ts";
 import { indexesReady, vectorIndexState } from "../../../server/indexes.ts";
 
@@ -10,7 +12,13 @@ export async function GET(): Promise<Response> {
     await indexesReady();
     const search = await vectorIndexState();
     return Response.json(
-      { ok: true, service: "strata", db: "up", search },
+      {
+        ok: true,
+        service: "strata",
+        db: "up",
+        search,
+        contract: { min: MIN_CONTRACT_VERSION, max: CONTRACT_VERSION },
+      },
       { headers: { "cache-control": "no-store" } },
     );
   } catch {

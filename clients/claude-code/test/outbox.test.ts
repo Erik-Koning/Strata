@@ -16,7 +16,7 @@ const event = (n: number) => ({
   sessionID: "s1",
   project: "github.com/acme/app",
   kind: "prompt" as const,
-  payload: { role: "user", text: `message ${n}` },
+  payload: { role: "user" as const, text: `message ${n}` },
 });
 
 describe("the outbox", () => {
@@ -95,16 +95,50 @@ describe("the outbox", () => {
     expect(await flush(store, apiFor(config), { home, now: t0 + 1001 + 2002 })).toMatchObject({ sent: 1 });
   });
 
-  it("sets aside an event the API refuses, and delivers the rest", async () => {
+  it("stamps each event with the contract version it's written to, and the turn it belongs to", () => {
+    const { store } = setup("http://127.0.0.1:1");
+    enqueue(store, { ...event(1), promptID: "p-1" });
+    enqueue(store, event(2));
+    const [first, second] = store.keys(OUTBOX).map((k) => JSON.parse(store.get(k) ?? "{}"));
+    expect(first).toMatchObject({ v: 1, promptID: "p-1" });
+    expect(second.v).toBe(1);
+    expect(second).not.toHaveProperty("promptID");
+  });
+
+  it("sets aside each event the API lists as refused, and delivers the rest in the same batch", async () => {
     api = await startFakeApi();
     const home = tempHome();
     const { store, config } = setup(api.url, home);
     enqueue(store, event(1));
-    enqueue(store, { ...event(2), payload: { poison: true } });
+    enqueue(store, { ...event(2), payload: { role: "user", text: "refuse me", refuse: true } });
+    enqueue(store, event(3));
+    expect(await flush(store, apiFor(config), { home })).toMatchObject({ sent: 2, dead: 1, left: 0 });
+    expect(store.keys("dead:")).toHaveLength(1);
+    expect(api.requests.filter((r) => r.path === "/api/memory/events")).toHaveLength(1);
+    expect(api.events.size).toBe(2);
+  });
+
+  it("with an older API that refuses a bad batch whole, sends one by one and sets aside the bad one", async () => {
+    api = await startFakeApi();
+    const home = tempHome();
+    const { store, config } = setup(api.url, home);
+    enqueue(store, event(1));
+    enqueue(store, { ...event(2), payload: { role: "user", text: "poisoned", poison: true } });
     enqueue(store, event(3));
     expect(await flush(store, apiFor(config), { home })).toMatchObject({ sent: 2, dead: 1, left: 0 });
     expect(store.keys("dead:")).toHaveLength(1);
     expect(duplicates(api)).toBe(0);
+  });
+
+  it("keeps every event when the API says the plugin is too old, and backs off", async () => {
+    api = await startFakeApi();
+    api.mode = "upgrade";
+    const home = tempHome();
+    const { store, config } = setup(api.url, home);
+    enqueue(store, event(1));
+    expect(await flush(store, apiFor(config), { home })).toMatchObject({ sent: 0, dead: 0, left: 1 });
+    expect(store.keys("dead:")).toHaveLength(0);
+    expect((await flush(store, apiFor(config), { home })).skipped).toBe("backoff");
   });
 
   it("takes over a lock left by a flusher that died", async () => {

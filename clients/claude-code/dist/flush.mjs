@@ -182,12 +182,18 @@ async function flush(store, api, options = { home: "" }) {
       }
       if (!events.length) continue;
       try {
-        await api.events(
+        const answer = await api.events(
           events.map((e) => e.event),
           SEND_MS
         );
-        for (const { key } of events) store.delete(key);
-        sent += events.length;
+        const refusedAt = new Set((answer?.rejected ?? []).map((r) => r.index));
+        events.forEach(({ key, event }, index) => {
+          if (refusedAt.has(index)) {
+            store.set(`${DEAD}${event.id}`, JSON.stringify(event));
+            dead++;
+          } else sent++;
+          store.delete(key);
+        });
       } catch (error) {
         if (!refused(error)) throw error;
         for (const { key, event } of events) {

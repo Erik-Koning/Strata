@@ -103,6 +103,10 @@ The data model, who can do what, and how each hook maps to the cache rules are i
 
 What's left, in the order the team is working through it. Each group is one journey in the team's task graph.
 
+The groups from **Contracts** to **Pages for work records** come from the plan review of 14 November 2026
+([`docs/plan.md`](docs/plan.md)). They turn Strata from personal agent memory into reviewed work records that a team
+can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
+
 **Done: the foundation**
 
 - [x] Workspace: pnpm, TypeScript, Biome, Vitest; the gate the team's merge queue runs
@@ -126,6 +130,8 @@ What's left, in the order the team is working through it. Each group is one jour
 - [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
 - [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
       prompts go on and the outbox drains with no duplicates
+- [ ] Bundle `@strata/contracts` into the plugin, as the Claude Code client does: once installed outside this
+      repository it can't import the workspace package
 
 **Memory pipeline**
 
@@ -141,6 +147,63 @@ What's left, in the order the team is working through it. Each group is one jour
 - [ ] Provenance one click away: the session, the message and the event behind a memory
 - [ ] Memories for every project (`*`) set from the page; editing a memory as a superseding one
 - [ ] Bulk keep and archive for candidates; pagination tested at scale
+
+**Contracts**
+
+- [x] A payload schema for each event kind, in place of `z.record(z.string(), z.unknown())`; each event checked on
+      its own, so one bad event is refused alone (202 with `rejected`)
+- [x] A contract version on every event (`v`, now 1); within a version changes only add; kinds, versions and fields
+      the API doesn't know yet are kept, not refused; `upgrade_required` (426) for clients too old
+- [x] The `finding` event (what `record_finding` sends) and generic links (`Ref`: ticket, PR, commit, doc)
+- [ ] Record shapes the API answers with: kind, status, sources, the review update (with `/api/records`)
+- [x] Example events (`@strata/contracts/examples`) that the contract's and the API's tests accept, and a plugin test
+      that every event its hooks queue parses as known
+
+**Records and review**
+
+- [ ] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
+      `approved`, `discarded`; an edited flag; the session, product and links; the events each record came from
+- [ ] An Anthropic provider behind `server/ai/provider.ts` that drafts a session's records when the session ends
+- [ ] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
+- [ ] MCP tool `record_finding`, so the agent logs an insight, workflow finding, pain point or context gap when it
+      runs into one (a `finding` event through the outbox), and a skill that says when to use it
+- [ ] Approved insights and workflow findings copied into memories, so the next session recalls them
+- [ ] Prompt, reply and transcript text deleted as soon as a session is drafted. Decided 14 November 2026: drafting
+      runs on the server, from redacted text, and a draft is its author's alone until they approve it
+- [ ] Choose the embeddings model: OpenAI, as the brief proposes, or Voyage AI
+
+**Capture for work records**
+
+- [x] Session links from the plugin: repository, branch, HEAD commit, folder, and ticket keys parsed from the branch
+      name; sent at the start and again when the branch or commit changes
+- [x] Tool signals without content: how long each call ran; for a shell command, its kind (test, build, typecheck,
+      lint, format, install, git), its exit code when it failed, and a fingerprint to count re-runs
+- [ ] The pull request for a session's branch, looked up on GitHub (read-only)
+- [ ] The session-start block also carries the product overview and open context gaps (fetched at startup only, so
+      the cache rule holds)
+
+**Teams and products**
+
+- [ ] Organisations, teams and members, in place of the single `default` organisation
+- [ ] Roles: engineer, viewer (managers and PMs), admin, with a permission filter on every read
+- [ ] A `products` collection mapping repositories to products
+- [ ] `/api/products/:id`: the overview, tickets and PRs, and approved records
+
+**Roll-ups**
+
+- [ ] Ticket and PR summaries, made from approved records only, with the ids of the records behind them
+- [ ] Product overviews, rewritten from the layer below on each roll-up
+
+**Pages for work records**
+
+- [ ] Review queue: drafts grouped by session; approve, edit, discard, bulk approve
+- [ ] Session page: the summary, its findings, its links, and where each finding came from
+- [ ] Products: a list, then each product's overview, tickets and PRs, insights, workflow notes, pain points and open
+      gaps
+- [ ] Friction: pain points and context gaps grouped by repository, with how often each repeats
+- [ ] What others see about me: a person's view of exactly what viewers see about their work
+- [ ] Organisation settings: members, roles, and which repository belongs to which product
+- [ ] Overview reframed around what's awaiting review, products and friction; Memories renamed Agent memory
 
 **Shipping**
 
@@ -176,15 +239,19 @@ plugin's two questions when you enable it. More in [`clients/claude-code/README.
 Every route takes `Authorization: Bearer <key>` and answers `{ error: { code, message } }` when it fails. The scope
 is `{ project }`; the organisation and the person come from the key.
 
-| Route                       | Body                                                       | Answer                                          |
-| --------------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| `POST /api/memory/events`   | `{ batch: [{ id, sessionID, scope, kind, payload, ts }] }` | 202 `{ accepted, duplicates }`, deduped on `id` |
-| `POST /api/memory/recall`   | `{ sessionID, scope, query, k }`                           | `{ memories: [{ _id, kind, text }] }`           |
-| `GET /api/memory/frozen`    | `?sessionID&project`                                       | `{ memories }`, the same for the same data      |
-| `POST /api/memory/compress` | `{ sessionID, scope, messages }`                           | `{ summary }`                                   |
-| `POST /api/memory/forget`   | `{ scope, ids \| query, dryRun? }`                         | what went: memories, summaries, events          |
-| `POST /api/memory/save`     | `{ scope, text, kind }`                                    | 201 `{ memory }`                                |
-| `GET /api/health`           |                                                            | `{ ok, db, search }`                            |
+Every event carries the contract version it was written to (`v`). The contract only grows within a version, and the API
+keeps what it doesn't understand yet rather than refusing it: the rules are in
+[`docs/architecture.md`](docs/architecture.md#the-contract-and-how-it-changes).
+
+| Route                       | Body                                                                     | Answer                                                    |
+| --------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `POST /api/memory/events`   | `{ batch: [{ v, id, sessionID, scope, kind, payload, ts, promptID? }] }` | 202 `{ accepted, duplicates, rejected }`, deduped on `id` |
+| `POST /api/memory/recall`   | `{ sessionID, scope, query, k }`                                         | `{ memories: [{ _id, kind, text }] }`                     |
+| `GET /api/memory/frozen`    | `?sessionID&project`                                                     | `{ memories }`, the same for the same data                |
+| `POST /api/memory/compress` | `{ sessionID, scope, messages }`                                         | `{ summary }`                                             |
+| `POST /api/memory/forget`   | `{ scope, ids \| query, dryRun? }`                                       | what went: memories, summaries, events                    |
+| `POST /api/memory/save`     | `{ scope, text, kind }`                                                  | 201 `{ memory }`                                          |
+| `GET /api/health`           |                                                                          | `{ ok, db, search, contract: { min, max } }`              |
 
 ## Develop
 

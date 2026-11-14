@@ -176,7 +176,8 @@ describe("acceptance: Claude Code plugin", () => {
     expect(prompts).toHaveLength(1);
     expect(prompts[0]?.payload).toEqual({ role: "user", text: "Always use pnpm here." });
     const tools = events.filter((e) => e.kind === "tool");
-    expect(tools.map((e) => Object.keys(e.payload).sort())).toEqual([["status", "tool"]]);
+    // The tool's name, its outcome and what kind of command it was: never the command, never its output.
+    expect(tools.map((e) => e.payload)).toEqual([{ tool: "Bash", status: "ok", command: { class: "other" } }]);
     expect(events.filter((e) => e.kind === "assistant").map((e) => e.payload.role)).toEqual(["assistant"]);
     const everything = JSON.stringify(api.requests);
     expect(everything).not.toContain(".env.secret-file");

@@ -1,38 +1,44 @@
 // What each Claude Code hook does. Everything already sent in a session stays as it was sent:
 //
-//   SessionStart       the session's frozen block, once, as context at the start (freeze.ts says when it's fetched).
+//   SessionStart       the session's frozen block, once, as context at the start (freeze.ts says when it's fetched);
+//                      captures where the work is: repository, branch, commit and folder (context.ts).
 //   UserPromptSubmit   captures the prompt; recalls memories for it (800 ms, or nothing) and adds them with this
 //                      message only. The frozen block is never sent again here.
-//   PostToolUse(Failure) the tool's name and whether it worked. Never its input or output.
+//   PostToolUse(Failure) the tool's name, how it ended and how long it ran; for a shell command, what kind of command
+//                      it was and a fingerprint of it (tool-signal.ts). Never its input or output.
 //   PreCompact         captures the transcript and asks the API to compress it (5 s). Prints nothing, since a
 //                      PreCompact hook's output becomes instructions for Claude Code's own summary.
 //   PostCompact        captures the summary Claude Code made.
-//   Stop               captures Claude's last message, then starts the flusher in the background.
+//   Stop               captures Claude's last message, and the branch or commit if either changed since the last turn;
+//                      then starts the flusher in the background.
 //   SessionEnd         starts the flusher and goes.
 //
+// Every event carries the turn it belongs to (Claude Code's prompt_id), so a turn's prompt, tools and reply group.
 // Capture never waits on the network: events go to the outbox, and the background flusher sends them.
-import type { EventKind } from "@strata/contracts";
+import type { EventKind, PayloadOf } from "@strata/contracts";
 import { redact } from "@strata/contracts/redact";
 import { renderRecall } from "@strata/contracts/render";
 import type { Api } from "./api.ts";
 import type { Config } from "./config.ts";
+import { changed, forgetContext, gitContext, refsOf } from "./context.ts";
 import { ensureFrozen, type StartSource } from "./freeze.ts";
-import { enqueue } from "./outbox.ts";
+import { enqueue, type NewEvent } from "./outbox.ts";
 import type { Store } from "./store.ts";
+import { type ToolHookInput, toolSignal } from "./tool-signal.ts";
 import { readTranscript } from "./transcript.ts";
 
 export const RECALL_MS = 800;
 export const COMPRESS_MS = 5000;
 const RECALL_K = 6;
 
-export interface HookInput {
+export interface HookInput extends ToolHookInput {
   session_id?: string;
+  prompt_id?: string;
   transcript_path?: string;
   cwd?: string;
   hook_event_name?: string;
   source?: string;
   prompt?: string;
-  tool_name?: string;
   trigger?: string;
   last_assistant_message?: string;
   compact_summary?: string;
@@ -58,14 +64,19 @@ export async function handle(input: HookInput, deps: Deps): Promise<string> {
   const sessionID = input.session_id;
   const event = input.hook_event_name ?? "";
   if (!sessionID) return "";
-  const capture = (kind: EventKind, payload: Record<string, unknown>): string =>
-    enqueue(store, { sessionID, project: config.project, kind, payload });
+  const promptID = input.prompt_id?.slice(0, 200) || undefined;
+  const capture = <K extends EventKind>(kind: K, payload: PayloadOf<K>): string =>
+    enqueue(store, { sessionID, project: config.project, kind, payload, promptID } as NewEvent);
+  const cwd = input.cwd || process.cwd();
 
   switch (event) {
     case "SessionStart": {
       const source = SOURCES.has(input.source as StartSource) ? (input.source as StartSource) : "startup";
       const block = await ensureFrozen(store, api, sessionID, config.project, source);
-      capture("session", { event: "start", source });
+      const git = gitContext(cwd);
+      const refs = refsOf(git);
+      changed(store, sessionID, git);
+      capture("session", { event: "start", source, ...(git ? { git } : {}), ...(refs.length ? { refs } : {}) });
       kick();
       return context("SessionStart", block);
     }
@@ -88,7 +99,7 @@ export async function handle(input: HookInput, deps: Deps): Promise<string> {
     }
     case "PostToolUse":
     case "PostToolUseFailure":
-      capture("tool", { tool: input.tool_name ?? "unknown", status: event === "PostToolUseFailure" ? "error" : "ok" });
+      capture("tool", toolSignal(input, event === "PostToolUseFailure"));
       return "";
     case "PreCompact": {
       const messages = readTranscript(input.transcript_path);
@@ -114,12 +125,20 @@ export async function handle(input: HookInput, deps: Deps): Promise<string> {
       if (input.compact_summary)
         capture("event", { type: "compact_summary", trigger: input.trigger ?? null, text: input.compact_summary });
       return "";
-    case "Stop":
+    case "Stop": {
       if (input.last_assistant_message) capture("assistant", { role: "assistant", text: input.last_assistant_message });
+      // A new branch or a new commit since the last turn: the session now points at it too.
+      const git = gitContext(cwd);
+      if (git && changed(store, sessionID, git)) {
+        const refs = refsOf(git);
+        capture("session", { event: "context", git, ...(refs.length ? { refs } : {}) });
+      }
       kick();
       return "";
+    }
     case "SessionEnd":
       capture("session", { event: "end", reason: input.reason ?? null });
+      forgetContext(store, sessionID);
       kick();
       return "";
     default:

@@ -7,8 +7,9 @@
 // failure the outbox backs off (1 s, 2 s, 4 s … up to 5 min) so a dead API isn't hammered by every hook.
 import { closeSync, mkdirSync, openSync, rmSync, statSync, utimesSync } from "node:fs";
 import { join } from "node:path";
-import type { EventKind, MemoryEvent } from "@strata/contracts";
+import type { EventKind, MemoryEvent, PayloadOf } from "@strata/contracts";
 import { redactDeep } from "@strata/contracts/redact";
+import { CONTRACT_VERSION } from "@strata/contracts/version";
 import { type Api, ApiError } from "./api.ts";
 import type { Store } from "./store.ts";
 import { ulid } from "./ulid.ts";
@@ -21,24 +22,24 @@ const SEND_MS = 10_000;
 const STALE_LOCK_MS = 60_000;
 const MAX_BACKOFF_MS = 5 * 60_000;
 
-export interface NewEvent {
-  sessionID: string;
-  project: string;
-  kind: EventKind;
-  payload: Record<string, unknown>;
-}
+export type NewEvent = {
+  [K in EventKind]: { sessionID: string; project: string; kind: K; payload: PayloadOf<K>; promptID?: string };
+}[EventKind];
 
-// Writes the event, redacted, and returns its id. Never touches the network.
+// Writes the event, redacted and stamped with the contract version it's written to, and returns its id. Never touches
+// the network.
 export function enqueue(store: Store, event: NewEvent, now: number = Date.now()): string {
   const id = ulid(now);
-  const stored: MemoryEvent = {
+  const stored = {
+    v: CONTRACT_VERSION,
     id,
     sessionID: event.sessionID,
     scope: { project: event.project },
     kind: event.kind,
     payload: redactDeep(event.payload),
     ts: new Date(now).toISOString(),
-  };
+    ...(event.promptID ? { promptID: event.promptID } : {}),
+  } as MemoryEvent;
   store.set(`${OUTBOX}${id}`, JSON.stringify(stored));
   return id;
 }
@@ -96,7 +97,8 @@ const touch = (dir: string): void => {
   }
 };
 
-// A 400 or 422 means the API won't take what was sent, not that it's down.
+// A 400 or 422 means the API won't take what was sent, not that it's down. A 426 (upgrade_required) is neither: the
+// events are kept, with the usual back-off, until the plugin is updated.
 const refused = (error: unknown): boolean =>
   error instanceof ApiError && (error.status === 400 || error.status === 413 || error.status === 422);
 
@@ -131,15 +133,23 @@ export async function flush(
       }
       if (!events.length) continue;
       try {
-        await api.events(
+        const answer = await api.events(
           events.map((e) => e.event),
           SEND_MS,
         );
-        for (const { key } of events) store.delete(key);
-        sent += events.length;
+        // The API lists each event it refused, and why: those are set aside, and the rest are delivered.
+        const refusedAt = new Set((answer?.rejected ?? []).map((r) => r.index));
+        events.forEach(({ key, event }, index) => {
+          if (refusedAt.has(index)) {
+            store.set(`${DEAD}${event.id}`, JSON.stringify(event));
+            dead++;
+          } else sent++;
+          store.delete(key);
+        });
       } catch (error) {
         if (!refused(error)) throw error;
-        // One of them is bad: send them one by one, and set aside each the API refuses.
+        // An API from before contract version 1 refuses a bad batch whole: send them one by one, and set aside each
+        // the API refuses.
         for (const { key, event } of events) {
           try {
             await api.events([event], SEND_MS);
