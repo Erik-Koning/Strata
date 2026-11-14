@@ -4,12 +4,12 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
 
 ## Ownership
 
-| Lane | Owner | Files |
-| ---- | ----- | ----- |
-| Contracts, integration, Claude Code plugin, demo | lead | `packages/contracts/src/handoff.ts`, `clients/claude-code/**`, `demo/**`, this file |
-| Handoff backend, authorization, governance tests | agent B | `apps/web/server/handoffs/**`, `apps/web/app/api/handoffs/**`, `server/memory/correct.ts` |
-| Atlas, embeddings, vector search | agent A | `apps/web/server/ai/**`, `server/indexes.ts` (vector), `server/memory/{recall,frozen,store}.ts`, `scripts/atlas-check.ts` |
-| Relay UI | agent C | `apps/web/app/(app)/relay/**`, `apps/web/components/relay/**` |
+| Lane                                             | Owner   | Files                                                                                                                     |
+| ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Contracts, integration, Claude Code plugin, demo | lead    | `packages/contracts/src/handoff.ts`, `clients/claude-code/**`, `demo/**`, this file                                       |
+| Handoff backend, authorization, governance tests | agent B | `apps/web/server/handoffs/**`, `apps/web/app/api/handoffs/**`, `server/memory/correct.ts`                                 |
+| Atlas, embeddings, vector search                 | agent A | `apps/web/server/ai/**`, `server/indexes.ts` (vector), `server/memory/{recall,frozen,store}.ts`, `scripts/atlas-check.ts` |
+| Relay UI                                         | agent C | `apps/web/app/(app)/relay/**`, `apps/web/components/relay/**`                                                             |
 
 ## Progress
 
@@ -19,10 +19,18 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
       DB 27/27.
 - [x] Handoff contract (`packages/contracts/src/handoff.ts`): lifecycle, schemas, `renderResume`, `resumeCommand`;
       `HandoffDoc`, the `handoffs` indexes and the `handoff.*` audit actions.
-- [ ] Handoff API and cross-account governance tests (agent B)
-- [ ] Real embeddings and Atlas checks (agent A)
+- [x] Handoff API and cross-account governance tests (agent B, `b899eba`). `pnpm test:db` 53/53, re-run by the lead,
+      of which 18 are cross-account handoff tests with three accounts plus a suspended one: drafts 404 for others, only
+      approved memories reach the recipient, forgotten, archived and expired memories excluded with a reason,
+      corrections followed, revoke 404s the recipient, racing completes give one 200, and every step is audited.
+- [x] Embeddings and Atlas readiness (agent A, `1145bda`): Voyage and OpenAI providers, the vector index's dimensions
+      kept in step with the provider (drop and recreate proven on Atlas Local), every memory stamped with its
+      embedding model, recall and frozen exclude expired memories and other models' vectors, `/api/health` reports
+      `semantic`, and `pnpm --filter @strata/web atlas:check` passes against Atlas Local. **Not run against Atlas cloud
+      or a real embeddings API: no credentials.**
 - [ ] Relay UI (agent C)
-- [ ] Plugin: `strata_handoff_*` MCP tools, `/strata:handoff`, `/strata:resume` (lead)
+- [x] Plugin: `strata_handoff_*` MCP tools, `/strata:handoff`, `/strata:resume` (lead, `8799182`). Unit 43/43,
+      acceptance 6/6. A real headless `claude --plugin-dir` session loaded both commands and all five tools.
 - [ ] Reproducible demo: a real failing test, handed off, continued in a fresh `claude` session (lead)
 
 ## Blockers / needs the operator

@@ -40,8 +40,20 @@ function check(name, ok, detail = "") {
 }
 const step = (s) => console.log(`\n== ${s}`);
 
+// The dev server may be recompiling (or restarting) for a moment: a dropped connection is retried, an HTTP answer isn't.
+async function fetchRetry(url, init) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      if (attempt >= 8) throw error;
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+  }
+}
+
 async function api(key, method, path, body) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetchRetry(`${API}${path}`, {
     method,
     headers: {
       authorization: `Bearer ${key}`,
@@ -139,7 +151,7 @@ execFileSync("pnpm", ["--filter", "@strata/web", "run", "relay:demo-accounts", a
 });
 const accounts = JSON.parse(readFileSync(accountsFile, "utf8"));
 const { alice, bob, mallory } = accounts.people;
-const health = await fetch(`${API}/api/health`).then((r) => r.json());
+const health = await fetchRetry(`${API}/api/health`).then((r) => r.json());
 console.log(`   api ${API}: ${JSON.stringify(health)}`);
 
 step("3. Alice drafts the handoff in her own Claude Code session");
