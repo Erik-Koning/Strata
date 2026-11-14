@@ -10,7 +10,7 @@ process.env.BETTER_AUTH_URL = "http://localhost:9316";
 
 const { postEvents } = await import("../server/memory/routes.ts");
 const { draftPending } = await import("../server/memory/ingest.ts");
-const { listRecords, getRecord, patchRecord, approveRecord, discardRecord } = await import(
+const { listRecords, getRecord, patchRecord, approveRecord, discardRecord, hubPending } = await import(
   "../server/records/routes.ts"
 );
 const { closeMongo, db } = await import("../server/db.ts");
@@ -77,6 +77,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await draftPending();
+  await hubPending();
   await dropTestDatabase(db(), name);
   await closeMongo();
 });

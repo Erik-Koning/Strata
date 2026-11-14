@@ -1,8 +1,11 @@
 import {
   Archive,
+  CircleCheck,
   KeyRound,
   MailPlus,
   MailX,
+  Puzzle,
+  RotateCcw,
   ScrollText,
   Sparkles,
   Trash2,
@@ -26,6 +29,11 @@ export const metadata: Metadata = { title: "Audit log" };
 
 const n = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 const role = (r: unknown) => (isRole(r) ? ROLE_LABELS[r] : String(r));
+// A gap's text as the audit entry kept it: its first 120 characters.
+const gapText = (t: unknown) => {
+  const text = String(t ?? "").trim();
+  return text.length >= 120 ? `${text}…` : text;
+};
 
 function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: string } {
   const d = entry.detail as Record<string, unknown>;
@@ -111,6 +119,12 @@ function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: s
             ? `Took ${String(d.name)} out of ${String(d.team)}`
             : `Put ${String(d.name)} in ${String(d.team)} as ${d.as === "manager" ? "a manager" : "a member"}`,
       };
+    case "gap.take":
+      return { icon: Puzzle, tone: "text-ink-2", text: `Took on the context gap “${gapText(d.text)}”` };
+    case "gap.resolve":
+      return { icon: CircleCheck, tone: "text-accent-text", text: `Resolved the context gap “${gapText(d.text)}”` };
+    case "gap.reopen":
+      return { icon: RotateCcw, tone: "text-ink-2", text: `Reopened the context gap “${gapText(d.text)}”` };
     default:
       return { icon: ScrollText, tone: "text-ink-2", text: entry.action };
   }

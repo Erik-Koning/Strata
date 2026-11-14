@@ -60,6 +60,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await draftPending();
+  await recordRules.hubPending();
   await dropTestDatabase(db(), name);
   await closeMongo();
 });
