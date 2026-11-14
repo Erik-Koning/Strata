@@ -1,31 +1,34 @@
-import { MessageCircleQuestionMark } from "lucide-react";
 import type { Metadata } from "next";
+import { pulse } from "../../../server/intelligence/pulse.ts";
 import { requireViewer } from "../../../server/viewer.ts";
+import { AskStrata } from "../intelligence/ask-strata.tsx";
+import { EvidenceProvider } from "../intelligence/evidence.tsx";
 import { PageHeader } from "../page-header.tsx";
 
 export const metadata: Metadata = { title: "Ask" };
+export const dynamic = "force-dynamic";
 
-// A placeholder until Ask Strata lands (phase 2, P4).
 export default async function AskPage() {
-  await requireViewer();
+  const viewer = await requireViewer();
+  const p = await pulse(viewer.userId);
+  const f = p.totals.findings;
+  const records = p.totals.activeMemories + p.totals.summaries + f.insight + f.workflow + f.pain_point + f.context_gap;
+  const top = p.projects[0]?.project.split("/").pop();
+  const suggestions = [
+    "What changed recently?",
+    "What did I discover this week?",
+    "What work is still unfinished?",
+    "Why did we choose this approach?",
+    top ? `How do I get ${top} running?` : "How do I get this service running?",
+  ];
   return (
-    <>
+    <EvidenceProvider>
       <PageHeader
         eyebrow="Ask"
         title="Ask Strata"
-        lede="Questions answered from your team's approved work, with every claim linked to where it came from."
+        lede="Ask about the work in plain words. Answers are made only from your own records, and each point cites the record it came from."
       />
-      <section className="card px-6 py-14 text-center" aria-labelledby="being-built">
-        <span className="mx-auto grid size-11 place-items-center rounded-full bg-accent-soft text-accent-text">
-          <MessageCircleQuestionMark size={17} aria-hidden />
-        </span>
-        <h2 id="being-built" className="mt-4 font-semibold text-[16px]">
-          Being built
-        </h2>
-        <p className="mx-auto mt-1.5 max-w-md text-[14px] text-ink-3">
-          Answers will come only from approved work you can see, and every sentence will cite its source.
-        </p>
-      </section>
-    </>
+      <AskStrata suggestions={suggestions} records={records} />
+    </EvidenceProvider>
   );
 }

@@ -35,7 +35,9 @@ export function writeJson(file, data) {
 }
 
 export const settings = () => readJson(p("config.json"), {});
-export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || "http://localhost:9316";
+// Routes are sent as /api/... and /v1/..., so a base that already ends in /api would double it (and 404).
+export const serverUrl = () =>
+  (process.env.STRATA_URL || settings().serverUrl || "http://localhost:9316").replace(/\/+$/, "").replace(/\/api$/, "");
 
 // The token is a bearer credential: user identity comes from it on the server,
 // never from anything this client claims.

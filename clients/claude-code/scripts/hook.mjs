@@ -5,8 +5,8 @@ import { spawn } from "node:child_process";
 // UserPromptSubmit would drop prompts; from Stop it would re-wake the agent in a loop.
 //
 // What the hooks do: remember the prompt (UserPromptSubmit), and after each turn (Stop) queue the
-// redacted turn text for a background worker that writes the session summary. Nothing here
-// uploads a prompt or a reply; only approved summaries ever leave the machine.
+// redacted turn text for a background worker that writes the session summary on this machine. Raw events go to the
+// Strata server as they happen; when the session ends the summary follows as a draft, approved on the web (My Day).
 import crypto from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,7 @@ import { isExcluded, resolveCwd, validSessionId } from "./lib/filter.mjs";
 import { gitContext, lookupPr, projectOf } from "./lib/git.mjs";
 import { log } from "./lib/log.mjs";
 import { buildOverview } from "./lib/overview.mjs";
+import { publishSession } from "./lib/publish.mjs";
 import { enqueueItem, ensureSession, listQueue, pruneStore, sessionIds } from "./lib/records.mjs";
 import { redact } from "./lib/redact.mjs";
 import { ticketRefs } from "./lib/signals.mjs";
@@ -32,7 +33,6 @@ import {
   writeJson,
 } from "./lib/store.mjs";
 import { summarizeSession } from "./lib/summarize.mjs";
-import { flush, heldBreakdown } from "./lib/sync.mjs";
 import { isInternalProtocolPayload, isPrivatePrompt, stripTags } from "./lib/tags.mjs";
 import { toolSignal } from "./lib/tool-signal.mjs";
 import { lastAssistantFromTranscript, readTranscript } from "./lib/transcript.mjs";
@@ -151,14 +151,6 @@ function cachedPr(git) {
   return value;
 }
 
-function reviewNotices() {
-  const held = heldBreakdown();
-  const lines = [];
-  if (held.needsReview)
-    lines.push(`${held.needsReview} session summar${held.needsReview === 1 ? "y waits" : "ies wait"} for your review`);
-  return lines.length ? `Strata: ${lines.join("; ")}. Nothing is sent until you approve. Run /strata:dashboard.` : null;
-}
-
 const handlers = {
   // Tell Claude only when the engineer must act, and not more than once a day per kind.
   "session-start": async (input) => {
@@ -199,7 +191,7 @@ const handlers = {
     if (!auth?.token) {
       if (noticeDue("login")) {
         guidance.push(
-          "Strata is installed but the user is not signed in. Session summaries are written and kept locally, and nothing is sent until they sign in and approve. Mention once that they can run /strata:login (or /strata:dashboard to manage everything).",
+          "Strata is installed but the user is not signed in, so nothing is sent. Mention once that they can run /strata:login.",
         );
       }
     } else if (health.authExpired) {
@@ -208,25 +200,18 @@ const handlers = {
           "Strata: the sign-in has expired, so nothing can be sent. Mention once that they can run /strata:login.",
         );
     } else {
-      if (!getBinding(git.repoKey) && noticeDue(`project:${git.repoKey}`)) {
-        guidance.push(
-          "Strata: no team project is selected for this repo yet. Mention once that they can run /strata:project to pick one. Summaries stay local until then.",
-        );
-      }
       if ((health.failures ?? 0) >= FAILURE_NOTICE_THRESHOLD && noticeDue("failures", 6 * 60 * 60 * 1000)) {
         messages.push(
-          `Strata: the last ${health.failures} uploads failed (${health.lastError}). Approved summaries are kept and will retry. Run /strata:status for details.`,
+          `Strata: the last ${health.failures} uploads failed (${health.lastError}). Events are kept and will retry. Run /strata:status for details.`,
         );
       }
-      detached("flush");
+      flushEventsLater();
     }
     if (health.summarizerError && noticeDue("summarizer", 24 * 60 * 60 * 1000)) {
       messages.push(
         `Strata: summaries could not be written (${health.summarizerError}). The queued turns are kept for a few days and retried.`,
       );
     }
-    const review = reviewNotices();
-    if (review && noticeDue("review", 12 * 60 * 60 * 1000)) messages.push(review);
 
     // Turns that were queued while the summarizer was failing get another go.
     for (const sid of sessionIds()) if (listQueue(sid).length) detached("summarize", sid);
@@ -372,16 +357,22 @@ const handlers = {
   "session-end": async (input) => {
     const ctx = captureContext(input);
     if (ctx) {
+      if (listQueue(ctx.sessionId).length) {
+        // The end event is what makes the server draft, so it waits for the summary: the worker sends both.
+        if (process.env.STRATA_INLINE_WORKER === "1") {
+          await summarizeSession(ctx.sessionId);
+          await publishSession(ctx.sessionId, ctx.cwd);
+        } else detached("summarize", ctx.sessionId, "--final", ctx.cwd);
+        return;
+      }
       enqueueEvent({
         sessionID: ctx.sessionId,
         project: projectOf(ctx.cwd),
         kind: "session",
         payload: { event: "end", reason: typeof input.reason === "string" ? input.reason.slice(0, 200) : null },
       });
-      // Whatever is still queued gets summarized now; the server drafts from the events it has.
-      for (const sid of [ctx.sessionId]) if (listQueue(sid).length) await startWorker(sid);
     }
-    if (getAuth()?.token) await Promise.allSettled([flushEvents(), flush()]);
+    if (getAuth()?.token) await flushEvents({ force: true });
   },
 };
 

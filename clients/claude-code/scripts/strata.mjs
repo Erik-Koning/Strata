@@ -9,6 +9,7 @@ import { enqueueEvent, flushEvents, pendingEvents } from "./lib/events.mjs";
 import { gitContext, projectOf } from "./lib/git.mjs";
 import { requestDeviceCode, waitForApproval } from "./lib/login.mjs";
 import { buildOverview, openGaps, recurring, resolveGap } from "./lib/overview.mjs";
+import { publishSession } from "./lib/publish.mjs";
 import { addFinding, approve, countByStatus, describeSession, listSessions } from "./lib/records.mjs";
 import { renderRollup, rollups } from "./lib/rollups.mjs";
 import { clearAuth, getAuth, getBinding, getHealth, p, readJson, serverUrl, setBinding } from "./lib/store.mjs";
@@ -168,6 +169,8 @@ const commands = {
     const sid = args[0];
     if (!sid) throw new Error("Usage: summarize <sessionId>");
     await summarizeSession(sid);
+    // --final <cwd>: the session ended; send its summary and end event to the server.
+    if (args[1] === "--final" && args[2]) await publishSession(sid, args[2]);
   },
 
   // Approve a session's current summary from the terminal (the dashboard is where you read and edit it).
