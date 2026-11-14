@@ -8,7 +8,7 @@ import { isRole, ROLE_LABELS, ROLES } from "../server/access.ts";
 import { auth } from "../server/auth.ts";
 import { closeMongo } from "../server/db.ts";
 import { indexesReady } from "../server/indexes.ts";
-import { createInvite, INVITE_DAYS, inviteLink, normalizeEmail } from "../server/invites.ts";
+import { createInvite, INVITE_DAYS, inviteLink, normalizeEmail, sendInviteLink } from "../server/invites.ts";
 import { Refusal, setRole } from "../server/people.ts";
 
 const CLI = { kind: "service" as const, id: "cli", label: "the command line" };
@@ -28,6 +28,12 @@ try {
     const { token, invite } = await createInvite(CLI, { email, role });
     console.log(`Invite for ${invite.email} as ${invite.role}. It works once and expires in ${INVITE_DAYS} days:\n`);
     console.log(`  ${inviteLink(token)}\n`);
+    const emailed = await sendInviteLink(invite.email, token, invite.role, "An admin");
+    console.log(
+      emailed
+        ? `Emailed to ${invite.email}.`
+        : "Not emailed (email isn't set up, or the send failed): send the link yourself.",
+    );
   }
 } catch (error) {
   console.error(error instanceof Refusal ? error.message : error);

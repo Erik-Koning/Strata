@@ -137,7 +137,10 @@ export function InviteForm({ teams }: { teams: { id: string; name: string }[] })
           <p className="mb-2 font-medium text-[14px]">Invite link for {state.email}</p>
           <CodeLine code={state.link} />
           <p className="mt-2 text-[13px] text-ink-3">
-            Send it to them yourself. It's shown once, works once, only for that email, and expires in 7 days.
+            {state.emailed
+              ? `Emailed to ${state.email}. The link is here too, in case it doesn't arrive.`
+              : "The email couldn't be sent, so send this link to them yourself."}{" "}
+            It's shown once, works once, only for that email, and expires in 7 days.
           </p>
         </div>
       ) : null}

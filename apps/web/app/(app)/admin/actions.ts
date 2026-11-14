@@ -3,7 +3,7 @@
 // without the page, so what the page showed is no guarantee.
 import { revalidatePath } from "next/cache";
 import { input, RefId, TeamPlace } from "../../../server/inputs.ts";
-import { createInvite, inviteLink, revokeInvite } from "../../../server/invites.ts";
+import { createInvite, inviteLink, revokeInvite, sendInviteLink } from "../../../server/invites.ts";
 import { createTeam, deleteTeam, placeInTeam, Refusal, restore, setRole, suspend } from "../../../server/people.ts";
 import { adminActor } from "../../../server/viewer.ts";
 
@@ -31,6 +31,8 @@ const text = (form: FormData, name: string): string => {
 export interface InviteState {
   link: string | null;
   email: string;
+  // Whether the link was also emailed to them (SES); the link is shown either way.
+  emailed?: boolean;
   error: string | null;
 }
 
@@ -43,8 +45,9 @@ export async function makeInvite(_: InviteState, form: FormData): Promise<Invite
       role: text(form, "role"),
       teamIds: form.getAll("team").map(String),
     });
+    const emailed = await sendInviteLink(invite.email, token, invite.role, actor.label);
     revalidatePath("/admin");
-    return { link: inviteLink(token), email: invite.email, error: null };
+    return { link: inviteLink(token), email: invite.email, emailed, error: null };
   } catch (error) {
     if (error instanceof Refusal) return { link: null, email, error: error.message };
     throw error;

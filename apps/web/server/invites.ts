@@ -7,6 +7,7 @@ import { audit } from "./audit.ts";
 import { auth } from "./auth.ts";
 import { type InviteDoc, invites, teams } from "./collections.ts";
 import { config } from "./config.ts";
+import { type Mail, sendMail } from "./mail.ts";
 import { type Actor, Refusal, startMember } from "./people.ts";
 
 export const INVITE_DAYS = 7;
@@ -63,6 +64,46 @@ export async function createInvite(
     detail: { email, role: invite.role, teams: teamIds.length, replaced: replaced.modifiedCount },
   });
   return { token, invite };
+}
+
+export function inviteEmail(to: string, link: string, role: string, from: string): Mail {
+  return {
+    to,
+    subject: "You're invited to Strata",
+    text: [
+      `${from} invited you to Strata as ${role === "admin" ? "an admin" : `a${/^[aeiou]/.test(role) ? "n" : ""} ${role}`}.`,
+      "",
+      `To make your account, open this link within ${INVITE_DAYS} days:`,
+      link,
+      "",
+      "The link works once, and only for this email address. If you weren't expecting it, ignore this email.",
+    ].join("\n"),
+  };
+}
+
+// Emails an invite's link, as the password reset does: through SES when it's set up. The link is still shown to whoever
+// made the invite, so a failed send never loses it. Answers whether the email went.
+export async function sendInviteLink(
+  email: string,
+  token: string,
+  role: string,
+  from: string,
+  { production = process.env.NODE_ENV === "production" }: { production?: boolean } = {},
+): Promise<boolean> {
+  const { mail } = config();
+  const link = inviteLink(token);
+  if ("missing" in mail) {
+    if (production)
+      console.error(`[invite] Email isn't set up (missing ${mail.missing.join(", ")}): not sent to ${email}.`);
+    return false;
+  }
+  try {
+    await sendMail(inviteEmail(email, link, role, from));
+    return true;
+  } catch (error) {
+    console.error(`[invite] Couldn't email ${email}:`, error);
+    return false;
+  }
 }
 
 const open = (now = new Date()) => ({ acceptedAt: null, revokedAt: null, expiresAt: { $gt: now } });
