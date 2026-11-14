@@ -15,6 +15,7 @@ const SOURCE_LABELS: Record<string, string> = {
   compaction: "A compaction",
   manual: "Added by you on the Memories page",
   seed: "Seeded data",
+  record: "Captured in a session, approved by you on review",
 };
 
 export async function sessionContext(userId: string, sessionID: string): Promise<SessionContext | null> {

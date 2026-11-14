@@ -98,7 +98,14 @@ export const postRevoke = route(async (request, ctx: IdContext) => {
   return json({ handoff: await handoffs.revokeHandoff(c, (await ctx.params).id, body) });
 });
 
+// The reading session, if the client names it: a header, so the route and its answer stay as they were.
+const SESSION_HEADER = "x-strata-session";
+const sessionOf = (request: Request): string | null => {
+  const value = request.headers.get(SESSION_HEADER)?.trim() ?? "";
+  return /^[A-Za-z0-9._:-]{1,200}$/.test(value) ? value : null;
+};
+
 export const getResume = route(async (request, ctx: IdContext) => {
   const c = await caller(request);
-  return json(await handoffs.resumeHandoff(c, (await ctx.params).id));
+  return json(await handoffs.resumeHandoff(c, (await ctx.params).id, sessionOf(request)));
 });

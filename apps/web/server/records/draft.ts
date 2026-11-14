@@ -166,7 +166,7 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
   );
 
   // A finding the agent or engineer logged live is already a record: carry it through with the drafted ones.
-  const findings: DraftRecord[] = undrafted
+  const findings: (DraftRecord & { eventId?: string })[] = undrafted
     .filter((event) => event.known && event.kind === "finding")
     .flatMap((event) => {
       const type = typeof event.payload.type === "string" ? event.payload.type : "";
@@ -174,12 +174,12 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
       const text = textOf(event);
       if (!kind || !text.trim()) return [];
       const title = typeof event.payload.title === "string" ? event.payload.title : undefined;
-      return [{ kind, text, ...(title ? { title } : {}), refs: asRefs(event.payload.refs) }];
+      return [{ kind, text, ...(title ? { title } : {}), refs: asRefs(event.payload.refs), eventId: event.id }];
     });
   // A client that summarized the session itself has said what it wants drafted; the model is not asked again.
   const clientSummary = findings.some((draft) => draft.kind === "summary");
 
-  const drafts = [
+  const drafts: (DraftRecord & { eventId?: string })[] = [
     ...findings,
     ...(clientSummary
       ? []
@@ -212,7 +212,10 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
         text,
         textKey,
         refs: draft.refs?.length ? asRefs(draft.refs) : refs,
-        eventIds: sessionEvents.map((event) => event.id),
+        // A finding's own event first: the memory its approval makes names it as where it came from.
+        eventIds: draft.eventId
+          ? [draft.eventId, ...sessionEvents.map((event) => event.id).filter((id) => id !== draft.eventId)]
+          : sessionEvents.map((event) => event.id),
         edited: false,
         createdAt: now,
         updatedAt: now,
