@@ -233,7 +233,16 @@ describe("acceptance: Claude Code plugin", () => {
     expect(lines.map((l) => l.id).sort()).toEqual([1, 2, 3]);
     const byId = new Map(lines.map((l) => [l.id, l.result]));
     const tools = (byId.get(2)?.tools ?? []) as { name: string }[];
-    expect(tools.map((t) => t.name)).toEqual(["memory_search", "memory_save", "memory_forget"]);
+    expect(tools.map((t) => t.name)).toEqual([
+      "memory_search",
+      "memory_save",
+      "memory_forget",
+      "strata_handoff_create",
+      "strata_handoff_get",
+      "strata_handoff_claim",
+      "strata_handoff_verify",
+      "strata_handoff_complete",
+    ]);
     expect(JSON.stringify(byId.get(3))).toContain("One envelope.");
   });
 });

@@ -10,6 +10,13 @@ const deps = {
   api: config ? makeApi(config) : null,
   project: config?.project ?? projectOf(process.env.CLAUDE_PROJECT_DIR ?? process.cwd()),
   sessionID: "mcp",
+  relay: {
+    apiUrl: config?.apiUrl ?? null,
+    token: config?.token ?? null,
+    cwd: process.env.CLAUDE_PROJECT_DIR ?? process.cwd(),
+    project: config?.project ?? projectOf(process.env.CLAUDE_PROJECT_DIR ?? process.cwd()),
+    sessionID: process.env.CLAUDE_SESSION_ID ?? null,
+  },
 };
 
 // Answers still on their way when stdin closes are sent before the server goes.

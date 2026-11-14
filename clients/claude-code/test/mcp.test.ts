@@ -34,14 +34,23 @@ describe("the MCP server", () => {
     });
   });
 
-  it("lists the three memory tools, the same whether or not it's connected", async () => {
+  it("lists the memory and Relay tools, the same whether or not it's connected", async () => {
     const live = await respond({ jsonrpc: "2.0", id: 2, method: "tools/list" }, await connected());
     const offline = await respond(
       { jsonrpc: "2.0", id: 2, method: "tools/list" },
       { api: null, project: "p", sessionID: "mcp" },
     );
     expect(live).toEqual(offline);
-    expect(TOOLS.map((t) => t.name)).toEqual(["memory_search", "memory_save", "memory_forget"]);
+    expect(TOOLS.map((t) => t.name)).toEqual([
+      "memory_search",
+      "memory_save",
+      "memory_forget",
+      "strata_handoff_create",
+      "strata_handoff_get",
+      "strata_handoff_claim",
+      "strata_handoff_verify",
+      "strata_handoff_complete",
+    ]);
   });
 
   it("searches, saves and forgets through the API", async () => {

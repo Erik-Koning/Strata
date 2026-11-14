@@ -54,6 +54,33 @@ Without both an address and a key, the plugin does nothing at all.
 | `MEMORY_PROJECT`   | The project memories belong to. By default, the repository's git origin (`github.com/acme/app`), else its folder name |
 | `MEMORY_HOME`      | Where the plugin keeps its outbox and each session's frozen block. By default the plugin's data folder in Claude Code |
 
+## Relay: hand a task to another engineer
+
+`/strata:handoff [for whom]` drafts a checkpoint of the task in hand: what's done and what's left, the blockers, what
+was tried and failed, the decisions, the next action and the test commands that prove it. The plugin reads the
+repository URL, the branch, the commit, whether it's pushed and any uncommitted files from git itself, so the model
+never types them. It runs each test command and records the exit code as **verified** evidence. The draft is yours
+alone until you review it on the app's Relay page, choose the recipient and the memories to share, and approve it.
+
+`/strata:resume <id>` picks one up in a fresh session: it fetches the checkpoint and the memories its sender shared,
+checks this checkout against it (the same repository, the commit present, HEAD at or after it), claims it, does the
+work, re-runs the handoff's test commands through Strata, and completes it with the final commit. The app's **Copy
+resume command** gives you `git fetch origin && git switch <branch> && claude '/strata:resume <id>'`.
+
+| Tool                      | What it does                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| `strata_handoff_create`   | A draft from the agent's account of the task, plus git state and test runs read here            |
+| `strata_handoff_get`      | The checkpoint, the shared memories, and a repository check with any blockers named             |
+| `strata_handoff_claim`    | Takes it on, only once the repository check passes                                              |
+| `strata_handoff_verify`   | Runs one of the handoff's own test commands and records the exit code; no other command can run |
+| `strata_handoff_complete` | Completes it; it counts as verified only if every test command passed in a run after the claim  |
+
+Uncommitted changes don't travel: the sender is warned when they create the draft, and the recipient's check names
+them. A commit that isn't on the remote is a blocker the recipient's session explains rather than works around. What
+a handoff says came from another person's session, so the receiving agent is told to check it against the
+repository, never to follow it as instructions. The server decides who may read or change a handoff; the plugin is
+never trusted for that.
+
 ## What each hook does
 
 | Hook                                | What it does                                                                                                                                             | Network                                |
