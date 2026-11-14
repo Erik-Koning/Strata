@@ -1,6 +1,7 @@
-// pnpm hub:backfill: fills the hub's derived collections (products, signal_daily, gaps) on MONGODB_URI's database from
-// what's already there: events still stored, approved records and summaries. Idempotent: a second run only does what's
-// left. Run it against the team's database only when the operator says so (docs/hub-build-plan.md, D1).
+// pnpm hub:backfill: fills the hub's derived collections (products, signal_daily, gaps, team_search) on MONGODB_URI's
+// database from what's already there: events still stored, approved records and summaries. Idempotent: a second run
+// only does what's left. Run it against the team's database only when the operator says so (docs/hub-build-plan.md,
+// D1).
 import { closeMongo } from "../server/db.ts";
 import { runHubBackfill } from "../server/hub/backfill.ts";
 import { ensureIndexes } from "../server/indexes.ts";

@@ -15,6 +15,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
+import { RelatedPanel } from "../../../../components/graph/related.tsx";
 import { FindingGroup, type FindingItem } from "../../../../components/sessions/findings.tsx";
 import { repoUrl, sessionIdFrom } from "../../../../components/sessions/format.ts";
 import { SessionLinks } from "../../../../components/sessions/session-links.tsx";
@@ -310,6 +311,8 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
               </p>
             )}
           </section>
+
+          <RelatedPanel subject={{ sessionId: detail.sessionId }} viewerId={viewer.userId} />
 
           {tools ? (
             <section className="card" aria-labelledby="tools-title">

@@ -1,14 +1,17 @@
 // The hub's backfill, in the order each step needs the last: a product for every repository seen, tool time counted
-// from every stored tool event not counted yet, and gaps reconciled with approved work. Each step is idempotent, so
-// running it again only does what's left. `pnpm hub:backfill` runs it (scripts/hub-backfill.ts).
+// from every stored tool event not counted yet, gaps reconciled with approved work, and approved work copied for Ask
+// Strata's search (after the products, so each copy knows its product). Each step is idempotent, so running it again
+// only does what's left. `pnpm hub:backfill` runs it (scripts/hub-backfill.ts).
 import { syncGaps } from "./gaps.ts";
 import { ensureProducts } from "./products.ts";
+import { indexAllSessions } from "./search.ts";
 import { backfillSignals } from "./signals.ts";
 
 export interface BackfillReport {
   products: { created: string[]; total: number };
   signals: { counted: number; sessions: number };
   gaps: { gaps: number; created: number; updated: number; removed: number };
+  search: { sessions: number; written: number; removed: number };
 }
 
 export async function runHubBackfill(log: (line: string) => void = () => undefined): Promise<BackfillReport> {
@@ -23,5 +26,9 @@ export async function runHubBackfill(log: (line: string) => void = () => undefin
   log(
     `gaps: ${gaps.gaps} named by approved work; ${gaps.created} new, ${gaps.updated} updated, ${gaps.removed} removed`,
   );
-  return { products, signals, gaps };
+  const search = await indexAllSessions();
+  log(
+    `team_search: ${search.sessions} sessions read; ${search.written} documents written, ${search.removed} removed (unchanged ones are left alone)`,
+  );
+  return { products, signals, gaps, search };
 }

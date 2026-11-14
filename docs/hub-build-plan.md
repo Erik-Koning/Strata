@@ -168,8 +168,10 @@ Each owns one route folder, one `server/hub/<feature>.ts` built on F1's read mod
   runs at `high` and adds code execution with programmatic tool calling, so Claude can script many searches and
   aggregations and bring back only the result. Server-side fallback (`fallbacks: "default"`) as in the provider, a
   cap on tool rounds and on questions per person per hour, the system prompt and tools cached. A first-week path per
-  product for new joiners. Without `ANTHROPIC_API_KEY`, the page shows the search results as cited excerpts. Tests
-  with a fake Anthropic client.
+  product for new joiners. The SDK client is made with `apiKey: config().anthropicKey`, and only when that is set:
+  never a bare `new Anthropic()`, which falls back to whatever else the machine holds (`ANTHROPIC_AUTH_TOKEN`, a
+  developer's `ant auth login`) and would bill their own account. Without the key, the page shows the search results
+  as cited excerpts. Tests with a fake Anthropic client, including one with no key set.
 - **P5. Review and sessions** (`/review` from My Day, `/sessions/[id]`): drafts grouped by session, approve, edit,
   discard, approve all; each session's page with its summary, findings, links, tool time and where each finding came
   from. Per D2, this rebases PR #4.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GapActions } from "../../../../components/gaps/gap-actions.tsx";
 import { Answer, Owner, plural, SeenChips } from "../../../../components/gaps/gap-parts.tsx";
+import { RelatedPanel } from "../../../../components/graph/related.tsx";
 import { Ago } from "../../../../components/time.tsx";
 import { getGap } from "../../../../server/hub/gaps.ts";
 import { listProducts } from "../../../../server/hub/products.ts";
@@ -194,6 +195,8 @@ export default async function GapPage({ params }: PageProps<"/gaps/[id]">) {
             </p>
           )}
         </section>
+
+        <RelatedPanel subject={{ gapId: gap.id }} viewerId={viewer.userId} />
 
         <section className="card" aria-labelledby="history-title">
           <header className="border-line border-b px-5 py-3.5">

@@ -14,6 +14,7 @@ import {
 import { db } from "../db.ts";
 import { syncGaps } from "../hub/gaps.ts";
 import { ensureProductsFor } from "../hub/products.ts";
+import { indexSessionsLater, searchSyncPending } from "../hub/search.ts";
 import { V1Error } from "../v1.ts";
 
 const isDuplicate = (error: unknown): boolean =>
@@ -151,20 +152,21 @@ export async function storeRevision(input: NewRevision): Promise<{ duplicate: bo
     scope: { project: input.projectId },
     detail: { revision: input.revision, jira: input.links.jira, noTicket: input.links.noTicket },
   });
-  await shareWithHub(input.repo.remote);
+  await shareWithHub(input.repo.remote, input.sessionId);
   return { duplicate: false, authorName: doc.authorName };
 }
 
 // A newly approved summary reaches the hub without a backfill: its repository becomes a product before the answer, so
-// the product's page is there at once, and the gaps are brought in line with approved work after it. Neither ever
-// fails the request; whatever they miss, `pnpm hub:backfill` catches up on.
-async function shareWithHub(remote: string | null): Promise<void> {
+// the product's page is there at once, and the gaps and Ask Strata's search copy of the session are brought in line with
+// approved work after it. None of it ever fails the request; whatever it misses, `pnpm hub:backfill` catches up on.
+async function shareWithHub(remote: string | null, sessionId: string): Promise<void> {
   try {
     if (remote) await ensureProductsFor([remote]);
   } catch (error) {
     console.error("hub: making a product for an approved summary failed", error);
   }
   syncGapsLater();
+  indexSessionsLater([sessionId]);
 }
 
 // One gap sync at a time: a summary that arrives during one asks for one more run after it, however many arrive.
@@ -189,9 +191,11 @@ function syncGapsLater(): void {
   })();
 }
 
-// Resolves once the gap syncs started here have finished, including any asked for meanwhile: for tests.
+// Resolves once the gap syncs started here have finished, including any asked for meanwhile, and the search copy's
+// syncs with them: for tests.
 export async function gapSyncPending(): Promise<void> {
   while (gapSync) await gapSync;
+  await searchSyncPending();
 }
 
 export async function deleteSession(userId: string, sessionId: string): Promise<number> {
@@ -204,8 +208,9 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
     scope: null,
     detail: { revisions: result.deletedCount },
   });
-  // The gaps only this session named go with it.
+  // The gaps only this session named go with it, and so does its search copy.
   syncGapsLater();
+  indexSessionsLater([sessionId]);
   return result.deletedCount;
 }
 
