@@ -25,15 +25,18 @@ const GRID = "grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]";
 // products (an engineer) or every product (a manager, an executive, an admin), then their own agent.
 export default async function OverviewPage() {
   const viewer = await requireViewer();
-  const home = await homeFor(viewer);
+  // The overview and the handoffs don't depend on each other: load them together, since each is a few round trips.
+  const loadHandoffs = async () => {
+    const caller = await requireCaller();
+    const [inbox, sent] = await Promise.all([listHandoffs(caller, "inbox"), listHandoffs(caller, "outbox")]);
+    // Handed to me first, then mine, newest first within each: the four that most want a look.
+    return [
+      ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
+      ...sent.map((h) => ({ ...h, box: "sent" as const })),
+    ].slice(0, 4);
+  };
+  const [home, handoffs] = await Promise.all([homeFor(viewer), loadHandoffs()]);
   if (!home) redirect("/sign-in");
-  const caller = await requireCaller();
-  const [inbox, sent] = await Promise.all([listHandoffs(caller, "inbox"), listHandoffs(caller, "outbox")]);
-  // Handed to me first, then mine, newest first within each: the four that most want a look.
-  const handoffs = [
-    ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
-    ...sent.map((h) => ({ ...h, box: "sent" as const })),
-  ].slice(0, 4);
   const { layout, waiting, engineer, lead, agent } = home;
   const block = agent.project ? await frozen({ org: DEFAULT_ORG, user: viewer.userId, project: agent.project }) : null;
 

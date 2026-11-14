@@ -7,6 +7,7 @@
 // A product is listed for people only once it has approved work: a repository that so far appears only in someone's
 // own events stays theirs, so its name isn't shown to anyone else.
 import { MongoServerError } from "mongodb";
+import { cache as perRequest } from "react";
 import { DEFAULT_ORG } from "../api-auth.ts";
 import { events, type ProductDoc, type ProductRepo, products, records, summaryRevisions } from "../collections.ts";
 import { reader, type ViewerRef } from "./reader.ts";
@@ -79,9 +80,12 @@ export function indexProducts(docs: ProductDoc[]): ProductIndex {
 let cached: { at: number; index: ProductIndex } | null = null;
 const CACHE_MS = 60_000;
 
+// The products, read once per request (a page asks for them from several hub functions).
+const loadIndex = perRequest(async () => indexProducts(await products().find({ org: DEFAULT_ORG }).toArray()));
+
 export async function productIndex({ cache = false } = {}): Promise<ProductIndex> {
   if (cache && cached && Date.now() - cached.at < CACHE_MS) return cached.index;
-  const index = indexProducts(await products().find({ org: DEFAULT_ORG }).toArray());
+  const index = await loadIndex();
   cached = { at: Date.now(), index };
   return index;
 }
@@ -164,7 +168,9 @@ export async function ensureProducts(): Promise<{ created: Product[]; total: num
 }
 
 // The repositories with approved work in them: only their products are shown to people.
-export async function sharedRepos(): Promise<Set<string>> {
+export const sharedRepos = perRequest(loadSharedRepos);
+
+async function loadSharedRepos(): Promise<Set<string>> {
   const [recordRepos, summaryRemotes] = await Promise.all([
     records().distinct("scope.project", { status: "approved", "scope.org": DEFAULT_ORG }),
     summaryRevisions().distinct("repo.remote"),

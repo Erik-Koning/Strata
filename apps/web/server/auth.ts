@@ -35,7 +35,13 @@ function makeAuth() {
       // A new password ends every session the old one opened, the plugin's sign-in included.
       revokeSessionsOnPasswordReset: true,
     },
-    session: { expiresIn: 60 * 60 * 24 * 14, updateAge: 60 * 60 * 24 },
+    // The session is kept in a signed cookie for 5 minutes, so a page doesn't read it from the database every time.
+    // Suspension is still checked on every request (server/viewer.ts reads access fresh), and signing out clears it.
+    session: {
+      expiresIn: 60 * 60 * 24 * 14,
+      updateAge: 60 * 60 * 24,
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
+    },
     advanced: { cookiePrefix: "strata" },
     disabledPaths: ["/sign-up/email"],
     databaseHooks: {
