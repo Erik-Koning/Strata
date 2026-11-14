@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @strata/web run dev",
-    "build": "pnpm --filter @strata/claude-code run build && pnpm --filter @strata/web run build",
+    "build": "pnpm --filter @strata/web run build",
     "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
     "lint": "biome check .",
     "format": "biome check --write .",

@@ -6,9 +6,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./records": "./src/records.ts",
     "./redact": "./src/redact.ts",
     "./render": "./src/render.ts",
     "./signals": "./src/signals.ts",
+    "./summary": "./src/summary.ts",
     "./version": "./src/version.ts",
     "./examples": "./src/examples.ts"
   },

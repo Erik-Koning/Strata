@@ -2,11 +2,7 @@
   "mcpServers": {
     "strata": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/mcp.mjs"],
-      "env": {
-        "STRATA_API_URL": "${user_config.api_url}",
-        "STRATA_API_TOKEN": "${user_config.api_token}"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp.mjs"]
     }
   }
 }

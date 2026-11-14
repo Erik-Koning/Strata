@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strata</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f27; --muted: #667085; --line: #e3e6eb;
+  --accent: #3b5bdb; --accent-text: #ffffff; --ok: #1a7f4b; --warn: #b26a00; --bad: #c0352b;
+  --ok-bg: #e6f4ec; --warn-bg: #fff3dc; --bad-bg: #fdeceb; --muted-bg: #eef0f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161b; --panel: #1c1f26; --text: #e8eaee; --muted: #9aa3b2; --line: #2d323c;
+    --accent: #7d96ff; --accent-text: #10131a; --ok: #5fd08f; --warn: #f0b358; --bad: #ff8a80;
+    --ok-bg: #173324; --warn-bg: #3a2c12; --bad-bg: #3b1d1b; --muted-bg: #262a33;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); }
+.bar { max-width: 1100px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.brand { font-weight: 650; }
+nav { display: flex; gap: 2px; }
+nav a { padding: 6px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; }
+nav a.on { background: var(--muted-bg); color: var(--text); }
+.grow { flex: 1; }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { font-size: 18px; margin: 0 0 12px; }
+h2 { font-size: 15px; margin: 0 0 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.muted { color: var(--muted); }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button, select, input, textarea { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button.danger { color: var(--bad); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea { width: 100%; min-height: 120px; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+tr.click { cursor: pointer; }
+tr.click:hover { background: var(--muted-bg); }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; background: var(--muted-bg); color: var(--muted); margin-right: 4px; }
+.badge.pending { background: var(--warn-bg); color: var(--warn); }
+.badge.synced { background: var(--ok-bg); color: var(--ok); }
+.badge.rejected { background: var(--bad-bg); color: var(--bad); }
+.badge.ready { background: var(--accent); color: var(--accent-text); }
+.badge.updated { background: var(--warn-bg); color: var(--warn); }
+.field-row { margin-top: 10px; }
+input[type=text], input:not([type]) { width: 100%; }
+details > summary { cursor: pointer; color: var(--muted); }
+.notice { border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; background: var(--warn-bg); color: var(--warn); }
+.notice.bad { background: var(--bad-bg); color: var(--bad); }
+.notice.ok { background: var(--ok-bg); color: var(--ok); }
+pre.text { white-space: pre-wrap; word-break: break-word; margin: 4px 0 0; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+.turn-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.code { font: 600 22px ui-monospace, Menlo, monospace; letter-spacing: 3px; }
+label.f { display: block; margin: 10px 0 4px; font-weight: 500; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.empty { text-align: center; padding: 40px 10px; color: var(--muted); }
+@media (max-width: 640px) { .hide-sm { display: none; } }
+</style>
+</head>
+<body>
+<header><div class="bar" id="bar"></div></header>
+<main id="main"></main>
+<script>
+'use strict';
+// Everything captured is untrusted text (prompts, model replies, branch names): it is only ever
+// put on the page through textContent, never innerHTML.
+const h = (tag, attrs, ...kids) => {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else if (v === true) el.setAttribute(k, '');
+    else if (v !== false && v != null) el.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+};
+const $ = (id) => document.getElementById(id);
+const safeUrl = (u) => (/^https:\/\//.test(u || '') ? u : null);
+
+async function api(path, method = 'GET', body) {
+  const res = await fetch(path, { method, headers: method === 'GET' ? {} : { 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+const post = (path, body) => api(path, 'POST', body || {});
+
+const ago = (iso) => {
+  const s = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+};
+
+let state = null;
+let projects = [];
+let toastTimer;
+function toast(msg, bad) {
+  clearTimeout(toastTimer);
+  const el = h('div', { class: `notice ${bad ? 'bad' : 'ok'}`, role: 'status', style: 'position:fixed;right:16px;bottom:16px;z-index:10;max-width:360px' }, msg);
+  document.querySelector('[data-toast]')?.remove();
+  el.dataset.toast = '1';
+  document.body.append(el);
+  toastTimer = setTimeout(() => el.remove(), 4000);
+}
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, true); } };
+
+function projectSelect(value, onChange, noneLabel) {
+  const sel = h('select', { 'aria-label': 'Project' }, h('option', { value: '' }, noneLabel));
+  for (const p of projects) sel.append(h('option', { value: p.id, selected: p.id === value }, `${p.teamName} / ${p.name}`));
+  sel.addEventListener('change', () => onChange(sel.value || null));
+  return sel;
+}
+
+const STATUS = {
+  summarizing: ['Writing summary…', ''],
+  'needs-link': ['Needs a ticket or PR', 'rejected'],
+  draft: ['Review needed', 'pending'],
+  updated: ['Changed since sent: review again', 'updated'],
+  ready: ['Approved: ready to send', 'ready'],
+  synced: ['Sent', 'synced'],
+  rejected: ['Rejected by Strata', 'rejected'],
+  local: ['Kept on this machine', ''],
+};
+const statusBadge = (s) => h('span', { class: `badge ${STATUS[s]?.[1] ?? ''}` }, STATUS[s]?.[0] ?? s);
+
+// ---------- header ----------
+function renderBar() {
+  const route = location.hash.split('/')[1] || 'sessions';
+  const link = (id, label) => h('a', { href: `#/${id}`, class: route === id || (id === 'sessions' && route === 'session') ? 'on' : '' }, label);
+  const ready = state?.counts.ready ?? 0;
+  const review = (state?.counts.draft ?? 0) + (state?.counts.updated ?? 0);
+  const who = state?.signedIn
+    ? [h('span', { class: 'muted' }, state.user ? `${state.user.name}` : 'Signed in'), h('button', { onclick: guard(async () => { await post('/api/logout'); await refresh(); }) }, 'Sign out')]
+    : [h('span', { class: 'muted' }, 'Not signed in'), h('button', { class: 'primary', onclick: guard(startLogin) }, 'Sign in')];
+  $('bar').replaceChildren(
+    h('span', { class: 'brand' }, 'Strata'),
+    h('nav', {}, link('sessions', review ? `Sessions (${review} to review)` : 'Sessions'), link('work', 'By ticket'), link('gaps', 'Gaps'), link('repos', 'Repos & projects'), link('settings', 'Settings'), link('log', 'Log')),
+    h('span', { class: 'grow' }),
+    h('button', { disabled: !state?.signedIn || !ready, title: state?.signedIn ? 'Sends approved summaries only' : 'Sign in to send', onclick: guard(syncAll) }, `Send approved (${ready})`),
+    ...who,
+  );
+}
+
+async function syncAll() {
+  const r = await post('/api/sync');
+  toast(`Sent ${r.sent}${r.rejected ? `, ${r.rejected} rejected` : ''}${r.error ? `, error: ${r.error}` : ''}`, Boolean(r.error));
+  await refresh();
+}
+
+async function startLogin() {
+  await post('/api/login/start');
+  await refresh();
+}
+
+function banners() {
+  const out = [];
+  if (!state) return out;
+  const { held, health, signedIn } = state;
+  if (health.authExpired) out.push(h('div', { class: 'notice bad' }, 'Your sign-in expired. Approved summaries are safe on this machine; sign in again to send them.'));
+  else if (health.failures >= 3) out.push(h('div', { class: 'notice bad' }, `The last ${health.failures} uploads failed (${health.lastError}). Approved summaries stay on this machine and retry automatically.`));
+  if (health.summarizerError) out.push(h('div', { class: 'notice bad' }, `Summaries could not be written: ${health.summarizerError}. The queued turns are kept for a few days and retried.`));
+  const parts = [];
+  if (held.needsReview) parts.push(`${held.needsReview} summar${held.needsReview === 1 ? 'y waits' : 'ies wait'} for your review. Nothing leaves this machine until you approve it.`);
+  if (held.needsLink) parts.push(`${held.needsLink} need a Jira ticket or PR link.`);
+  if (held.noProject) parts.push(`${held.noProject} approved summar${held.noProject === 1 ? 'y needs' : 'ies need'} a project.`);
+  if (!signedIn && held.signedOut + held.noProject > 0) parts.push('Sign in to send approved summaries.');
+  if (parts.length) out.push(h('div', { class: 'notice' }, parts.join(' ')));
+  if (state.login?.state === 'pending') {
+    const u = safeUrl(state.login.url) || (/^http:\/\/(localhost|127\.0\.0\.1)/.test(state.login.url || '') ? state.login.url : null);
+    out.push(h('div', { class: 'card' },
+      h('h2', {}, 'Confirm this code in your browser'),
+      h('div', { class: 'code' }, state.login.userCode),
+      u ? h('p', {}, h('a', { href: u, target: '_blank', rel: 'noopener noreferrer' }, 'Open the sign-in page')) : null,
+      h('p', { class: 'muted' }, 'Waiting for approval. This page updates by itself.')));
+  }
+  if (state.login?.state === 'error') out.push(h('div', { class: 'notice bad' }, `Sign-in failed: ${state.login.error}`));
+  return out;
+}
+
+// ---------- sessions list ----------
+const filters = { q: '', status: 'all', project: 'all' };
+async function pageSessions() {
+  const { sessions } = await api('/api/sessions');
+  const view = () => {
+    const q = filters.q.toLowerCase();
+    return sessions.filter((s) =>
+      (filters.status === 'all' || s.status === filters.status) &&
+      (filters.project === 'all' || (filters.project === 'none' ? !s.resolvedProjectId : s.resolvedProjectId === filters.project)) &&
+      (!q || [s.title, s.summary?.built, s.detected.branch, s.remote, ...s.links.jira].join(' ').toLowerCase().includes(q)));
+  };
+  const body = h('tbody');
+  const draw = () => {
+    const rows = view();
+    body.replaceChildren(...(rows.length ? rows.map((s) => h('tr', { class: 'click', tabindex: '0', onclick: () => { location.hash = `#/session/${s.sessionId}`; }, onkeydown: (e) => { if (e.key === 'Enter') location.hash = `#/session/${s.sessionId}`; } },
+      h('td', {}, h('div', {}, s.title), h('div', { class: 'muted' }, [s.detected.branch, ...s.links.jira].filter(Boolean).join(' · '))),
+      h('td', { class: 'hide-sm' }, s.resolvedProjectName || h('span', { class: 'muted' }, 'no project')),
+      h('td', {}, statusBadge(s.status)),
+      h('td', { class: 'muted' }, ago(s.updatedAt)))) : [h('tr', {}, h('td', { colspan: 4 }, h('div', { class: 'empty' }, sessions.length ? 'No sessions match.' : 'Nothing yet. A summary appears here after Claude Code finishes some work.')))]));
+  };
+  const search = h('input', { type: 'search', placeholder: 'Search title, summary, branch, ticket, repo', value: filters.q, 'aria-label': 'Search', oninput: (e) => { filters.q = e.target.value; draw(); } });
+  const st = h('select', { 'aria-label': 'Status', onchange: (e) => { filters.status = e.target.value; draw(); } },
+    h('option', { value: 'all' }, 'Any status'), ...Object.entries(STATUS).map(([v, [l]]) => h('option', { value: v, selected: v === filters.status }, l)));
+  const pr = h('select', { 'aria-label': 'Project', onchange: (e) => { filters.project = e.target.value; draw(); } },
+    h('option', { value: 'all' }, 'Any project'), h('option', { value: 'none', selected: filters.project === 'none' }, 'No project'),
+    ...projects.map((p) => h('option', { value: p.id, selected: p.id === filters.project }, `${p.teamName} / ${p.name}`)));
+  draw();
+  return [h('h1', {}, 'Sessions'),
+    h('p', { class: 'muted' }, 'Claude writes a short summary of each session. You review it before anything is sent. Your prompts and Claude’s replies are never uploaded.'),
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, search, st, pr),
+    h('div', { class: 'card', style: 'padding:0;overflow:auto' }, h('table', {}, h('thead', {}, h('tr', {}, ...['Summary', 'Project', 'Status', 'Updated'].map((t, i) => h('th', { class: i === 1 ? 'hide-sm' : '' }, t)))), body))];
+}
+
+// ---------- session detail ----------
+async function pageSession(id) {
+  const { session: s } = await api(`/api/sessions/${encodeURIComponent(id)}`);
+  const url = `/api/sessions/${encodeURIComponent(id)}`;
+  const act = (fn, msg) => guard(async () => { const r = await fn(); if (msg) toast(typeof msg === 'function' ? msg(r) : msg, Boolean(r?.error)); await render(); await refresh(false); });
+  const sum = s.summary;
+
+  const projSel = projectSelect(s.projectId, (v) => act(() => api(url, 'PATCH', { projectId: v }))(), `Follow the repo (${s.projectSource === 'repo' ? s.resolvedProjectName : 'none set'})`);
+  projSel.value = s.projectId || '';
+  const modeSel = h('select', { 'aria-label': 'Sync mode' },
+    ...[['', 'Send after I approve'], ['review', 'Send after I approve'], ['never', 'Keep on this machine only']].filter((x, i) => i !== 1)
+      .map(([v, l]) => h('option', { value: v, selected: (s.sync || '') === v }, l)));
+  modeSel.addEventListener('change', act(() => api(url, 'PATCH', { sync: modeSel.value || null })));
+
+  // links
+  const jira = h('input', { value: s.linkOverrides?.jira?.join(', ') || '', placeholder: s.detected.jira.length ? `Found: ${s.detected.jira.join(', ')}` : 'ABC-123', 'aria-label': 'Jira tickets' });
+  const prUrl = h('input', { value: s.linkOverrides?.prUrl || '', placeholder: s.detected.pr?.url || 'https://github.com/org/repo/pull/12', 'aria-label': 'Pull request link' });
+  const none = h('input', { type: 'checkbox', checked: Boolean(s.linkOverrides?.noTicket), id: 'noTicket' });
+  const saveLinks = act(() => api(url, 'PATCH', { links: { jira: jira.value.split(',').map((x) => x.trim()).filter(Boolean), prUrl: prUrl.value.trim() || null, noTicket: none.checked } }), 'Links saved');
+
+  const header = h('div', { class: 'card' },
+    h('div', { class: 'row' }, statusBadge(s.status), s.edited ? h('span', { class: 'badge' }, 'edited by you') : null, h('span', { class: 'muted' }, [s.detected.remote || s.remote, s.detected.branch].filter(Boolean).join(' · '))),
+    s.upload.lastError && s.status !== 'synced' ? h('div', { class: 'notice bad', style: 'margin-top:8px' }, `Last upload error: ${s.upload.lastError}`) : null,
+    h('div', { class: 'row field-row' }, h('label', {}, 'Project ', projSel), h('label', {}, 'Sync ', modeSel)),
+  );
+
+  const linksCard = h('div', { class: 'card' }, h('h2', {}, 'Ticket and pull request'),
+    h('div', { class: 'muted' }, s.links.jira.length || s.links.pr ? `Linked: ${[...s.links.jira, s.links.pr ? `PR ${s.links.pr.number ? '#' + s.links.pr.number : ''}`.trim() : null].filter(Boolean).join(', ')}` : 'Nothing linked yet. A summary needs the ticket or PR behind it before it can be sent.'),
+    h('label', { class: 'f' }, 'Jira tickets (comma separated)'), jira,
+    h('label', { class: 'f' }, 'Pull request link'), prUrl,
+    h('label', { class: 'row field-row', for: 'noTicket' }, none, 'No ticket exists for this work'),
+    h('div', { class: 'field-row' }, h('button', { onclick: saveLinks }, 'Save links')));
+
+  if (!sum) {
+    return [h('p', {}, h('a', { href: '#/sessions' }, '← All sessions')), header,
+      h('div', { class: 'card' }, h('h2', {}, 'No summary yet'),
+        h('p', { class: 'muted' }, s.queued ? `${s.queued} turn(s) are waiting to be summarized.` : 'Nothing was queued for this session.'),
+        h('div', { class: 'row' },
+          s.queued ? h('button', { class: 'primary', onclick: act(() => post(`${url}/summarize`), 'Summarizing in the background; this page updates when it is done') }, 'Summarize now') : null,
+          h('button', { onclick: act(() => api(`${url}/summary`, 'PUT', { title: 'Untitled work', built: 'Describe what was built.' })) }, 'Write it myself'),
+          h('button', { class: 'danger', onclick: act(async () => { if (confirm('Delete this session from this machine?')) { await api(url, 'DELETE', {}); location.hash = '#/sessions'; } }) }, 'Delete'))),
+      linksCard];
+  }
+
+  const f = {
+    title: h('input', { value: sum.title, maxlength: 100, 'aria-label': 'Title' }),
+    built: h('textarea', { 'aria-label': 'What was built' }, sum.built),
+    why: h('textarea', { 'aria-label': 'Why', style: 'min-height:70px' }, sum.why),
+    decisions: h('textarea', { 'aria-label': 'Decisions', style: 'min-height:80px' }, sum.decisions.join('\n')),
+    areas: h('textarea', { 'aria-label': 'Areas', style: 'min-height:60px' }, sum.areas.join('\n')),
+    open: h('textarea', { 'aria-label': 'Open items', style: 'min-height:70px' }, sum.open.join('\n')),
+    insights: h('textarea', { 'aria-label': 'Insights', style: 'min-height:60px' }, (sum.insights ?? []).join('\n')),
+    workflow: h('textarea', { 'aria-label': 'Workflow findings', style: 'min-height:60px' }, (sum.workflow ?? []).join('\n')),
+    painPoints: h('textarea', { 'aria-label': 'Pain points', style: 'min-height:60px' }, (sum.painPoints ?? []).join('\n')),
+    gaps: h('textarea', { 'aria-label': 'Context gaps', style: 'min-height:60px' }, (sum.gaps ?? []).join('\n')),
+  };
+  const lines = (el) => el.value.split('\n').map((x) => x.trim()).filter(Boolean);
+  const save = act(() => api(`${url}/summary`, 'PUT', { title: f.title.value, built: f.built.value, why: f.why.value, decisions: lines(f.decisions), areas: lines(f.areas), open: lines(f.open), insights: lines(f.insights), workflow: lines(f.workflow), painPoints: lines(f.painPoints), gaps: lines(f.gaps) }), 'Saved. Approve it again to send this version');
+
+  const field = (label, el, hint) => h('div', {}, h('label', { class: 'f' }, label), el, hint ? h('div', { class: 'hint' }, hint) : null);
+  const sent = s.upload.syncedRevision > 0;
+  const buttons = [h('button', { onclick: save }, 'Save edits')];
+  if (!s.approved) buttons.push(h('button', { class: 'primary', disabled: !s.linked, title: s.linked ? '' : 'Link a ticket or PR first', onclick: act(() => post(`${url}/approve`, { send: false }), 'Approved') }, 'Approve'));
+  if (!s.approved && state?.signedIn) buttons.push(h('button', { class: 'primary', disabled: !s.linked, onclick: act(() => post(`${url}/approve`, { send: true }), (r) => (r.error ? `Approved; upload error: ${r.error}` : r.sent ? 'Approved and sent' : 'Approved; waiting for a project')) }, 'Approve and send'));
+  if (s.approved) buttons.push(h('button', { onclick: act(() => post(`${url}/unapprove`), 'Approval removed') }, 'Unapprove'));
+  if (s.approved && s.status !== 'synced') buttons.push(h('button', { class: 'primary', disabled: !state?.signedIn, onclick: act(() => post(`${url}/sync`), (r) => (r.error ? `Error: ${r.error}` : r.sent ? 'Sent' : 'Not sent: pick a project first')) }, 'Send now'));
+  if (s.status === 'rejected') buttons.push(h('button', { onclick: act(() => post(`${url}/retry`), 'Will retry') }, 'Retry as is'));
+  if (sent) buttons.push(h('button', { class: 'danger', onclick: act(async () => { if (confirm('Remove this summary from Strata? Your local copy stays, and it needs your approval to be sent again.')) return post(`${url}/retract`); }, 'Removed from Strata') }, 'Retract from Strata'));
+  buttons.push(h('button', { class: 'danger', onclick: act(async () => { if (confirm('Delete this session from this machine? Anything already on Strata stays unless you retract it first.')) { await api(url, 'DELETE', {}); location.hash = '#/sessions'; } }) }, 'Delete local copy'));
+
+  return [h('p', {}, h('a', { href: '#/sessions' }, '← All sessions')), header,
+    s.queued ? h('div', { class: 'notice' }, `${s.queued} newer turn(s) are being added to this summary. Your edits are kept.`) : null,
+    h('div', { class: 'card' }, h('h2', {}, 'Summary: what colleagues will see'),
+      field('Title', f.title), field('What was built', f.built), field('Why', f.why),
+      field('Decisions (one per line)', f.decisions), field('Areas (one per line)', f.areas), field('Open items and risks (one per line)', f.open),
+      field('Insights: system facts the code does not show', f.insights), field('Workflow: how work actually gets done', f.workflow),
+      field('Pain points: what slowed the work (about code and process, never people)', f.painPoints), field('Context gaps: information that was missing', f.gaps),
+      h('div', { class: 'hint', style: 'margin-top:8px' }, 'Secrets are redacted again and code is removed when you save.'),
+      h('div', { class: 'row', style: 'margin-top:12px' }, ...buttons)),
+    linksCard,
+    h('div', { class: 'card' }, h('h2', {}, 'What leaves this machine'),
+      h('p', { class: 'muted' }, 'Only the summary above, the ticket and PR links, the repo and branch, the paths of changed files, and the time of the last update. Never your prompts, Claude’s replies, or code.'),
+      sum && s.files.length ? h('details', {}, h('summary', {}, `${s.files.length} changed file path(s)`), h('pre', { class: 'text' }, s.files.join('\n'))) : null)];
+}
+
+// ---------- by ticket ----------
+async function pageWork() {
+  const { rollups } = await api('/api/rollups');
+  const list = (label, items) => (items.length ? h('div', {}, h('div', { class: 'hint' }, label), h('ul', {}, ...items.map((x) => h('li', {}, x)))) : null);
+  return [h('h1', {}, 'By ticket'), h('p', { class: 'muted' }, 'Your session summaries grouped by the Jira ticket or PR they belong to, as colleagues will see them once approved.'),
+    ...(rollups.length ? rollups.map((g) => h('div', { class: 'card' },
+      h('h2', {}, g.key), h('div', { class: 'hint' }, `${g.remote || g.repoKey} · ${g.sessions.length} session(s) · ${g.files} changed file(s)${g.pr && g.kind === 'ticket' ? ` · ${g.pr}` : ''}`),
+      h('ul', {}, ...g.sessions.map((s) => h('li', {}, h('a', { href: `#/session/${s.sessionId}` }, s.title), s.built ? `: ${s.built}` : ''))),
+      list('Decisions', g.decisions), list('Open', g.open), list('Insights', g.insights), list('Workflow', g.workflow), list('Pain points', g.painPoints), list('Context gaps', g.gaps)))
+      : [h('div', { class: 'card' }, h('div', { class: 'empty' }, 'No summaries yet.'))])];
+}
+
+// ---------- gaps ----------
+async function pageGaps() {
+  const { repos } = await api('/api/gaps');
+  const resolve = guard(async (repoKey, text) => { await post('/api/gaps/resolve', { repoKey, text }); toast('Marked as answered'); await render(); });
+  return [h('h1', {}, 'Gaps'), h('p', { class: 'muted' }, 'Information earlier sessions needed and could not find, and pain points that keep coming back. Open gaps are told to Claude at the start of a session in that repo. Mark one answered when the docs or code now say it.'),
+    ...(repos.length ? repos.map((r) => h('div', { class: 'card' }, h('h2', {}, r.remote || r.repoKey),
+      r.open.length ? h('table', {}, h('tbody', {}, ...r.open.map((g) => h('tr', {}, h('td', {}, g.text, g.count > 1 ? h('span', { class: 'muted' }, ` (${g.count} sessions)`) : null),
+        h('td', {}, h('button', { onclick: () => resolve(r.repoKey, g.text) }, 'Mark answered')))))) : h('div', { class: 'hint' }, 'No open gaps.'),
+      r.recurring.filter((g) => g.kind === 'pain-point').length ? h('div', {}, h('div', { class: 'hint', style: 'margin-top:10px' }, 'Pain points that keep coming back'),
+        h('ul', {}, ...r.recurring.filter((g) => g.kind === 'pain-point').map((g) => h('li', {}, `${g.text} (${g.count} sessions)`)))) : null))
+      : [h('div', { class: 'card' }, h('div', { class: 'empty' }, 'No gaps or repeated pain points recorded.'))])];
+}
+
+// ---------- repos ----------
+async function pageRepos() {
+  const { repos } = await api('/api/repos');
+  const set = guard(async (repoKey, projectId) => { await api('/api/repos', 'PUT', { repoKey, projectId }); toast('Saved'); await refresh(); });
+  return [h('h1', {}, 'Repos & projects'),
+    h('p', { class: 'muted' }, 'Each repo sends to one project by default. A single session can override it from its own page.'),
+    h('div', { class: 'card', style: 'padding:0;overflow:auto' }, h('table', {}, h('thead', {}, h('tr', {}, ...['Repo', 'Sessions', 'Pending', 'Project'].map((t) => h('th', {}, t)))),
+      h('tbody', {}, ...(repos.length ? repos.map((r) => h('tr', {},
+        h('td', {}, r.remote || r.repoKey), h('td', {}, r.sessions), h('td', {}, r.pending),
+        h('td', {}, projectSelect(r.binding?.projectId, (v) => set(r.repoKey, v), 'No project')))) : [h('tr', {}, h('td', { colspan: 4 }, h('div', { class: 'empty' }, 'No repos yet.')))]))))];
+}
+
+// ---------- settings ----------
+async function pageSettings() {
+  const { settings: cfg, effective } = await api('/api/settings');
+  const server = h('input', { value: cfg.serverUrl || '', placeholder: effective.serverUrl, 'aria-label': 'Server URL', style: 'width:100%' });
+  const mode = h('select', { 'aria-label': 'Default for new sessions' }, ...[['', 'Send after I approve (default)'], ['never', 'Keep on this machine only']].map(([v, l]) => h('option', { value: v, selected: (cfg.defaultSync || '') === v }, l)));
+  const sumOn = h('input', { type: 'checkbox', checked: cfg.summarizer !== false, id: 'sumOn' });
+  const model = h('input', { value: cfg.summaryModel || '', placeholder: 'haiku', 'aria-label': 'Summary model', style: 'width:200px' });
+  const cap = h('input', { type: 'number', min: 1, max: 5000, value: cfg.maxSummariesPerDay || '', placeholder: '200', 'aria-label': 'Daily cap', style: 'width:100px' });
+  const excl = h('textarea', { 'aria-label': 'Excluded paths' }, (cfg.excludedPaths || []).join('\n'));
+  const jira = h('input', { value: (cfg.jiraKeys || []).join(', '), placeholder: 'e.g. ABC, PAY', 'aria-label': 'Jira prefixes', style: 'width:100%' });
+  const rs = h('input', { type: 'number', min: 1, max: 3650, value: cfg.retentionDays?.synced || '', placeholder: '30', 'aria-label': 'Keep synced', style: 'width:90px' });
+  const ro = h('input', { type: 'number', min: 1, max: 3650, value: cfg.retentionDays?.other || '', placeholder: '180', 'aria-label': 'Keep unsynced', style: 'width:90px' });
+  const save = guard(async () => {
+    await api('/api/settings', 'PUT', {
+      serverUrl: server.value.trim() || null, defaultSync: mode.value || null,
+      summarizer: sumOn.checked ? null : false, summaryModel: model.value.trim() || null, maxSummariesPerDay: Number(cap.value) || null,
+      excludedPaths: excl.value.split('\n').map((x) => x.trim()).filter(Boolean),
+      jiraKeys: jira.value.split(',').map((x) => x.trim()).filter(Boolean),
+      retentionDays: { synced: Number(rs.value) || undefined, other: Number(ro.value) || undefined },
+    });
+    toast('Settings saved');
+    await refresh();
+  });
+  return [h('h1', {}, 'Settings'), h('div', { class: 'card' },
+    h('label', { class: 'f' }, 'Strata server URL'), server, h('div', { class: 'hint' }, 'https only, except localhost. Changing it means signing in again.'),
+    h('label', { class: 'f' }, 'Default for new sessions'), mode, h('div', { class: 'hint' }, 'Summaries are always reviewed by you before they are sent. A session can override this.'),
+    h('label', { class: 'f' }, 'Summaries'), h('label', { class: 'row', for: 'sumOn' }, sumOn, 'Let Claude write session summaries automatically'),
+    h('div', { class: 'row field-row' }, 'Model', model, 'Daily limit', cap),
+    h('div', { class: 'hint' }, 'Uses your own Claude sign-in with a small model, no tools, and sees only the redacted turn text. Raw text is deleted as soon as it is summarized.'),
+    h('label', { class: 'f' }, 'Never capture in these paths (one per line, * and ** allowed)'), excl,
+    h('label', { class: 'f' }, 'Jira project prefixes to recognise (empty means any)'), jira,
+    h('label', { class: 'f' }, 'Keep on this machine (days)'), h('div', { class: 'row' }, 'Sent', rs, 'Not yet sent', ro),
+    h('div', { style: 'margin-top:14px' }, h('button', { class: 'primary', onclick: save }, 'Save')))];
+}
+
+// ---------- log ----------
+async function pageLog() {
+  const { lines } = await api('/api/log');
+  return [h('h1', {}, 'Log'), h('p', { class: 'muted' }, 'Metadata only: never prompts, replies or file contents.'),
+    h('div', { class: 'card' }, lines.length ? h('pre', { class: 'text' }, lines.join('\n')) : h('div', { class: 'empty' }, 'Nothing logged.'))];
+}
+
+// ---------- router ----------
+let rendering = 0;
+async function render() {
+  const mine = ++rendering;
+  const [, page, arg] = location.hash.split('/');
+  try {
+    const content = page === 'session' ? await pageSession(arg) : page === 'work' ? await pageWork() : page === 'gaps' ? await pageGaps() : page === 'repos' ? await pageRepos() : page === 'settings' ? await pageSettings() : page === 'log' ? await pageLog() : await pageSessions();
+    if (mine !== rendering) return;
+    renderBar();
+    $('main').replaceChildren(...banners(), ...content);
+  } catch (e) {
+    $('main').replaceChildren(h('div', { class: 'notice bad' }, e.message === 'not authorized' ? 'This page lost its session. Run /strata:dashboard again.' : e.message));
+  }
+}
+async function refresh(rerender = true) {
+  state = await api('/api/state');
+  try { projects = (await api('/api/projects')).projects; } catch { projects = []; }
+  if (rerender) await render();
+  else renderBar();
+}
+addEventListener('hashchange', render);
+refresh();
+// Keep status fresh, but do not rebuild a page while the engineer is typing in it.
+setInterval(async () => {
+  if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+  try { await refresh(); } catch { /* server gone; leave the page as is */ }
+}, 5000);
+</script>
+</body>
+</html>
