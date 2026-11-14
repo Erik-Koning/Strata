@@ -249,7 +249,7 @@ async function pageSession(id) {
   );
 
   const linksCard = h('div', { class: 'card' }, h('h2', {}, 'Ticket and pull request'),
-    h('div', { class: 'muted' }, s.links.jira.length || s.links.pr ? `Linked: ${[...s.links.jira, s.links.pr ? `PR ${s.links.pr.number ? '#' + s.links.pr.number : ''}`.trim() : null].filter(Boolean).join(', ')}` : 'Nothing linked yet. A summary needs the ticket or PR behind it before it can be sent.'),
+    h('div', { class: 'muted' }, s.links.jira.length || s.links.pr ? `Linked: ${[...s.links.jira, s.links.pr ? `PR ${s.links.pr.number ? `#${s.links.pr.number}` : ''}`.trim() : null].filter(Boolean).join(', ')}` : 'Nothing linked yet. A summary needs the ticket or PR behind it before it can be sent.'),
     h('label', { class: 'f' }, 'Jira tickets (comma separated)'), jira,
     h('label', { class: 'f' }, 'Pull request link'), prUrl,
     h('label', { class: 'row field-row', for: 'noTicket' }, none, 'No ticket exists for this work'),

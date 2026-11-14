@@ -252,15 +252,25 @@ cluster is production: `pnpm test:db` works in a throwaway database it removes a
 `pnpm db:seed` write to the real one.
 
 Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
-**Connect**: make an API key, install the plugin, and start a Claude Code session.
+**Connect** and follow its steps: install the plugin, point it at the app, sign in.
 
 ```
 /plugin marketplace add Erik-Koning/Strata
 /plugin install strata@strata
 ```
 
-Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
-plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+The plugin finds the app at `STRATA_URL` (set it in `~/.claude/settings.json` under `env`, or in your shell). Then run
+`/strata:login` in Claude Code: it opens the app's `/activate` page, you approve the sign-in there, and the plugin keeps
+its token in `~/.strata/auth.json`. It needs no API key; the keys on **Connect** are for scripts and other clients.
+
+To run the plugin from this checkout against the dev server, with a sign-in kept apart from your everyday one:
+
+```sh
+STRATA_URL=http://localhost:9316 STRATA_HOME=~/.strata-dev claude --plugin-dir clients/claude-code
+```
+
+`STRATA_HOME` is where the plugin keeps its sign-in, settings and local drafts (`~/.strata` by default). The API the
+plugin talks to is described in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
 ## The API
 

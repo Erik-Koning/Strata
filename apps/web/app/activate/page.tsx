@@ -22,7 +22,7 @@ export default async function ActivatePage({
         <h1 className="mt-2 font-semibold text-[26px] tracking-[-0.02em]">Approve this sign-in</h1>
 
         {done === "approved" ? (
-          <p className="mt-4 rounded-[10px] bg-success-soft px-3 py-2.5 text-[14px] text-success">
+          <p className="mt-4 rounded-[10px] bg-accent-soft px-3 py-2.5 text-[14px] text-accent-text">
             Approved. Claude Code can finish signing in; you can close this tab.
           </p>
         ) : done === "denied" ? (
