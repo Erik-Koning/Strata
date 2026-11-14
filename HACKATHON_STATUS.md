@@ -56,12 +56,40 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
 
 ## Blockers / needs the operator
 
-- **Atlas cloud**: no hackathon sandbox URI yet. Everything runs on Atlas Local, which has the same `$vectorSearch`.
-  Set `MONGODB_URI=mongodb+srv://…` in `apps/web/.env.local`, then run `pnpm db:indexes`.
-- **Embeddings key**: none in the environment. Search uses the deterministic `stub` provider, which is **not**
-  semantic. A real provider needs the operator's key.
-- **Session secret for any hosted deploy**: `BETTER_AUTH_SECRET` (32+ chars) and `BETTER_AUTH_URL` are unset. Without
-  them sessions are signed with a development constant: fine on localhost, not on a public URL.
+- ~~Atlas cloud~~: done, see "Atlas Cloud" below.
+- **Embeddings key**: no `VOYAGE_API_KEY` (or `OPENAI_API_KEY`) anywhere. Search uses the deterministic `stub`
+  provider, which is **not** semantic, on Atlas Cloud as well. A real provider needs the operator's key.
+- **Session secret for any hosted deploy**: `BETTER_AUTH_SECRET` (32+ chars) is unset. Without it sessions are signed
+  with a development constant: fine on localhost, not on a public URL.
+- **Atlas database user can't `dropDatabase`**: `pnpm test:db` against the cloud passes its assertions but every file's
+  cleanup fails, leaving `am_*` test databases (each with a vector index). Run DB tests on Atlas Local, or grant the
+  user `dropDatabase` on `am_*`.
+
+## Atlas Cloud (`43a6ba1`, 2026-11-14)
+
+`MONGODB_URI` in `apps/web/.env.local` is an Atlas `mongodb+srv` URI with no database in its path, so the app uses
+`strata`. Cluster: 3-node replica set, MongoDB 9.0.7. The database already held 1 user, invites and an API key, plus
+collections from another build (`records`, `projects`, `project_members`, `summary_revisions`, `deviceCode`), which were
+left untouched.
+
+- Connectivity: connected and pinged in 1.9 s; primary writable.
+- `pnpm db:indexes`: OK in 57 s. Made `handoffs` and its indexes; the existing `memories_embedding` (256 dims) now has
+  all six filter fields, the in-place Atlas path that had never been run before.
+- `atlas:check`: **passed on Atlas cloud**. Probes searchable after 855 ms, `$vectorSearch` ~120 ms, `recall()` ranks
+  correctly. Retrieval is still the stub (lexical).
+- `test:db` against the cloud: **58/59 assertions pass**. The one failure is `vector.db.test.ts` expecting
+  `cluster.kind: "local"`; on Atlas `/api/health` correctly says `"atlas"`. All 5 files report failure because
+  `afterAll`'s `dropDatabase` isn't authorized (above). The 5 leftover databases were removed by dropping their
+  collections. `am_people_69f472cb` was already there before this run and was left alone.
+- `next start` on :9340 against the cloud: health `db: up`, `cluster.kind: atlas`, vector index READY.
+- `node demo/relay/run.mjs --api http://localhost:9340`: **26/26 on Atlas Cloud**, with real headless Claude Code sessions.
+  It adds `alice`/`bob`/`mallory@relay-demo.test` and their handoffs to `strata`.
+- Intelligence on the cloud, through the app's own `ask`/`evidenceFor`/`pulse` (with `intelligence:demo` seeded for
+  Alice): 11/11. Alice's answer cites her shared decision via `vector+text`. Bob (the recipient) and Mallory get 0
+  sources and can't open either of Alice's memories by id. Pulse is counted from the cloud.
+- Persistence: after restarting the server, the handoff is still `completed`, `verified: true`, Mallory still 404s,
+  the revoked handoff still 404s for Bob, and Bob's resume of a completed handoff is 409 by design (`service.ts`).
+  `/relay` and `/intelligence` render the cloud data for Alice in Chrome.
 
 ## Integration: Relay + Intelligence (`integration/relay-intelligence`)
 
