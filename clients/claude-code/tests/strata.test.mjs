@@ -22,6 +22,7 @@ const env = {
   STRATA_INLINE_WORKER: "1",
   STRATA_CLAUDE_BIN: path.join(ROOT, "tests/fake-claude.mjs"),
   FAKE_CLAUDE_LOG: CLAUDE_LOG,
+  STRATA_NO_BROWSER: "1",
 };
 delete env.STRATA_INTERNAL;
 let server;
