@@ -24,6 +24,14 @@ const id = z
   .regex(/^[A-Za-z0-9_:.-]+$/, "letters, digits and _ : . - only");
 const sessionID = z.string().min(1).max(200);
 
+// A database id as the API and the pages pass it: 24 hex characters.
+export const ObjectIdHex = z.string().regex(/^[a-f0-9]{24}$/, "an id of 24 hex characters");
+
+// A memory's text, from the memory_save tool or the app's "Add a memory" form, checked by this one rule on both paths.
+// Trimmed first, so whitespace alone is no memory: it used to pass the length check and be stored empty.
+export const MEMORY_TEXT_MAX = 4000;
+export const MemoryText = z.string().trim().min(1).max(MEMORY_TEXT_MAX);
+
 // A name from a list that grows. Whoever writes uses the known values (the type says which); whoever reads takes any
 // short lower-case name and treats one it doesn't know as just that: unknown, not wrong.
 const NAME = /^[a-z][a-z0-9_.-]{0,39}$/;
@@ -324,10 +332,7 @@ export type CompressResponse = z.infer<typeof CompressResponse>;
 export const ForgetRequest = z
   .object({
     scope: WireScope,
-    ids: z
-      .array(z.string().regex(/^[a-f0-9]{24}$/))
-      .max(500)
-      .optional(),
+    ids: z.array(ObjectIdHex).max(500).optional(),
     query: z.string().min(1).max(500).optional(),
     dryRun: z.boolean().default(false),
   })
@@ -346,7 +351,7 @@ export type ForgetResponse = z.infer<typeof ForgetResponse>;
 export const SaveRequest = z.object({
   sessionID: sessionID.optional(),
   scope: WireScope,
-  text: z.string().min(1).max(4000),
+  text: MemoryText,
   kind: z.enum(MEMORY_KINDS).default("fact"),
 });
 export type SaveRequest = z.infer<typeof SaveRequest>;

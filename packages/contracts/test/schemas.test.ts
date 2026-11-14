@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EXAMPLE_EVENTS } from "../src/examples.ts";
-import { CONTRACT_VERSION, MAX_EVENT_CHARS, parseEvent } from "../src/schemas.ts";
+import { CONTRACT_VERSION, MAX_EVENT_CHARS, MEMORY_TEXT_MAX, parseEvent, SaveRequest } from "../src/schemas.ts";
 
 const event = (over: Record<string, unknown> = {}) => ({
   v: 1,
@@ -65,5 +65,25 @@ describe("parseEvent", () => {
 
   it("never treats a property of Object as a kind", () => {
     expect(parseEvent(event({ kind: "constructor" }))).toMatchObject({ ok: true, known: false });
+  });
+});
+
+describe("SaveRequest", () => {
+  const save = (text: unknown) => SaveRequest.safeParse({ scope: { project: "github.com/acme/app" }, text });
+
+  it("keeps a memory's text trimmed", () => {
+    const parsed = save("  We deploy from the release branch.  ");
+    expect(parsed.success && parsed.data.text).toBe("We deploy from the release branch.");
+  });
+
+  it("refuses text that's only whitespace, which used to be stored as an empty memory", () => {
+    expect(save("   \n\t ").success).toBe(false);
+    expect(save("").success).toBe(false);
+  });
+
+  it("refuses text over the limit, counted after trimming", () => {
+    expect(save("x".repeat(MEMORY_TEXT_MAX)).success).toBe(true);
+    expect(save(` ${"x".repeat(MEMORY_TEXT_MAX)} `).success).toBe(true);
+    expect(save("x".repeat(MEMORY_TEXT_MAX + 1)).success).toBe(false);
   });
 });

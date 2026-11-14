@@ -32,12 +32,13 @@ const view = (doc: RecordDoc): RecordView => ({
 });
 
 // The service token may read everything. A person sees their own drafts, and every approved record: approval is what
-// shares a record, and a suspended person sees nothing.
-async function visibleTo(principal: Principal): Promise<Filter<RecordDoc>> {
-  if (principal.kind === "service") return {};
-  const access = await accessFor(principal.userId);
+// shares a record, and a suspended person sees nothing. Every read of a record goes through this one filter, the list
+// and a single record alike, whether the caller has a key or is signed in, so the rule can't drift between them.
+async function visibleTo(caller: Caller): Promise<Filter<RecordDoc>> {
+  if (caller.kind === "service") return {};
+  const access = await accessFor(caller.userId);
   if (!can.seeApproved(access)) throw new ApiError(403, "forbidden", "This account cannot read records.");
-  return { $or: [{ "scope.user": principal.userId }, { status: "approved" }] };
+  return { $or: [{ "scope.user": caller.userId }, { status: "approved" }] };
 }
 
 // Who's deciding: a client with a key (or the service token), through /api/records, or a signed-in person on My Day.
@@ -49,9 +50,7 @@ const auditActor = (caller: Caller) =>
 
 async function requireRecord(caller: Caller, id: string): Promise<RecordDoc> {
   if (!ObjectId.isValid(id)) throw new ApiError(404, "not_found", "No such record.");
-  const access: Filter<RecordDoc> =
-    caller.kind === "service" ? {} : { $or: [{ "scope.user": caller.userId }, { status: "approved" }] };
-  const doc = await records().findOne({ _id: new ObjectId(id), ...access });
+  const doc = await records().findOne({ _id: new ObjectId(id), ...(await visibleTo(caller)) });
   if (!doc) throw new ApiError(404, "not_found", "No such record.");
   return doc;
 }

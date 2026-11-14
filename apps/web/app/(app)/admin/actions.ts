@@ -2,6 +2,7 @@
 // The admin page's actions. Each one checks that the caller is an admin, on every call: a server action can be called
 // without the page, so what the page showed is no guarantee.
 import { revalidatePath } from "next/cache";
+import { input, RefId, TeamPlace } from "../../../server/inputs.ts";
 import { createInvite, inviteLink, revokeInvite } from "../../../server/invites.ts";
 import { createTeam, deleteTeam, placeInTeam, Refusal, restore, setRole, suspend } from "../../../server/people.ts";
 import { adminActor } from "../../../server/viewer.ts";
@@ -52,22 +53,28 @@ export async function makeInvite(_: InviteState, form: FormData): Promise<Invite
 
 export async function cancelInvite(id: string): Promise<Result> {
   const actor = await adminActor();
-  return attempt(() => revokeInvite(actor, id));
+  const invite = input(RefId, id);
+  return attempt(() => revokeInvite(actor, invite));
 }
 
 export async function changeRole(userId: string, role: string): Promise<Result> {
   const actor = await adminActor();
-  return attempt(() => setRole(actor, userId, role));
+  const person = input(RefId, userId);
+  // setRole refuses a name that isn't a role, with a message the page shows.
+  const named = input(RefId, role);
+  return attempt(() => setRole(actor, person, named));
 }
 
 export async function suspendPerson(userId: string): Promise<Result> {
   const actor = await adminActor();
-  return attempt(() => suspend(actor, userId));
+  const person = input(RefId, userId);
+  return attempt(() => suspend(actor, person));
 }
 
 export async function restorePerson(userId: string): Promise<Result> {
   const actor = await adminActor();
-  return attempt(() => restore(actor, userId));
+  const person = input(RefId, userId);
+  return attempt(() => restore(actor, person));
 }
 
 export interface TeamState {
@@ -84,11 +91,15 @@ export async function addTeam(state: TeamState, form: FormData): Promise<TeamSta
 
 export async function removeTeam(teamId: string): Promise<Result> {
   const actor = await adminActor();
-  return attempt(() => deleteTeam(actor, teamId));
+  const team = input(RefId, teamId);
+  return attempt(() => deleteTeam(actor, team));
 }
 
 export async function placePerson(teamId: string, userId: string, as: "member" | "manager" | null): Promise<Result> {
   const actor = await adminActor();
-  if (as !== null && as !== "member" && as !== "manager") return { error: "Choose member or manager." };
-  return attempt(() => placeInTeam(actor, teamId, userId, as));
+  const team = input(RefId, teamId);
+  const person = input(RefId, userId);
+  const place = TeamPlace.safeParse(as);
+  if (!place.success) return { error: "Choose member or manager." };
+  return attempt(() => placeInTeam(actor, team, person, place.data));
 }
