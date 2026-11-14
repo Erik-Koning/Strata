@@ -1,16 +1,27 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
-import type { EventKind, MemoryKind, MemoryStatus, Scope, TrustLevel } from "@strata/contracts";
+import type { MemoryKind, MemoryStatus, Scope, TrustLevel } from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
 import { db } from "./db.ts";
 
-// Raw capture, as the clients sent it (redacted again on the way in). Deduped on id; expires after 30 days.
+// Raw capture, as the clients sent it (redacted again on the way in). Deduped on id; expires after 30 days, and once
+// records are drafted, the text of prompts, replies and transcripts goes as soon as their session is drafted.
+// Documents from before contract version 1 have no v, promptID or known: read them as 1, null and true.
 export interface EventDoc {
   _id?: ObjectId;
+  // The contract version the client wrote it to.
+  v: number;
   id: string;
   sessionID: string;
   scope: Scope;
-  kind: EventKind;
+  // An EventKind, or a newer kind kept as it came until this API learns it.
+  kind: string;
   payload: Record<string, unknown>;
+  // The user prompt the event belongs to, so a turn's prompt, tool calls and reply group together.
+  promptID: string | null;
+  // Envelope fields from a newer client that this API doesn't name yet, kept as they came.
+  ext?: Record<string, unknown>;
+  // Whether this API understood it on arrival: a known kind at a known version, its payload checked.
+  known: boolean;
   ts: Date;
   receivedAt: Date;
   client: string | null;

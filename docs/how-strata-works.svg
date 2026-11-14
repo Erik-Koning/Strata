@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="960" viewBox="0 0 1900 960" font-family="Helvetica, Arial, sans-serif" role="img" aria-labelledby="title"><title id="title">How Strata works</title><rect width="1900" height="960" fill="#fff"/>
+<defs><marker id="m1e1e1e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1e1e1e"/></marker><marker id="m2f9e44" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2f9e44"/></marker></defs>
+<text x="40" y="72.0" font-size="36" fill="#1e1e1e" xml:space="preserve">How Strata works</text>
+<text x="40" y="106.0" font-size="18" fill="#495057" xml:space="preserve">Every coding session leaves knowledge the team can use. Nothing is shared until the engineer approves it.</text>
+<rect x="40" y="150" width="520" height="650" rx="12" fill="#e7f5ff" stroke="#74c0fc" stroke-width="1" stroke-dasharray="8 6"/>
+<text x="64" y="180.0" font-size="14" fill="#1971c2" xml:space="preserve">ON THE ENGINEER&#x27;S MACHINE</text>
+<rect x="720" y="150" width="540" height="650" rx="12" fill="#f1f3f5" stroke="#adb5bd" stroke-width="1" stroke-dasharray="8 6"/>
+<text x="744" y="180.0" font-size="14" fill="#495057" xml:space="preserve">STRATA</text>
+<rect x="1320" y="150" width="540" height="650" rx="12" fill="#fff9db" stroke="#fcc419" stroke-width="1" stroke-dasharray="8 6"/>
+<text x="1344" y="180.0" font-size="14" fill="#e67700" xml:space="preserve">WHAT THE TEAM SEES</text>
+<rect x="80" y="205" width="440" height="120" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="100" y="241.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Engineer + Claude Code</text>
+<text x="100" y="272.0" font-size="16" fill="#495057" xml:space="preserve">Works as usual: no new tools, no forms,</text>
+<text x="100" y="292.0" font-size="16" fill="#495057" xml:space="preserve">no extra steps.</text>
+<rect x="80" y="420" width="440" height="190" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="100" y="456.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Strata plugin</text>
+<text x="100" y="487.0" font-size="16" fill="#495057" xml:space="preserve">Captures prompts, replies, how long tools ran,</text>
+<text x="100" y="507.0" font-size="16" fill="#495057" xml:space="preserve">and the branch and ticket being worked on.</text>
+<text x="100" y="527.0" font-size="16" fill="#495057" xml:space="preserve">Strips secrets before anything is saved.</text>
+<text x="100" y="547.0" font-size="16" fill="#495057" xml:space="preserve">Never sends a command or its output.</text>
+<rect x="80" y="650" width="440" height="125" rx="12" fill="none" stroke="#74c0fc" stroke-width="1" stroke-dasharray="8 6"/>
+<text x="100" y="684.0" font-size="18" fill="#1e1e1e" xml:space="preserve">Never in the way</text>
+<text x="100" y="714.5" font-size="16" fill="#495057" xml:space="preserve">Memory arrives in under a second or not at</text>
+<text x="100" y="734.5" font-size="16" fill="#495057" xml:space="preserve">all. Capture is queued and sent in the</text>
+<text x="100" y="754.5" font-size="16" fill="#495057" xml:space="preserve">background, so nothing waits on Strata.</text>
+<rect x="760" y="205" width="460" height="145" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="780" y="241.0" font-size="20" fill="#1e1e1e" xml:space="preserve">② Claude drafts the session</text>
+<text x="780" y="272.0" font-size="16" fill="#495057" xml:space="preserve">A summary of what changed and why, plus</text>
+<text x="780" y="292.0" font-size="16" fill="#495057" xml:space="preserve">findings: insights, workflow notes, pain points</text>
+<text x="780" y="312.0" font-size="16" fill="#495057" xml:space="preserve">and context gaps.</text>
+<rect x="760" y="400" width="460" height="130" rx="12" fill="#fff4e6" stroke="#e8590c" stroke-width="3"/>
+<text x="780" y="436.0" font-size="20" fill="#1e1e1e" xml:space="preserve">③ The engineer reviews</text>
+<text x="780" y="467.0" font-size="16" fill="#495057" xml:space="preserve">Approve, edit or discard each record.</text>
+<text x="780" y="487.0" font-size="16" fill="#495057" xml:space="preserve">Only the author can see a draft.</text>
+<rect x="760" y="580" width="460" height="195" rx="12" fill="#ebfbee" stroke="#2f9e44" stroke-width="2"/>
+<text x="780" y="616.0" font-size="20" fill="#1e1e1e" xml:space="preserve">④ Team knowledge</text>
+<text x="780" y="647.0" font-size="16" fill="#495057" xml:space="preserve">Approved records, linked to tickets, PRs and</text>
+<text x="780" y="667.0" font-size="16" fill="#495057" xml:space="preserve">code areas (the knowledge graph), plus the</text>
+<text x="780" y="687.0" font-size="16" fill="#495057" xml:space="preserve">memory agents start with. The session&#x27;s raw</text>
+<text x="780" y="707.0" font-size="16" fill="#495057" xml:space="preserve">text is deleted once it&#x27;s drafted.</text>
+<rect x="1360" y="205" width="460" height="128" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1380" y="241.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Product pages</text>
+<text x="1380" y="272.0" font-size="16" fill="#495057" xml:space="preserve">What&#x27;s new and what&#x27;s in progress, per</text>
+<text x="1380" y="292.0" font-size="16" fill="#495057" xml:space="preserve">product: status without a standup.</text>
+<text x="1380" y="318.0" font-size="14" fill="#e8590c" xml:space="preserve">For managers and PMs</text>
+<rect x="1360" y="348" width="460" height="128" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1380" y="384.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Where engineering time goes</text>
+<text x="1380" y="415.0" font-size="16" fill="#495057" xml:space="preserve">Hours lost to slow, flaky and repeated work,</text>
+<text x="1380" y="435.0" font-size="16" fill="#495057" xml:space="preserve">ranked, with a suggested fix.</text>
+<text x="1380" y="461.0" font-size="14" fill="#e8590c" xml:space="preserve">For team leads and platform teams</text>
+<rect x="1360" y="491" width="460" height="128" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1380" y="527.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Context gaps</text>
+<text x="1380" y="558.0" font-size="16" fill="#495057" xml:space="preserve">What agents and people needed and couldn&#x27;t</text>
+<text x="1380" y="578.0" font-size="16" fill="#495057" xml:space="preserve">find. The repeats are the docs to write first.</text>
+<text x="1380" y="604.0" font-size="14" fill="#e8590c" xml:space="preserve">For tech leads and doc owners</text>
+<rect x="1360" y="634" width="460" height="141" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
+<text x="1380" y="670.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Ask Strata</text>
+<text x="1380" y="701.0" font-size="16" fill="#495057" xml:space="preserve">A chat assistant for onboarding and questions.</text>
+<text x="1380" y="721.0" font-size="16" fill="#495057" xml:space="preserve">Every answer cites the records behind it.</text>
+<text x="1380" y="747.0" font-size="14" fill="#e8590c" xml:space="preserve">For new joiners, and anyone with a question</text>
+<polyline points="300,333 300,412" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#m1e1e1e)"/>
+<text x="312" y="378.0" font-size="16" fill="#1e1e1e" xml:space="preserve">① capture</text>
+<polyline points="528,470 640,470 640,278 752,278" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#m1e1e1e)"/>
+<text x="650" y="374.0" font-size="14" fill="#495057" xml:space="preserve">redacted,</text>
+<text x="650" y="391.5" font-size="14" fill="#495057" xml:space="preserve">in the background</text>
+<polyline points="990,358 990,392" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#m1e1e1e)"/>
+<polyline points="990,538 990,572" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#m1e1e1e)"/>
+<text x="1002" y="560.0" font-size="14" fill="#2f9e44" xml:space="preserve">approved records only</text>
+<polyline points="1228,680 1312,680" fill="none" stroke="#1e1e1e" stroke-width="2" marker-end="url(#m1e1e1e)"/>
+<text x="1232" y="666.0" font-size="14" fill="#1e1e1e" xml:space="preserve">⑤ shared</text>
+<polyline points="752,720 640,720 640,560 528,560" fill="none" stroke="#2f9e44" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#m2f9e44)"/>
+<text x="650" y="610.0" font-size="14" fill="#2f9e44" xml:space="preserve">⑥ the next</text>
+<text x="650" y="627.5" font-size="14" fill="#2f9e44" xml:space="preserve">session starts</text>
+<text x="650" y="645.0" font-size="14" fill="#2f9e44" xml:space="preserve">with it</text>
+<rect x="40" y="830" width="1820" height="100" rx="12" fill="#f8f9fa" stroke="#ced4da" stroke-width="1"/>
+<text x="64" y="864.0" font-size="18" fill="#1e1e1e" xml:space="preserve">Ground rules: visibility into the work, not the worker</text>
+<text x="64" y="896.0" font-size="16" fill="#495057" xml:space="preserve">No per-person metrics or rankings   ·   Nothing is shared before the engineer approves it   ·   Secrets are stripped on the machine   ·   Never used in performance reviews</text>
+</svg>

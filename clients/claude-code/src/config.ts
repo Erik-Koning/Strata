@@ -76,7 +76,7 @@ export function normalizeRemote(remote: string): string | null {
   return `${host.toLowerCase()}/${path}`;
 }
 
-function git(cwd: string, args: string[]): string | null {
+export function git(cwd: string, args: string[]): string | null {
   try {
     return (
       execFileSync("git", ["-C", cwd, ...args], {

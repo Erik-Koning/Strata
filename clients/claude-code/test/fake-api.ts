@@ -22,8 +22,8 @@ export interface FakeApi {
   events: Map<string, MemoryEvent>;
   frozen: MemoryHit[];
   recalled: MemoryHit[];
-  // "up" answers; "fail" answers 500 to everything; "hang" never answers.
-  mode: "up" | "fail" | "hang";
+  // "up" answers; "fail" answers 500 to everything; "hang" never answers; "upgrade" answers 426 to events.
+  mode: "up" | "fail" | "hang" | "upgrade";
   close(): Promise<void>;
 }
 
@@ -79,17 +79,29 @@ export async function startFakeApi(port = 0): Promise<FakeApi> {
         return send(res, 401, { error: { code: "unauthorized", message: "no" } });
       switch (`${req.method} ${url.pathname}`) {
         case "POST /api/memory/events": {
+          if (api.mode === "upgrade")
+            return send(res, 426, { error: { code: "upgrade_required", message: "update the plugin" } });
           const batch = (body as { batch: MemoryEvent[] }).batch;
+          // As an API from before contract version 1 did: one bad event refuses the whole batch.
           if (batch.some((e) => e.payload?.poison === true))
             return send(res, 400, { error: { code: "invalid", message: "a poisoned event" } });
           let duplicates = 0;
-          for (const event of batch) {
+          const rejected: { index: number; id: string; code: string; message: string }[] = [];
+          batch.forEach((event, index) => {
+            if (event.payload?.refuse === true) {
+              rejected.push({ index, id: event.id, code: "invalid", message: "refused for the test" });
+              return;
+            }
             const seen = api.deliveries.get(event.id) ?? 0;
             if (seen) duplicates++;
             else api.events.set(event.id, event);
             api.deliveries.set(event.id, seen + 1);
-          }
-          return send(res, 202, { accepted: batch.length - duplicates, duplicates });
+          });
+          return send(res, 202, {
+            accepted: batch.length - duplicates - rejected.length,
+            duplicates,
+            rejected,
+          });
         }
         case "GET /api/memory/frozen":
           return send(res, 200, { memories: api.frozen });

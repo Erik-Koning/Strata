@@ -2,8 +2,10 @@
 
 A Claude Code plugin that gives Claude long-term memory from the Strata web app. It does three things:
 
-- **Captures** each session: your prompts, the names of the tools Claude used and whether they worked, Claude's
-  replies, and the transcript before a compaction. Secrets are redacted before anything is written down.
+- **Captures** each session: your prompts, the names of the tools Claude used, whether they worked and how long they
+  ran, Claude's replies, the transcript before a compaction, and where the work is (repository, branch, commit,
+  folder). For a shell command it records what kind of command it was (test, build, lint and so on) and a fingerprint
+  to count re-runs, never the command or its output. Secrets are redacted before anything is written down.
 - **Recalls** what matters: a frozen block of long-term memory when a session starts, and the memories that match
   each prompt, added with that prompt.
 - **Gives Claude three tools:** `memory_search`, `memory_save` and `memory_forget`.
@@ -56,12 +58,12 @@ Without both an address and a key, the plugin does nothing at all.
 
 | Hook                                | What it does                                                                                                                                             | Network                                |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `SessionStart`                      | Sends the session's frozen block (below)                                                                                                                 | Once per session, 800 ms, else nothing |
+| `SessionStart`                      | Sends the session's frozen block (below), and captures the repository, branch, commit and folder                                                         | Once per session, 800 ms, else nothing |
 | `UserPromptSubmit`                  | Captures the prompt, recalls matching memories and adds them with this prompt only                                                                       | 800 ms, else nothing                   |
-| `PostToolUse`, `PostToolUseFailure` | Captures the tool's name and whether it worked. Never its input or output                                                                                | None (runs in the background)          |
+| `PostToolUse`, `PostToolUseFailure` | Captures the tool's name, how it ended and how long it ran; for a shell command, its kind, exit code and fingerprint. Never its input or output          | None (runs in the background)          |
 | `PreCompact`                        | Captures the transcript and asks the API to compress it. Prints nothing, because what a PreCompact hook prints becomes instructions for Claude's summary | 5 s, else nothing                      |
 | `PostCompact`                       | Captures the summary Claude Code made                                                                                                                    | None                                   |
-| `Stop`                              | Captures Claude's last message and starts the flusher                                                                                                    | None                                   |
+| `Stop`                              | Captures Claude's last message, and the branch or commit if either changed; starts the flusher                                                           | None                                   |
 | `SessionEnd`                        | Starts the flusher                                                                                                                                       | None                                   |
 
 Capture never waits on the network. Every event goes to a durable outbox on disk, one file each, with a unique id that
