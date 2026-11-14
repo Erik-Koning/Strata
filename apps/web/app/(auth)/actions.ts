@@ -75,3 +75,48 @@ export async function signOut(): Promise<void> {
     .catch(() => undefined);
   redirect("/sign-in");
 }
+
+export interface ResetRequestState {
+  // The address the page says a link went to. It says so whether or not there's an account for it.
+  sent: string | null;
+  error: string | null;
+}
+
+// "Forgot your password?": the same answer whether or not the email has an account (server/password-reset.ts).
+export async function requestReset(_: ResetRequestState, form: FormData): Promise<ResetRequestState> {
+  const email = field(form, "email").toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+$/.test(email) || email.length > 254)
+    return { sent: null, error: "Enter the email you sign in with." };
+  try {
+    await auth().api.requestPasswordReset({ body: { email }, headers: await headers() });
+  } catch {
+    return { sent: null, error: "Couldn't send the link just now. Try again in a moment." };
+  }
+  return { sent: email, error: null };
+}
+
+export interface ResetState {
+  error: string | null;
+  // The link can't be used any more: the page offers a new one rather than another try.
+  expired: boolean;
+}
+
+// The page the emailed link opens: a new password, typed twice. Every session the old password opened ends.
+export async function resetPassword(_: ResetState, form: FormData): Promise<ResetState> {
+  const token = field(form, "token");
+  const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
+  const confirm = typeof form.get("confirm") === "string" ? (form.get("confirm") as string) : "";
+  if (!token) return { error: "This link is missing its code. Ask for a new one.", expired: true };
+  if (password.length < 10) return { error: "Use a password of 10 characters or more.", expired: false };
+  if (password.length > 128) return { error: "Keep the password to 128 characters or fewer.", expired: false };
+  if (password !== confirm) return { error: "The two passwords don't match. Type the same one twice.", expired: false };
+  try {
+    await auth().api.resetPassword({ body: { newPassword: password, token }, headers: await headers() });
+  } catch (error) {
+    const code = error instanceof APIError ? error.body?.code : undefined;
+    if (code === "INVALID_TOKEN" || code === "USER_NOT_FOUND")
+      return { error: "This link has expired or was already used. Ask for a new one.", expired: true };
+    return { error: "Couldn't change the password just now. Try again in a moment.", expired: false };
+  }
+  redirect("/sign-in?reset=1");
+}
