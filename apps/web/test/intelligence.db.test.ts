@@ -109,6 +109,15 @@ beforeAll(async () => {
   await memory("ada", "Billing stores money as integer cents, never floats.", "decision", "active", "ada-s1");
   await memory("ada", "Billing might move to a ledger service someday.", "fact", "candidate", "ada-s1");
   await memory("grace", "Grace's billing decision: use the vault for webhook secrets.", "decision", "active", null);
+  // Active but past its expiry: recall and frozen skip it (store.ts liveFilter), and so must Intelligence.
+  const expired = await memory(
+    "ada",
+    "Billing webhook retries are blocked on the old gateway.",
+    "fact",
+    "active",
+    null,
+  );
+  await memories().updateOne({ _id: expired.memory._id }, { $set: { expiresAt: new Date(Date.now() - 60_000) } });
   await compress(
     { kind: "service", id: "service", label: "test" },
     { org: "default", user: "ada", project: "acme/billing" },
@@ -134,6 +143,8 @@ describe("Ask Strata", () => {
     expect(texts).not.toMatch(/Grace/);
     // The candidate isn't evidence: nobody said yes to it.
     expect(texts).not.toContain("ledger service");
+    // Nor is an expired memory, however well it matches.
+    expect(texts).not.toContain("old gateway");
     expect(a.gaps.join(" ")).toMatch(/1 candidate memory waits for your review/);
     for (const s of a.sources) expect(s.ref).toMatch(/^(mem|sum|fnd):/);
   });

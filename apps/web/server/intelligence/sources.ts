@@ -8,7 +8,7 @@
 import type { FINDING_TYPES } from "@strata/contracts";
 import type { Filter } from "mongodb";
 import { ObjectId } from "mongodb";
-import { provider } from "../ai/provider.ts";
+import { embeddingModelId, provider } from "../ai/provider.ts";
 import { DEFAULT_ORG } from "../api-auth.ts";
 import {
   type EventDoc,
@@ -19,6 +19,7 @@ import {
   summaries,
   VECTOR_INDEX,
 } from "../collections.ts";
+import { liveFilter } from "../memory/store.ts";
 import type { SourceCard, SourceKind } from "./types.ts";
 
 // How much of a person's history one question reads. Enough for months of sessions; the newest first.
@@ -93,7 +94,7 @@ export interface Corpus {
 export async function loadCorpus(userId: string): Promise<Corpus> {
   const [mems, sums, finds, candidates] = await Promise.all([
     memories()
-      .find({ ...own(userId), status: "active" }, { projection: { embedding: 0 } })
+      .find({ ...own(userId), ...liveFilter() }, { projection: { embedding: 0 } })
       .sort({ updatedAt: -1, _id: -1 })
       .limit(LIMITS.memories)
       .toArray(),
@@ -119,7 +120,10 @@ export async function vectorHits(
 ): Promise<{ scores: Map<string, number>; available: boolean }> {
   const scores = new Map<string, number>();
   try {
-    const [vector] = await provider().embed([question]);
+    const ai = provider();
+    const [vector] = await ai.embed([question], { purpose: "query" });
+    // Recall's rules (memory/recall.ts): live memories only (active, not expired), vectors from the active model only.
+    const filter = { ...own(userId), ...liveFilter() };
     const near = await memories()
       .aggregate<{ _id: ObjectId; score: number }>([
         {
@@ -129,9 +133,10 @@ export async function vectorHits(
             queryVector: vector,
             numCandidates: k * 20,
             limit: k,
-            filter: { ...own(userId), status: "active" },
+            filter: { ...filter, embeddingModel: embeddingModelId(ai) },
           },
         },
+        { $match: filter },
         { $project: { _id: 1, score: { $meta: "vectorSearchScore" } } },
       ])
       .toArray();

@@ -3,6 +3,7 @@
 // records) is listed as unavailable rather than guessed.
 import { FINDING_TYPES } from "@strata/contracts";
 import { events, memories, summaries } from "../collections.ts";
+import { liveFilter } from "../memory/store.ts";
 import { findingCard, findingFilter, memoryCard, own, summaryCard } from "./sources.ts";
 import type { Pulse, PulseDay, PulseProject, SourceCard } from "./types.ts";
 
@@ -34,7 +35,7 @@ export async function pulse(userId: string, now = new Date()): Promise<Pulse> {
     recentSummaries,
     signals,
   ] = await Promise.all([
-    memories().countDocuments({ ...mine, status: "active" }),
+    memories().countDocuments({ ...mine, ...liveFilter() }),
     memories().countDocuments({ ...mine, status: "candidate" }),
     summaries().countDocuments(mine),
     events()
@@ -47,7 +48,7 @@ export async function pulse(userId: string, now = new Date()): Promise<Pulse> {
     events().distinct("sessionID", { ...mine, ts: { $gte: since30 } }),
     memories()
       .aggregate<{ _id: string; count: number }>([
-        { $match: { ...mine, status: "active" } },
+        { $match: { ...mine, ...liveFilter() } },
         { $group: { _id: "$kind", count: { $sum: 1 } } },
         { $sort: { count: -1, _id: 1 } },
       ])
@@ -75,7 +76,7 @@ export async function pulse(userId: string, now = new Date()): Promise<Pulse> {
       .limit(6)
       .toArray(),
     memories()
-      .find({ ...mine, status: "active" }, { projection: { embedding: 0 } })
+      .find({ ...mine, ...liveFilter() }, { projection: { embedding: 0 } })
       .sort({ updatedAt: -1, _id: -1 })
       .limit(8)
       .toArray(),
@@ -173,7 +174,7 @@ async function projectRows(userId: string, since30: Date): Promise<PulseProject[
   const [mems, finds, evs, git] = await Promise.all([
     memories()
       .aggregate<{ _id: string; count: number; last: Date }>([
-        { $match: { ...mine, status: "active" } },
+        { $match: { ...mine, ...liveFilter() } },
         { $group: { _id: "$scope.project", count: { $sum: 1 }, last: { $max: "$updatedAt" } } },
       ])
       .toArray(),
