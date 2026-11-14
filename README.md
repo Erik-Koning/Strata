@@ -143,6 +143,11 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **Governance**
 
+- [x] Invite-only accounts; roles (engineer, manager, executive, admin), teams, suspension; the People page and the
+      admins' log of access changes (`pnpm invite <email>` makes the first admin)
+- [ ] Home views by role, over approved records (everyone sees those; private memory stays its owner's): pain points
+      and context gaps for engineers; features and who worked on them for managers; progress for executives. Who,
+      never how much: no counts, rankings or activity about people
 - [ ] Summaries shown and forgettable, with what they were made from
 - [ ] Provenance one click away: the session, the message and the event behind a memory
 - [ ] Memories for every project (`*`) set from the page; editing a memory as a superseding one
@@ -221,10 +226,12 @@ pnpm install
 docker run -d --name strata-mongo -p 127.0.0.1:27017:27017 mongodb/mongodb-atlas-local:8.0
 cp .env.example apps/web/.env.local   # then set MONGODB_URI=mongodb://localhost:27017/strata?directConnection=true
 pnpm db:indexes
+pnpm invite you@example.com           # prints a sign-up link that makes you the first admin
 pnpm dev                              # http://localhost:9316 by default (PORT)
 ```
 
-Create an account, then open **Connect**: make an API key, install the plugin, and start a Claude Code session.
+Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
+**Connect**: make an API key, install the plugin, and start a Claude Code session.
 
 ```
 /plugin marketplace add Erik-Koning/Strata

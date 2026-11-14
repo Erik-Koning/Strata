@@ -20,8 +20,11 @@ One deployable (`apps/web`) and one database. Only the API touches MongoDB. Both
 | `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days   | `id` unique (the idempotency key), TTL          |
 | `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status | scope+status, text index, vector index, textKey |
 | `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                       | sessionID, sourceIds                            |
-| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what                                     | ts                                              |
+| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what; invites, roles, suspensions, teams | ts, actor, targetIds, action                    |
 | `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                     | hash unique                                     |
+| `members`                                    | A person's role (engineer, manager, exec, admin) and whether they're suspended          | `_id` is the account id                         |
+| `teams`                                      | A name, its members and its managers                                                    | name unique (any case), memberIds, managerIds   |
+| `invites`                                    | Email, role, teams, SHA-256 of the token, expiry, who made it, when it was used         | hash unique, email                              |
 | `user`, `session`, `account`, `verification` | Better Auth                                                                             | Better Auth's own                               |
 
 The vector index (`memories_embedding`) is an Atlas Search index filtered on `scope.org`, `scope.project`,
@@ -32,8 +35,36 @@ Recall uses it where it's ready and the text index otherwise.
 
 ## Who's who
 
-- **People** sign up with an email and a password (Better Auth). A session cookie, `strata.session_token`. Each
-  person sees and governs only their own memory.
+- **People** get an account only from an invite link (`/sign-up?invite=inv_…`): an admin makes one on the People page,
+  for an email, a role and teams; the first admin's comes from `pnpm invite <email>`, which only someone holding the
+  database's credentials can run. A link works once, for that email, for 7 days; only its SHA-256 is kept. Better
+  Auth's own sign-up route is closed to HTTP (`disabledPaths`), and a database hook refuses any account no open invite
+  was made for. A session cookie, `strata.session_token`, after that.
+- **Visibility into the work, not the worker** (`server/access.ts`, from `docs/about.html`):
+  - **Private stays private.** A person's memories, events, summaries and draft records are theirs alone. No role,
+    admins included, reads them.
+  - **Approved records are for everyone with access.** A person's approval is what shares a record; after that, every
+    member of the organisation can see it.
+  - **A role decides what a person's home view leads with**, not what they may see:
+
+    | Role      | Home view leads with                                                            |
+    | --------- | ------------------------------------------------------------------------------- |
+    | Engineer  | Pain points and context gaps in their products                                  |
+    | Manager   | The teams they manage: features and who worked on them, from approved summaries |
+    | Executive | Progress and updates across every product                                       |
+    | Admin     | Progress, and the People page: people, roles, teams and invitations             |
+
+  - **Who, never how much.** Views show who worked on an area, never counts, rankings or comparisons of people, and
+    no activity: no time, no last-seen, no prompt history. The People page shows who has access, not when they last
+    used it; the admins' audit log shows changes to access, not what anyone did in their own memory.
+
+  Only someone whose role is Manager can manage a team. An install always keeps one admin who can act: the last one
+  can't be demoted or suspended, and no one can suspend themselves.
+- **Suspending** someone ends their sessions, revokes their API keys and stops them signing in until an admin restores
+  them; restoring doesn't bring the keys back.
+- **Every check is on the server**: admin pages answer 404 to anyone else, and every admin server action checks the
+  caller again, whatever the page showed. Every change to access is in the audit log, and a person sees any change an
+  admin made to theirs.
 - **Clients** send an API key made on the Connect page (`am_…`, shown once, kept as a SHA-256). A key covers its own
   person in the one organisation (`default`) and any project; naming another person or organisation is a 403.
 - **The service token** (`MEMORY_API_TOKEN` in the app's environment) covers every scope: tests, scripts, the

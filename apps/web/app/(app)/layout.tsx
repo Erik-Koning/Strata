@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <div className="max-md:[&_span.text-\[16px\]]:hidden">
           <Wordmark />
         </div>
-        <Nav />
+        <Nav admin={viewer.role === "admin"} />
         <div className="hidden md:mt-auto md:block">
           <div className="flex items-center gap-3 rounded-[12px] px-2 py-2">
             <span className="grid size-9 flex-none place-items-center rounded-full bg-accent-soft font-semibold text-[13px] text-accent-text">

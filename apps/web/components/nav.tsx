@@ -1,5 +1,5 @@
 "use client";
-import { Activity, Brain, Cable, ScrollText } from "lucide-react";
+import { Activity, Brain, Cable, ScrollText, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -10,11 +10,14 @@ const LINKS = [
   { href: "/audit", label: "Audit log", icon: ScrollText },
 ];
 
-export function Nav() {
+// Admins also get the page for people, roles, teams and invitations.
+const ADMIN = { href: "/admin", label: "People", icon: ShieldCheck };
+
+export function Nav({ admin = false }: { admin?: boolean }) {
   const path = usePathname();
   return (
     <nav aria-label="Main" className="flex gap-1 md:flex-col">
-      {LINKS.map(({ href, label, icon: Icon }) => {
+      {(admin ? [...LINKS, ADMIN] : LINKS).map(({ href, label, icon: Icon }) => {
         const current = href === "/" ? path === "/" : path.startsWith(href);
         return (
           <Link
@@ -26,7 +29,7 @@ export function Nav() {
             }`}
           >
             <Icon size={17} aria-hidden className={current ? "text-accent" : "text-ink-3"} />
-            <span className={current ? "" : "max-md:sr-only"}>{label}</span>
+            <span className={current && !admin ? "" : "max-md:sr-only"}>{label}</span>
           </Link>
         );
       })}

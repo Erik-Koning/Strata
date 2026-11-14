@@ -3,7 +3,7 @@
 // runs it), which becomes queryable a little after it's created: `wait` polls until it is.
 
 import { provider } from "./ai/provider.ts";
-import { apiKeys, audits, events, memories, summaries, VECTOR_INDEX } from "./collections.ts";
+import { apiKeys, audits, events, invites, memories, summaries, teams, VECTOR_INDEX } from "./collections.ts";
 import { db } from "./db.ts";
 
 const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -13,7 +13,16 @@ export async function ensureIndexes({
   timeoutMs = 120_000,
 } = {}): Promise<{ vector: "ready" | "pending" | "unavailable" }> {
   const existing = new Set((await db().listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
-  for (const name of ["memory_events", "memories", "memory_summaries", "memory_audit", "api_keys"])
+  for (const name of [
+    "memory_events",
+    "memories",
+    "memory_summaries",
+    "memory_audit",
+    "api_keys",
+    "members",
+    "teams",
+    "invites",
+  ])
     if (!existing.has(name))
       await db()
         .createCollection(name)
@@ -38,8 +47,15 @@ export async function ensureIndexes({
     summaries().createIndex({ sourceIds: 1 }, { name: "by_source" }),
     audits().createIndex({ ts: -1 }, { name: "recent" }),
     audits().createIndex({ "actor.id": 1, ts: -1 }, { name: "by_actor" }),
+    audits().createIndex({ targetIds: 1, ts: -1 }, { name: "by_target" }),
+    audits().createIndex({ action: 1, ts: -1 }, { name: "by_action" }),
     apiKeys().createIndex({ hash: 1 }, { unique: true, name: "hash_unique" }),
     apiKeys().createIndex({ userId: 1, createdAt: -1 }, { name: "by_user" }),
+    teams().createIndex({ name: 1 }, { unique: true, name: "name_unique", collation: { locale: "en", strength: 2 } }),
+    teams().createIndex({ memberIds: 1 }, { name: "by_member" }),
+    teams().createIndex({ managerIds: 1 }, { name: "by_manager" }),
+    invites().createIndex({ hash: 1 }, { unique: true, name: "hash_unique" }),
+    invites().createIndex({ email: 1, createdAt: -1 }, { name: "by_email" }),
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };
 }
