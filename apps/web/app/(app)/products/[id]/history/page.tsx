@@ -90,7 +90,7 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
         <div className="min-w-0">
           <h1 className="font-semibold text-[30px] text-ink leading-[1.1] tracking-[-0.03em]">History</h1>
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[14px] text-ink-2">
-            Code changes in {product.name}, with what Strata knows about why.
+            How {product.name} changed, why, and what proves it.
           </p>
         </div>
         <span className="chip chip-mono" title="The repository this history is read from">
@@ -178,7 +178,7 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
           />
         </div>
         <div className="flex min-w-0 flex-col gap-4 max-lg:order-1">
-          <ProductImpact handoffs={context.handoffs} range={range} />
+          <ProductImpact handoffs={context.handoffs} range={range} commits={commits} />
           <DiffView diff={diff} same={same} />
         </div>
         <aside

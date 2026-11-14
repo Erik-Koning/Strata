@@ -133,9 +133,10 @@ function HunkRows({ hunk }: { hunk: FileDiff["hunks"][number] }) {
 export function DiffView({ diff, same }: { diff: Diff; same: boolean }) {
   const count = diff.files.length + diff.omittedFiles;
   return (
-    <section className="card min-w-0" aria-labelledby="changes-title">
-      <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-line border-b px-5 py-3.5">
-        <h2 id="changes-title" className="font-semibold text-[15px]">
+    <details className="code-changes card min-w-0">
+      <summary className="flex cursor-pointer list-none flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-line border-b px-5 py-3.5 hover:bg-sunk max-md:min-h-11">
+        <h2 className="flex items-center gap-2 font-semibold text-[15px]">
+          <ChevronDown size={15} aria-hidden className="file-caret text-ink-3" />
           Code changes
         </h2>
         {count ? (
@@ -144,7 +145,7 @@ export function DiffView({ diff, same }: { diff: Diff; same: boolean }) {
             <Counts added={diff.added} removed={diff.removed} />
           </span>
         ) : null}
-      </header>
+      </summary>
 
       {same ? (
         <div className="px-6 py-14 text-center">
@@ -213,6 +214,6 @@ export function DiffView({ diff, same }: { diff: Diff; same: boolean }) {
           ))}
         </>
       )}
-    </section>
+    </details>
   );
 }

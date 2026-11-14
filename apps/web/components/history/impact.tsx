@@ -21,12 +21,46 @@ function Row({ label, source, children }: { label: string; source: string; child
 }
 
 // Shown only for a completed handoff whose finishing commit this comparison brings in: its account is of this work.
-export function ProductImpact({ handoffs, range }: { handoffs: HandoffContext[]; range: string[] }) {
+export function ProductImpact({
+  handoffs,
+  range,
+  commits,
+}: {
+  handoffs: HandoffContext[];
+  range: string[];
+  commits: { sha: string; short: string; subject: string; author: { name: string } }[];
+}) {
   const h = handoffs.find((x) => {
     const finish = x.finishCommit;
     return x.status === "completed" && finish !== null && range.some((sha) => sha.startsWith(finish));
   });
-  if (!h) return null;
+  if (!h) {
+    // No handoff describes this work: the commits' own messages are the only account there is.
+    const brought = range.map((sha) => commits.find((c) => c.sha === sha)).filter((c) => c !== undefined);
+    return (
+      <section className="card min-w-0" aria-labelledby="impact-title">
+        <header className="border-line border-b px-5 py-3.5">
+          <h2 id="impact-title" className="font-semibold text-[15px]">
+            Feature changes
+          </h2>
+        </header>
+        <Row label="What changed" source="Commit messages, as written">
+          {brought.length ? (
+            <ul className="flex flex-col gap-1">
+              {brought.map((c) => (
+                <li key={c.sha}>
+                  {c.subject} <span className="text-[12.5px] text-ink-3">{c.author.name}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>No commits between these two.</p>
+          )}
+          <p className="mt-2 text-[12.5px] text-ink-3">No Strata handoff describes this change in product terms.</p>
+        </Row>
+      </section>
+    );
+  }
   // The latest run of each test command by the recipient, after the work.
   const latest = new Map<string, HandoffContext["tests"][number]>();
   for (const t of h.tests) if (t.role === "recipient") latest.set(t.command, t);
@@ -35,7 +69,7 @@ export function ProductImpact({ handoffs, range }: { handoffs: HandoffContext[];
     <section className="card min-w-0" aria-labelledby="impact-title">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-line border-b px-5 py-3.5">
         <h2 id="impact-title" className="font-semibold text-[15px]">
-          Product impact
+          Feature changes
         </h2>
         <Link href={`/relay?id=${h.id}`} className="text-[12.5px] text-ink-3 hover:text-accent-text">
           From the handoff "{h.title}"

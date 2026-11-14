@@ -1034,6 +1034,12 @@ h3 {
     color: var(--diff-del-mark);
   }
 
+  .code-changes:not([open]) > summary {
+    border-bottom-color: transparent;
+  }
+  .code-changes:not([open]) > summary .file-caret {
+    transform: rotate(-90deg);
+  }
   .file > summary {
     list-style: none;
     cursor: pointer;
