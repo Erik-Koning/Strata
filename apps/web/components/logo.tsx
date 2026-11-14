@@ -1,4 +1,4 @@
-export function Mark({ size = 28 }: { size?: number }) {
+export function Mark({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="flex-none">
       <rect width="32" height="32" rx="8" fill="var(--accent)" />
@@ -12,9 +12,9 @@ export function Mark({ size = 28 }: { size?: number }) {
 
 export function Wordmark() {
   return (
-    <span className="inline-flex items-center gap-2.5">
+    <span className="inline-flex items-center gap-2">
       <Mark />
-      <span className="text-[16px] font-semibold tracking-[-0.01em]">Strata</span>
+      <span className="text-[15px] font-semibold tracking-[-0.015em]">Strata</span>
     </span>
   );
 }

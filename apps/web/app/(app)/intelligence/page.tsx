@@ -45,8 +45,8 @@ export default async function IntelligencePage() {
     <EvidenceProvider>
       <PageHeader
         eyebrow="Intelligence"
-        title="Product pulse"
-        lede="What's happening across your engineering work, counted from what Strata has stored and answered from its records. Every number and every answer traces back to a source."
+        title="Ask what your engineering work already knows"
+        lede="Answers are quoted from what Strata has stored, and every number below is counted from it. Each one traces back to a source."
         actions={
           <span className="chip chip-mono" title="Counted when this page loaded">
             <span className="size-1.5 flex-none rounded-full bg-accent" aria-hidden /> live from MongoDB ·{" "}
@@ -55,6 +55,13 @@ export default async function IntelligencePage() {
         }
       />
 
+      <div className="mb-8">
+        <AskStrata suggestions={suggestionsFor(p)} records={records} />
+      </div>
+
+      <h2 className="mb-3 flex items-baseline gap-2 font-semibold text-[13px]">
+        Product pulse <span className="font-normal text-[12px] text-ink-3">counted from your records</span>
+      </h2>
       <section
         aria-label="Pulse metrics"
         className="card mb-4 grid grid-cols-2 divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x [&>*]:border-line max-lg:[&>*]:border-b"
@@ -89,7 +96,7 @@ export default async function IntelligencePage() {
         <Metric label="Summaries" value={p.totals.summaries} hint={`${p.totals.projects} projects tracked`} />
       </section>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <section className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="card p-5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-semibold text-[14px]">Engineering activity</h2>
@@ -166,10 +173,6 @@ export default async function IntelligencePage() {
         </div>
       </section>
 
-      <div className="mb-6">
-        <AskStrata suggestions={suggestionsFor(p)} records={records} />
-      </div>
-
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <RecordList
           title="Blockers and context gaps"
@@ -187,7 +190,7 @@ export default async function IntelligencePage() {
         />
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="mb-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <RecordList
           title="Recently updated context"
           note="Active memories and session summaries, newest first."
@@ -259,7 +262,7 @@ export default async function IntelligencePage() {
           </span>
         </header>
         {p.projects.length ? (
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto [contain:paint]">
             <table className="w-full min-w-[640px] text-[13px]">
               <thead>
                 <tr className="text-left text-[11.5px] text-ink-3">
