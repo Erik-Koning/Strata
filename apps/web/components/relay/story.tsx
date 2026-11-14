@@ -5,6 +5,7 @@ import type { Handoff, SharedMemory } from "@strata/contracts";
 import { Check, Circle, CircleDashed, Hourglass, Lock, ShieldCheck, ShieldX, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { Mark } from "../logo.tsx";
+import { InlineMarkdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { Avatar, latestRuns } from "./flow.tsx";
 
@@ -161,7 +162,7 @@ export function TransferSequence({
                   <ul className="grid gap-2">
                     {shown.slice(0, 2).map((m) => (
                       <li key={m._id} className="border-accent border-l-2 pl-3 text-[14px] text-ink leading-snug">
-                        <span className="line-clamp-3">{m.text}</span>
+                        <InlineMarkdown className="line-clamp-3">{m.text}</InlineMarkdown>
                       </li>
                     ))}
                   </ul>

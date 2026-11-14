@@ -2,6 +2,7 @@ import { FolderGit2, GitBranch, Lightbulb, Lock, Terminal, TriangleAlert } from 
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { InlineMarkdown } from "../../../components/markdown.tsx";
 import { Ago } from "../../../components/time.tsx";
 import { pulse } from "../../../server/intelligence/pulse.ts";
 import type { Pulse, SourceCard } from "../../../server/intelligence/types.ts";
@@ -405,7 +406,9 @@ function RecordList({
           {cards.map((c) => (
             <li key={c.ref}>
               <RecordButton card={c} className="px-5 py-3">
-                <span className="line-clamp-2 block text-[13.5px] leading-snug">{c.text}</span>
+                <InlineMarkdown links={false} className="line-clamp-2 block text-[13.5px] leading-snug">
+                  {c.text}
+                </InlineMarkdown>
                 <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <CategoryTag card={c} small />
                   <span className="chip chip-mono min-h-5 px-1.5 text-[10.5px]">

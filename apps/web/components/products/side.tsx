@@ -4,6 +4,7 @@ import { ArrowRight, FolderCode, MessageCircleQuestionMark, Puzzle, Timer } from
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { durationLabel, type GapLine, type RefLink, type TimeSink } from "../../server/hub/product-page.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { names, RefChips } from "./refs.tsx";
 
@@ -95,7 +96,7 @@ export function OpenGaps({ productId, top, open }: { productId: string; top: Gap
         <ol className="divide-y divide-line">
           {top.map((gap) => (
             <li key={gap.id} className="px-5 py-3">
-              <p className="line-clamp-3 break-words text-[14px]">{gap.text}</p>
+              <InlineMarkdown className="line-clamp-3 break-words text-[14px]">{gap.text}</InlineMarkdown>
               <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink-3">
                 {[
                   gap.sessions ? (

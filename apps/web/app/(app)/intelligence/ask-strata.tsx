@@ -3,6 +3,7 @@
 // citation opens the record's evidence. When nothing matches, the answer says so and says what was searched.
 import { ArrowUp, CircleAlert, CornerDownLeft, Info, Quote, SearchX } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState, useTransition } from "react";
+import { InlineMarkdown } from "../../../components/markdown.tsx";
 import type { Answer } from "../../../server/intelligence/types.ts";
 import { askStrata } from "./actions.ts";
 import { useEvidence } from "./evidence.tsx";
@@ -175,7 +176,7 @@ function AnswerView({ answer }: { answer: Answer }) {
 
       <p className={`mt-3 flex items-start gap-2 font-medium text-[15px] ${nothing ? "text-ink-2" : ""}`}>
         {nothing ? <SearchX size={17} aria-hidden className="mt-0.5 flex-none text-ink-3" /> : null}
-        {answer.lead}
+        <InlineMarkdown>{answer.lead}</InlineMarkdown>
       </p>
 
       {answer.sections.map((section) => (
@@ -185,7 +186,7 @@ function AnswerView({ answer }: { answer: Answer }) {
             {section.points.map((p) => (
               <li key={p.refs.join()} className="flex gap-2.5 border-line border-l-2 pl-3 text-[14px] leading-relaxed">
                 <span className="min-w-0 flex-1">
-                  {p.text}
+                  <InlineMarkdown>{p.text}</InlineMarkdown>
                   {p.refs.map((ref) => (
                     <button
                       key={ref}

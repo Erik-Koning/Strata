@@ -2,6 +2,7 @@ import { CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KindChip } from "../../../components/chips.tsx";
+import { InlineMarkdown, Markdown } from "../../../components/markdown.tsx";
 import { sessionHref } from "../../../components/sessions/format.ts";
 import { Ago } from "../../../components/time.tsx";
 import type { RecordDoc } from "../../../server/collections.ts";
@@ -119,7 +120,7 @@ export default async function MyDayPage() {
             {candidates.map((m) => (
               <li key={m._id.toHexString()} className="flex flex-wrap items-start gap-3 px-5 py-4">
                 <div className="min-w-0 flex-1 basis-64">
-                  <p className="whitespace-pre-wrap break-words text-[14.5px]">{m.text}</p>
+                  <Markdown className="break-words text-[14.5px]">{m.text}</Markdown>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
                     <KindChip kind={m.kind} />
                     <span className="chip chip-mono">
@@ -151,7 +152,9 @@ export default async function MyDayPage() {
             {shared.map((r) => (
               <li key={r._id.toHexString()} className="flex flex-wrap items-start gap-3 px-5 py-3.5">
                 <span className="chip flex-none">{recordLabel(r.kind)}</span>
-                <p className="line-clamp-2 min-w-0 flex-1 basis-64 break-words text-[14px] text-ink-2">{r.text}</p>
+                <InlineMarkdown className="line-clamp-2 min-w-0 flex-1 basis-64 break-words text-[14px] text-ink-2">
+                  {r.text}
+                </InlineMarkdown>
                 {r.approvedAt ? (
                   <Ago at={r.approvedAt.toISOString()} className="flex-none text-[12.5px] text-ink-3" />
                 ) : null}

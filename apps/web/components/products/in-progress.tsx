@@ -2,6 +2,7 @@
 // session, newest first, with the questions its sessions left open.
 import { CircleDot, CircleHelp } from "lucide-react";
 import type { WorkView } from "../../server/hub/product-page.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { names, RefChips, SessionLink } from "./refs.tsx";
 
@@ -27,7 +28,7 @@ export function InProgress({ work, moreWork }: { work: WorkView[]; moreWork: num
                       <CircleHelp size={15} aria-hidden className="mt-[3px] flex-none text-amber" />
                       <span className="min-w-0 flex-1 break-words">
                         <span className="sr-only">Open question: </span>
-                        {question.text}
+                        <InlineMarkdown>{question.text}</InlineMarkdown>
                       </span>
                     </li>
                   ))}

@@ -5,6 +5,7 @@ import type { Handoff, Person, SharedMemory } from "@strata/contracts";
 import { EyeOff, Send } from "lucide-react";
 import { startTransition, useActionState, useState } from "react";
 import { KindChip } from "../../../components/chips.tsx";
+import { InlineMarkdown } from "../../../components/markdown.tsx";
 import { type FormState, saveOrApprove } from "./actions.ts";
 
 const joined = (items: string[]) => items.join("\n");
@@ -172,7 +173,9 @@ export function DraftEditor({
                       className="mt-1 size-4 flex-none accent-[var(--accent)]"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[13.5px] leading-snug">{m.text}</span>
+                      <InlineMarkdown links={false} className="block text-[13.5px] leading-snug">
+                        {m.text}
+                      </InlineMarkdown>
                       <span className="mt-1 flex flex-wrap items-center gap-1.5">
                         <KindChip kind={m.kind} />
                         <span className="text-[12px] text-ink-3">

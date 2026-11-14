@@ -6,6 +6,7 @@ import { Network } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { GRAPH_DAYS, type GraphFinding, type ProductGraph, productGraph } from "../../server/hub/graph.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { GraphLegend, GraphSvg } from "./graph-svg.tsx";
 
@@ -129,7 +130,7 @@ function FindingRow({ finding }: { finding: GraphFinding }) {
         href={finding.href}
         className="mt-1 flex min-h-11 items-center break-words text-[14px] leading-snug underline-offset-4 hover:underline sm:min-h-0"
       >
-        {finding.text}
+        <InlineMarkdown links={false}>{finding.text}</InlineMarkdown>
       </Link>
       {finding.stale ? (
         <p className="mt-0.5 text-[12.5px] text-ink-3">

@@ -2,58 +2,67 @@
 // card links its product and its session.
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import type { AskSource } from "../../server/hub/ask.ts";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 
 export const sourceAnchor = (turn: string, n: number) => `${turn}-source-${n}`;
 
-// The answer's text, its citations as links. Bold markers are dropped; paragraphs and line breaks are kept.
+// The answer's text as Markdown (bold, lists, tables, code), its [n] citations as links to the source cards.
 export function AnswerText({ text, turn, sources }: { text: string; turn: string; sources: AskSource[] }) {
   const numbers = new Set(sources.map((s) => s.n));
-  const clean = text.replace(/\*\*/g, "").trim();
-  const paragraphs: { at: number; text: string }[] = [];
-  let at = 0;
-  for (const part of clean.split(/(\n{2,})/)) {
-    if (part.trim() && !/^\n+$/.test(part)) paragraphs.push({ at, text: part });
-    at += part.length;
-  }
   return (
-    <div className="flex flex-col gap-3 text-[14.5px] leading-relaxed">
-      {paragraphs.map((p) => (
-        <p key={p.at} className="whitespace-pre-line break-words">
-          {cited(p.text, turn, numbers)}
-        </p>
-      ))}
-    </div>
+    <Markdown
+      className="break-words text-[14.5px] leading-relaxed"
+      remarkPlugins={[[remarkCitations, { turn, numbers }]]}
+    >
+      {text.trim()}
+    </Markdown>
   );
 }
 
-function cited(text: string, turn: string, numbers: Set<number>): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  for (const match of text.matchAll(/\[(\d+)\]/g)) {
-    const n = Number(match[1]);
-    const index = match.index ?? 0;
-    out.push(text.slice(last, index));
-    out.push(
-      numbers.has(n) ? (
-        <a
-          key={index}
-          href={`#${sourceAnchor(turn, n)}`}
-          aria-label={`Source ${n}`}
-          className="mx-px inline-flex h-[1.4em] min-w-[1.4em] items-center justify-center rounded-[5px] bg-accent-soft px-1 align-[0.12em] font-mono text-[11px] text-accent-text leading-none no-underline hover:bg-accent hover:text-accent-ink"
-        >
-          {n}
-        </a>
-      ) : (
-        match[0]
-      ),
-    );
-    last = index + match[0].length;
-  }
-  out.push(text.slice(last));
-  return out;
+const CITE =
+  "mx-px inline-flex h-[1.4em] min-w-[1.4em] items-center justify-center rounded-[5px] bg-accent-soft px-1 align-[0.12em] font-mono text-[11px] text-accent-text leading-none no-underline hover:bg-accent hover:text-accent-ink";
+
+type MdNode = {
+  type: string;
+  value?: string;
+  url?: string;
+  children?: MdNode[];
+  data?: { hProperties?: Record<string, string> };
+};
+
+// Turns each [n] in the answer's prose into a link to source n, when there is a source n. Code and existing links are
+// left alone.
+function remarkCitations({ turn, numbers }: { turn: string; numbers: Set<number> }) {
+  const visit = (node: MdNode) => {
+    if (!node.children || node.type === "link" || node.type === "linkReference") return;
+    node.children = node.children.flatMap((child) => {
+      if (child.type !== "text" || !child.value) {
+        visit(child);
+        return [child];
+      }
+      const out: MdNode[] = [];
+      let last = 0;
+      for (const match of child.value.matchAll(/\[(\d+)\]/g)) {
+        const n = Number(match[1]);
+        if (!numbers.has(n)) continue;
+        const index = match.index ?? 0;
+        if (index > last) out.push({ type: "text", value: child.value.slice(last, index) });
+        out.push({
+          type: "link",
+          url: `#${sourceAnchor(turn, n)}`,
+          children: [{ type: "text", value: String(n) }],
+          data: { hProperties: { className: CITE, ariaLabel: `Source ${n}` } },
+        });
+        last = index + match[0].length;
+      }
+      if (!out.length) return [child];
+      if (last < child.value.length) out.push({ type: "text", value: child.value.slice(last) });
+      return out;
+    });
+  };
+  return (tree: MdNode) => visit(tree);
 }
 
 const metaLink =
@@ -76,11 +85,9 @@ export function SourceCard({ source, turn, faded = false }: { source: AskSource;
         {source.at ? <Ago at={source.at} className="ml-auto text-[12.5px] text-ink-3" /> : null}
       </div>
       {source.title && !people ? <h4 className="mt-2.5 font-medium text-[14px] leading-snug">{source.title}</h4> : null}
-      <p
-        className={`mt-1.5 whitespace-pre-line break-words text-[13.5px] text-ink-2 ${people ? "line-clamp-[8]" : "line-clamp-5"}`}
-      >
+      <Markdown className={`mt-1.5 break-words text-[13.5px] text-ink-2 ${people ? "line-clamp-[8]" : "line-clamp-5"}`}>
         {source.text}
-      </p>
+      </Markdown>
       <div className="mt-auto flex flex-wrap items-center gap-x-3 pt-2 text-[12.5px] text-ink-3">
         {source.product ? (
           <Link href={`/products/${encodeURIComponent(source.product.id)}`} className={metaLink}>
