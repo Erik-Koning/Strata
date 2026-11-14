@@ -15,6 +15,8 @@
 //
 // Usage: node demo/relay/run.mjs [--api http://localhost:9316] [--dir DIR] [--skip-claude]
 //   Needs the web app running against MongoDB, and `claude` on PATH, signed in.
+//   Each person's Claude Code session gets the plugin's own settings: STRATA_URL, a STRATA_HOME of their own with the
+//   auth.json /strata:login would write (their API key), and STRATA_PROJECT.
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -72,12 +74,15 @@ async function api(key, method, path, body) {
 
 // A real Claude Code session, headless, with the plugin loaded from this repository and the person's own key.
 function claude(who, key, cwd, prompt) {
+  // Signed in as this person, as /strata:login leaves it: a token (an API key the server made for them) in auth.json.
+  const home = join(DIR, `.strata-${who}`);
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  writeFileSync(join(home, "auth.json"), JSON.stringify({ token: key, serverUrl: API }), { mode: 0o600 });
   const env = {
     ...process.env,
-    MEMORY_API_URL: API,
-    MEMORY_API_TOKEN: key,
-    MEMORY_PROJECT: PROJECT,
-    MEMORY_HOME: join(DIR, `.strata-${who}`),
+    STRATA_URL: API,
+    STRATA_HOME: home,
+    STRATA_PROJECT: PROJECT,
   };
   const args = [
     "-p",
@@ -132,6 +137,15 @@ function claude(who, key, cwd, prompt) {
     .filter((c) => c.type === "tool_use")
     .map((c) => c.name);
   const final = events.find((e) => e.type === "result");
+  // What Claude Code itself reports at startup: the plugin's MCP server and the tools it exposed.
+  const init = events.find((e) => e.type === "system" && e.subtype === "init");
+  const server = (init?.mcp_servers ?? []).find((s) => /strata/.test(s.name));
+  const relayTools = (init?.tools ?? []).filter((t) => /strata_handoff_/.test(t));
+  check(
+    `${who}'s Claude Code loaded the plugin's MCP server with all five Relay tools`,
+    server?.status === "connected" && relayTools.length === 5,
+    `${server?.name ?? "no strata server"}: ${server?.status ?? "-"}, ${relayTools.length} handoff tools`,
+  );
   console.log(
     `   session ${final?.session_id ?? "?"}: ${toolUses.length} tool calls in ${Math.round((Date.now() - started) / 1000)} s; transcript ${transcript}`,
   );

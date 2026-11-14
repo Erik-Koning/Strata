@@ -65,6 +65,45 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
   cleanup fails, leaving `am_*` test databases (each with a vector index). Run DB tests on Atlas Local, or grant the
   user `dropDatabase` on `am_*`.
 
+## Merged with `main` (PR #10, 2026-11-14)
+
+`origin/main` `258571e` merged in. 14 conflicts. **Plugin owner: please review the approach before this merges.**
+
+- **Plugin:** kept #3's script-based plugin and its deletions of the old TypeScript one. Relay is ported into it as
+  `clients/claude-code/scripts/lib/relay.mjs`, and its five `strata_handoff_*` tools are registered in
+  `scripts/mcp.mjs` next to `strata_record`/`strata_search`. The server is still named `strata`, so the tool names
+  (`mcp__plugin_strata_strata__strata_handoff_*`) and `/strata:handoff`, `/strata:resume` are unchanged. Relay uses the
+  plugin's own conventions:
+  - sign-in from `$STRATA_HOME/auth.json` (the API key `/v1/auth/token` mints, so the handoff API accepts it as is);
+  - the server from `STRATA_URL`, the origin, with a trailing `/api` tolerated;
+  - api.mjs's refusal to send a token over plain http to a non-local host, and no redirects;
+  - the project from `projectOf()`, or `STRATA_PROJECT`.
+
+  Tests: `tests/relay.test.mjs` (12, node --test), including the real `mcp.mjs` over stdio.
+- **Embeddings:** `provider.ts` keeps `main`'s `draftRecords`/`stubDraft` and this branch's Voyage/OpenAI providers.
+  The real providers draft with `stubDraft`, as they summarize with the extractive stub.
+- **Collections and indexes:** the union. `handoffs` and the dimension-safe vector index sit beside `projects`,
+  `project_members`, `summary_revisions`, `records` and `deviceCode`. The audit actions of both sides are kept.
+- **Additive:** nav (My Day, Intelligence, Relay, People), the scripts (this branch's four now use `main`'s
+  `local-env.ts` loading, like the rest), the contract exports (`handoff` and `records`), and `.gitignore`.
+- `biome.json`: the formatter is off for `clients/claude-code/commands/*.md`. Biome's Markdown formatter read a
+  frontmatter line with two `:*)` as emphasis and rewrote them `:_)`, which silently broke the commands'
+  `allowed-tools`. Fixed back to `:*`.
+- `demo/relay/run.mjs` signs each person in the way the new plugin does (`STRATA_URL`, `STRATA_HOME/auth.json`,
+  `STRATA_PROJECT`), and adds two checks from Claude Code's own `init` event: the plugin's MCP server `connected`, with
+  all five handoff tools.
+
+Run on the merge (Node 22.23.3, Atlas Local): typecheck OK, lint OK, unit contracts 76/76, web 67/67, plugin 50/51,
+DB 78/78, `pnpm build` OK. Real demo against `next start`: **28/28** (the 26, plus the plugin loading in both
+sessions). `main`'s hooks ran in both sessions too.
+
+Not this merge's, found while testing it:
+
+- `main`'s plugin test "roll-up … the dashboard serves it with gaps" fails on `main` alone too (`fetch failed`, 38/39).
+- `/strata:login` with `STRATA_URL` set to the origin (as the Connect page says) posts to `/v1/auth/device`, which
+  `proxy.ts` redirects to sign-in; the route is `/api/v1/auth/device`. With `STRATA_URL=<origin>/api` login works
+  but events would go to `/api/api/memory/events`. Relay works with either.
+
 ## Atlas Cloud (`43a6ba1`, 2026-11-14)
 
 `MONGODB_URI` in `apps/web/.env.local` is an Atlas `mongodb+srv` URI with no database in its path, so the app uses

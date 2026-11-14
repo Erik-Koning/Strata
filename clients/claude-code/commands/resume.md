@@ -2,7 +2,7 @@
 
 description: Pick up a Strata Relay handoff another engineer shared with you, and continue the task
 argument-hint: "<handoff id>"
-allowed-tools: Bash(git fetch:_), Bash(git switch:_), Bash(git status:_), Bash(git log:_), Bash(git diff:*), mcp__plugin_strata_strata__strata_handoff_get, mcp__plugin_strata_strata__strata_handoff_claim, mcp__plugin_strata_strata__strata_handoff_verify, mcp__plugin_strata_strata__strata_handoff_complete
+allowed-tools: Bash(git fetch:*), Bash(git switch:*), Bash(git status:*), Bash(git log:*), Bash(git diff:*), mcp__plugin_strata_strata__strata_handoff_get, mcp__plugin_strata_strata__strata_handoff_claim, mcp__plugin_strata_strata__strata_handoff_verify, mcp__plugin_strata_strata__strata_handoff_complete
 ---
 
 Resume Strata Relay handoff `$ARGUMENTS` and continue the unfinished task in this repository.

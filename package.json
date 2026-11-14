@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @strata/web run dev",
-    "build": "pnpm --filter @strata/claude-code run build && pnpm --filter @strata/web run build",
+    "build": "pnpm --filter @strata/web run build",
     "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
     "lint": "biome check .",
     "format": "biome check --write .",
@@ -18,11 +18,14 @@
     "test:acceptance": "pnpm --filter @strata/claude-code run test:acceptance",
     "db:indexes": "pnpm --filter @strata/web run db:indexes",
     "db:seed": "pnpm --filter @strata/web run db:seed",
-    "invite": "pnpm --filter @strata/web run invite"
+    "invite": "pnpm --filter @strata/web run invite",
+    "mail:test": "pnpm --filter @strata/web run mail:test",
+    "sst": "sst"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
     "@types/node": "26.6.6",
+    "sst": "4.17.2",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
   }

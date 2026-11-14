@@ -5,8 +5,13 @@ import type {
   MemoryStatus,
   Person,
   RecordedTest,
+  RecordKind,
+  RecordStatus,
+  Ref,
   RepoState,
   Scope,
+  SummaryLinks,
+  SummarySummary,
   TimelineEntry,
   TrustLevel,
 } from "@strata/contracts";
@@ -38,6 +43,8 @@ export interface EventDoc {
   client: string | null;
   // Set once a job has read it (extract), so it's read once.
   processedAt?: Date | null;
+  // Set once the session has been drafted; the text is cleared then.
+  draftedAt?: Date | null;
 }
 
 export interface MemoryDoc {
@@ -97,6 +104,12 @@ export interface AuditDoc {
     | "handoff.denied"
     | "key.create"
     | "key.revoke"
+    | "summary.receive"
+    | "summary.retract"
+    | "record.draft"
+    | "record.edit"
+    | "record.approve"
+    | "record.discard"
     | "invite.create"
     | "invite.revoke"
     | "invite.accept"
@@ -110,6 +123,67 @@ export interface AuditDoc {
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;
   ts: Date;
+}
+
+export interface ProjectDoc {
+  _id: ObjectId;
+  name: string;
+  teamName: string;
+  description: string;
+  createdAt: Date;
+}
+
+export interface ProjectMemberDoc {
+  _id: ObjectId;
+  projectId: ObjectId;
+  userId: string;
+  role: "owner" | "member";
+  // The one project the app creates for a person; the index makes it one per user.
+  isDefault?: boolean;
+  createdAt: Date;
+}
+
+// What the server drafts from a session's events. A draft belongs to its author until approved or discarded;
+// approved insights and workflow findings are copied into memories.
+export interface RecordDoc {
+  _id: ObjectId;
+  scope: Scope;
+  sessionID: string;
+  kind: RecordKind;
+  status: RecordStatus;
+  title: string | null;
+  text: string;
+  // A normalized hash for deduping a re-draft of the same session.
+  textKey: string;
+  refs: Ref[];
+  eventIds: string[];
+  edited: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+  memoryId: ObjectId | null;
+}
+
+// One approved revision of one session. The highest revision for (userId, sessionId) is the current summary;
+// older ones stay for audit. The plugin never sends prompts or replies, so neither is stored.
+export interface SummaryRevisionDoc {
+  _id?: ObjectId;
+  // The contract version the client wrote it to (1 when absent).
+  v: number;
+  userId: string;
+  authorName: string | null;
+  sessionId: string;
+  projectId: string;
+  revision: number;
+  idempotencyKey: string;
+  updatedAt: Date;
+  receivedAt: Date;
+  client: { plugin: string; platform: string } | null;
+  repo: { remote: string; branch: string; head: string };
+  links: SummaryLinks;
+  summary: SummarySummary;
+  files: string[];
+  review: { approved: true; approvedAt: Date; edited: boolean };
 }
 
 export interface ApiKeyDoc {
@@ -208,6 +282,11 @@ export const memories = (): Collection<MemoryDoc> => db().collection<MemoryDoc>(
 export const summaries = (): Collection<SummaryDoc> => db().collection<SummaryDoc>("memory_summaries");
 export const audits = (): Collection<AuditDoc> => db().collection<AuditDoc>("memory_audit");
 export const apiKeys = (): Collection<ApiKeyDoc> => db().collection<ApiKeyDoc>("api_keys");
+export const projects = (): Collection<ProjectDoc> => db().collection<ProjectDoc>("projects");
+export const projectMembers = (): Collection<ProjectMemberDoc> => db().collection<ProjectMemberDoc>("project_members");
+export const summaryRevisions = (): Collection<SummaryRevisionDoc> =>
+  db().collection<SummaryRevisionDoc>("summary_revisions");
+export const records = (): Collection<RecordDoc> => db().collection<RecordDoc>("records");
 export const members = (): Collection<MemberDoc> => db().collection<MemberDoc>("members");
 export const teams = (): Collection<TeamDoc> => db().collection<TeamDoc>("teams");
 export const invites = (): Collection<InviteDoc> => db().collection<InviteDoc>("invites");

@@ -3,7 +3,20 @@
 // runs it), which becomes queryable a little after it's created: `wait` polls until it is.
 
 import { embeddingModelId, provider, STUB_DIMENSIONS, STUB_MODEL } from "./ai/provider.ts";
-import { apiKeys, audits, events, handoffs, invites, memories, summaries, teams, VECTOR_INDEX } from "./collections.ts";
+import {
+  apiKeys,
+  audits,
+  events,
+  handoffs,
+  invites,
+  memories,
+  projectMembers,
+  records,
+  summaries,
+  summaryRevisions,
+  teams,
+  VECTOR_INDEX,
+} from "./collections.ts";
 import { config } from "./config.ts";
 import { db } from "./db.ts";
 
@@ -24,6 +37,11 @@ export async function ensureIndexes({
     "teams",
     "invites",
     "handoffs",
+    "projects",
+    "project_members",
+    "summary_revisions",
+    "records",
+    "deviceCode",
   ])
     if (!existing.has(name))
       await db()
@@ -61,6 +79,26 @@ export async function ensureIndexes({
     handoffs().createIndex({ "sender.id": 1, updatedAt: -1 }, { name: "by_sender" }),
     handoffs().createIndex({ "recipient.id": 1, status: 1, updatedAt: -1 }, { name: "by_recipient" }),
     handoffs().createIndex({ org: 1, project: 1, updatedAt: -1 }, { name: "by_project" }),
+    projectMembers().createIndex({ userId: 1, projectId: 1 }, { unique: true, name: "member_unique" }),
+    projectMembers().createIndex(
+      { userId: 1, isDefault: 1 },
+      { unique: true, partialFilterExpression: { isDefault: true }, name: "one_default_unique" },
+    ),
+    projectMembers().createIndex({ projectId: 1 }, { name: "by_project" }),
+    summaryRevisions().createIndex({ userId: 1, idempotencyKey: 1 }, { unique: true, name: "idempotency_unique" }),
+    summaryRevisions().createIndex({ userId: 1, sessionId: 1, revision: 1 }, { unique: true, name: "revision_unique" }),
+    summaryRevisions().createIndex({ projectId: 1, updatedAt: -1 }, { name: "by_project_recent" }),
+    summaryRevisions().createIndex({ userId: 1, updatedAt: -1 }, { name: "by_user_recent" }),
+    summaryRevisions().createIndex({ "links.jira": 1 }, { name: "by_jira" }),
+    summaryRevisions().createIndex({ "links.pr.url": 1 }, { name: "by_pr" }),
+    // Drafting a session twice never makes the same record twice.
+    records().createIndex(
+      { "scope.org": 1, "scope.user": 1, "scope.project": 1, sessionID: 1, kind: 1, textKey: 1 },
+      { unique: true, name: "record_unique" },
+    ),
+    records().createIndex({ "scope.user": 1, status: 1, updatedAt: -1 }, { name: "by_author_status" }),
+    records().createIndex({ "scope.user": 1, sessionID: 1 }, { name: "by_session" }),
+    // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);
   const vector = await ensureVectorIndex(wait, timeoutMs);
   return { vector: vector.state, vectorAction: vector.action, vectorDetail: vector.detail };

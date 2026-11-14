@@ -6,7 +6,7 @@
     {
       "name": "strata",
       "source": "./clients/claude-code",
-      "description": "Long-term memory for Claude Code, without breaking the prompt cache."
+      "description": "Engineer-reviewed session summaries for Claude Code, shared with your team."
     }
   ]
 }
