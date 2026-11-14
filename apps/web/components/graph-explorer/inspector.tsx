@@ -12,6 +12,7 @@ import {
   KIND_COLOR,
   KIND_LABEL,
 } from "../../server/hub/graph-model.ts";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { externalLabel, hoursText, occurrencesText, openLabel, recurrenceText } from "./format.ts";
 
@@ -101,7 +102,7 @@ export function Inspector({
 
       <div className="flex flex-col gap-5 px-5 py-4">
         {node.text && node.text !== node.label ? (
-          <p className="whitespace-pre-line text-[13.5px] text-ink-2 leading-relaxed">{node.text}</p>
+          <Markdown className="break-words text-[13.5px] text-ink-2 leading-relaxed">{node.text}</Markdown>
         ) : null}
 
         {node.href || node.external ? (
