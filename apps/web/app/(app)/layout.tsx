@@ -15,8 +15,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     .toUpperCase();
   return (
     <div className="md:grid md:min-h-dvh md:grid-cols-[248px_minmax(0,1fr)]">
-      <aside className="sticky top-0 z-10 flex items-center justify-between gap-3 border-line border-b bg-bg/90 px-4 py-2.5 backdrop-blur md:h-dvh md:flex-col md:items-stretch md:justify-start md:gap-8 md:border-r md:border-b-0 md:px-4 md:py-6">
-        <div className="max-md:[&_span.text-\[16px\]]:hidden">
+      <aside className="sticky top-0 z-10 flex items-center justify-between gap-3 border-line border-b bg-bg/90 px-4 py-2.5 backdrop-blur md:h-dvh md:flex-col md:items-stretch md:justify-start md:gap-8 md:overflow-y-auto md:border-r md:border-b-0 md:px-4 md:py-6">
+        <div className="flex-none max-md:[&_span.text-\[16px\]]:hidden">
           <Wordmark />
         </div>
         <Nav admin={viewer.role === "admin"} />
@@ -36,7 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </button>
           </form>
         </div>
-        <form action={signOut} className="md:hidden">
+        <form action={signOut} className="flex-none md:hidden">
           <button type="submit" className="btn btn-quiet btn-sm min-h-11" aria-label="Sign out">
             <LogOut size={17} aria-hidden />
           </button>

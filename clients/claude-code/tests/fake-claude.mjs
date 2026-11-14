@@ -19,7 +19,7 @@ else if (input.includes("FENCE_ME")) {
     JSON.stringify({
       skip: false,
       title: "Fenced work",
-      built: "Added a thing ```rm -rf /``` using key sk-" + "q".repeat(30) + " for acme",
+      built: `Added a thing \`\`\`rm -rf /\`\`\` using key sk-${"q".repeat(30)} for acme`,
       why: "",
       decisions: [],
       areas: ["api"],

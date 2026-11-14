@@ -33,6 +33,7 @@ function requireAuth() {
 }
 
 function openBrowser(url) {
+  if (process.env.STRATA_NO_BROWSER) return;
   const [cmd, ...rest] =
     process.platform === "darwin"
       ? ["open", url]
