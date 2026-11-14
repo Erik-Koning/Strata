@@ -1,6 +1,6 @@
 # Strata API contract (what the plugin expects)
 
-Base URL from `STRATA_URL` or `~/.strata/config.json` (`serverUrl`). JSON everywhere. All `/v1/*` routes except the two auth ones need `Authorization: Bearer <token>`; a bad or expired token returns `401 {"error":"invalid_token"}`.
+Base URL from `STRATA_URL`, else `serverUrl` in `~/.strata/config.json`, else `http://localhost:9316` (the app's `pnpm dev` address). The token is only ever sent to the server that issued it. JSON everywhere. All `/v1/*` routes except the two auth ones need `Authorization: Bearer <token>`; a bad or expired token returns `401 {"error":"invalid_token"}`.
 
 ## What Strata receives, and what it never does
 

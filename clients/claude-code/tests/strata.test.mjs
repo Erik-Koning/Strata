@@ -565,11 +565,36 @@ test('"keep on this machine" sessions are never sent, even if approved', async (
 });
 
 test("refuses to send credentials over plain http to a remote host", () => {
+  // Signed in to that host itself, so it's the plain-http rule that refuses here, not the server check below.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "strata-plain-http-"));
+  fs.writeFileSync(
+    path.join(home, "auth.json"),
+    JSON.stringify({
+      token: "t",
+      user: { name: "Ada", email: "ada@example.com" },
+      serverUrl: "http://hub.example.com",
+    }),
+  );
   const r = spawnSync(process.execPath, [HUB, "projects"], {
-    env: { ...env, STRATA_URL: "http://hub.example.com" },
+    env: { ...env, STRATA_HOME: home, STRATA_URL: "http://hub.example.com" },
     encoding: "utf8",
   });
   assert.match(r.stdout, /refusing to send credentials/);
+});
+
+test("a token goes only to the server that issued it: pointed elsewhere, the plugin asks for a new sign-in", () => {
+  const r = spawnSync(process.execPath, [HUB, "projects"], {
+    env: { ...env, STRATA_URL: "https://hub.example.com" },
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /Signed in to http:\/\/localhost:\d+, but Strata now points at https:\/\/hub\.example\.com/);
+  assert.match(r.stdout, /Run \/strata:login/);
+  const status = spawnSync(process.execPath, [HUB, "status"], {
+    env: { ...env, STRATA_URL: "https://hub.example.com" },
+    encoding: "utf8",
+  });
+  assert.match(status.stdout, /user: +signed in to http:\/\/localhost:\d+, not this server/);
 });
 
 // ---------- dashboard ----------

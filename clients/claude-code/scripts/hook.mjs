@@ -28,7 +28,9 @@ import {
   p,
   pruneDir,
   readJson,
+  serverUrl,
   setSession,
+  signedInElsewhere,
   writeJson,
 } from "./lib/store.mjs";
 import { summarizeSession } from "./lib/summarize.mjs";
@@ -197,9 +199,12 @@ const handlers = {
     const messages = [];
 
     if (!auth?.token) {
+      const elsewhere = signedInElsewhere();
       if (noticeDue("login")) {
         guidance.push(
-          "Strata is installed but the user is not signed in. Session summaries are written and kept locally, and nothing is sent until they sign in and approve. Mention once that they can run /strata:login (or /strata:dashboard to manage everything).",
+          elsewhere
+            ? `Strata is signed in to ${elsewhere}, but now points at ${serverUrl()}, so nothing is sent: a sign-in only ever goes to the server that issued it. Session summaries are still written and kept locally. Mention once that they can run /strata:login to sign in to ${serverUrl()}.`
+            : "Strata is installed but the user is not signed in. Session summaries are written and kept locally, and nothing is sent until they sign in and approve. Mention once that they can run /strata:login (or /strata:dashboard to manage everything).",
         );
       }
     } else if (health.authExpired) {

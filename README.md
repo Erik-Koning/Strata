@@ -308,9 +308,16 @@ Open the link to make your account (accounts are by invitation; invite everyone 
 /plugin install strata@strata
 ```
 
-The plugin finds the app at `STRATA_URL` (set it in `~/.claude/settings.json` under `env`, or in your shell). Then run
-`/strata:login` in Claude Code: it opens the app's `/activate` page, you approve the sign-in there, and the plugin keeps
-its token in `~/.strata/auth.json`. It needs no API key; the keys on **Connect** are for scripts and other clients.
+The plugin finds the app at `http://localhost:9316`, the address `pnpm dev` serves, unless `STRATA_URL` (in
+`~/.claude/settings.json` under `env`, or in your shell) or `serverUrl` in `~/.strata/config.json` names another: a
+different port, or a deployed app. Then run `/strata:login` in Claude Code: it opens the app's `/activate` page, you
+approve the sign-in there, and the plugin keeps its token in `~/.strata/auth.json`. It needs no API key; the keys on
+**Connect** are for scripts and other clients.
+
+A token only ever goes to the server that issued it. Point the plugin somewhere else and it reads as signed out, keeping
+everything local, until you run `/strata:login` there; point it back and the earlier sign-in works again. A server run on
+another port sets `PORT`, and `BETTER_AUTH_URL` too if `.env.local` names one, so the links it hands out (the plugin's
+sign-in page) open the same server.
 
 To run the plugin from this checkout against the dev server, with a sign-in kept apart from your everyday one:
 
