@@ -13,7 +13,10 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:indexes": "node --env-file-if-exists=.env.local scripts/db-indexes.ts",
     "db:seed": "node --env-file-if-exists=.env.local scripts/db-seed.ts",
-    "invite": "node --env-file-if-exists=.env.local scripts/invite.ts"
+    "invite": "node --env-file-if-exists=.env.local scripts/invite.ts",
+    "atlas:check": "node --env-file-if-exists=.env.local scripts/atlas-check.ts",
+    "db:reembed": "node --env-file-if-exists=.env.local scripts/re-embed.ts",
+    "relay:demo-accounts": "node --env-file-if-exists=.env.local scripts/relay-demo-accounts.ts"
   },
   "dependencies": {
     "@strata/contracts": "workspace:*",

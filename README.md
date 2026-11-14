@@ -10,6 +10,49 @@ The diagram's source is [`docs/how-strata-works.excalidraw.json`](docs/how-strat
 excalidraw.com or with the VS Code Excalidraw extension, and export it again as `docs/how-strata-works.svg` after a
 change.
 
+## Strata Relay: hand unfinished work to another engineer
+
+Relay lets Engineer A hand a task in progress to Engineer B, whose **fresh** Claude Code session picks it up from a
+verified checkpoint, not a raw conversation.
+
+```mermaid
+sequenceDiagram
+  participant A as Alice's Claude Code
+  participant S as Strata API + MongoDB
+  participant W as Relay page (web)
+  participant B as Bob's fresh Claude Code
+  A->>A: /strata:handoff: git state read, tests run (verified)
+  A->>S: POST /api/handoffs (draft: only Alice can read it)
+  W->>S: Alice reviews, picks Bob and the memories to share, approves
+  B->>S: /strata:resume <id>: GET /resume with Bob's own key
+  S-->>B: checkpoint + only the approved memories, re-checked now, framed as untrusted
+  B->>B: repository check (same repo, commit present), claim
+  B->>B: does the work, runs the handoff's test commands through Strata
+  B->>S: complete: verified only if every test command passed after the claim
+  W->>S: Alice can revoke any time before completion: Bob gets 404 from then on
+```
+
+| Status      | Who can read it           | Who can change it                                      |
+| ----------- | ------------------------- | ------------------------------------------------------ |
+| `draft`     | the sender                | the sender: edit, approve, record tests, revoke        |
+| `approved`  | the sender, the recipient | the recipient claims; the sender revokes               |
+| `claimed`   | the sender, the recipient | the recipient records tests, completes; sender revokes |
+| `completed` | the sender, the recipient | nobody                                                 |
+| `revoked`   | the sender                | nobody                                                 |
+
+Anyone else, any id that doesn't exist, and a draft or revoked handoff asked for by its recipient all get the same
+`404`. A test result is **verified** only when Strata's client ran the command and captured its exit code; anything
+typed is a claim, and is shown as one. Uncommitted changes don't travel, and a commit that isn't pushed is a blocker the
+recipient's session names rather than works around.
+
+- The contract: [`packages/contracts/src/handoff.ts`](packages/contracts/src/handoff.ts)
+- The server: [`apps/web/server/handoffs/`](apps/web/server/handoffs) (the rules are in `lifecycle.ts`)
+- Claude Code: [`clients/claude-code/src/relay.ts`](clients/claude-code/src/relay.ts), with `/strata:handoff` and
+  `/strata:resume` in [`clients/claude-code/commands/`](clients/claude-code/commands)
+- The page: `/relay` in the app
+- The demo, end to end with real Claude Code sessions: [`demo/relay/`](demo/relay) (`node demo/relay/run.mjs`)
+- Progress and what's verified: [`HACKATHON_STATUS.md`](HACKATHON_STATUS.md)
+
 ## What's built so far
 
 On 14 November 2026 Strata went from an empty repository to a working loop, end to end. **The web app** (Next.js 16,

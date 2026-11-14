@@ -48,6 +48,10 @@ export interface MemoryDoc {
   // The text, lower-cased with its spacing and end stops dropped, hashed: the same memory said twice is kept once.
   textKey: string;
   embedding: number[];
+  // Which model made `embedding`, as provider:model:dimensions. Recall compares only vectors from the active model;
+  // `pnpm db:reembed` brings the rest over. Missing on memories from before it was kept (stub vectors, stamped by
+  // `pnpm db:indexes`).
+  embeddingModel?: string;
   provenance: {
     sessionID: string | null;
     messageID: string | null;
