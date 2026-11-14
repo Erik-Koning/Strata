@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   Forward,
   MessageCircleQuestionMark,
+  Newspaper,
   Puzzle,
   Radar,
   ScrollText,
@@ -20,6 +21,7 @@ import { useEffect, useRef } from "react";
 const LINKS = [
   { href: "/", label: "Overview", icon: Activity },
   { href: "/products", label: "Products", icon: Boxes },
+  { href: "/digest", label: "Digest", icon: Newspaper },
   { href: "/time", label: "Time", icon: Timer },
   { href: "/gaps", label: "Gaps", icon: Puzzle },
   { href: "/ask", label: "Ask", icon: MessageCircleQuestionMark },
