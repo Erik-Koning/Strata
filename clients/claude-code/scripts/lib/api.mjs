@@ -3,7 +3,6 @@ import { serverUrl } from "./store.mjs";
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // A bearer token and a team's work context must not cross the network in the clear.
-// claude-mem warns about plain HTTP for its ingest token; we refuse outright.
 function checkTransport(base) {
   const url = new URL(base);
   if (url.protocol === "https:" || LOCAL_HOSTS.has(url.hostname) || process.env.STRATA_ALLOW_INSECURE === "1") return;

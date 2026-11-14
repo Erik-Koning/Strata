@@ -20,12 +20,12 @@ const config: NextConfig = {
   transpilePackages: ["@strata/contracts"],
   turbopack: { root },
   outputFileTracingRoot: root,
-  async headers() {
-    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
-  },
-  // The plugin and its contract (clients/claude-code/docs/api-contract.md) call /v1/*; the routes live under /api/v1.
+  // The clients speak the documented /v1 contract; the handlers sit under /api/v1 with the rest of the API.
   async rewrites() {
     return [{ source: "/v1/:path*", destination: "/api/v1/:path*" }];
+  },
+  async headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 };
 

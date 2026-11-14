@@ -35,11 +35,41 @@ export function writeJson(file, data) {
 }
 
 export const settings = () => readJson(p("config.json"), {});
-export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || "http://localhost:8787";
+
+// The app's own default address: `pnpm dev` serves http://localhost:9316 (apps/web/package.json, server/config.ts),
+// so a local run needs no setting. STRATA_URL or `serverUrl` in config.json points elsewhere: another port, or a
+// deployed app. tests/config.test.mjs fails if this and the app's default drift apart.
+export const DEFAULT_SERVER_URL = "http://localhost:9316";
+export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || DEFAULT_SERVER_URL;
+
+// One server written two ways (a trailing slash, an upper-case host) is the same server.
+export function sameServer(a, b) {
+  const normal = (url) => {
+    try {
+      const parsed = new URL(url);
+      return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
+    } catch {
+      return String(url).replace(/\/+$/, "");
+    }
+  };
+  return normal(a) === normal(b);
+}
 
 // The token is a bearer credential: user identity comes from it on the server,
-// never from anything this client claims.
-export const getAuth = () => readJson(p("auth.json"), null);
+// never from anything this client claims. It goes only to the server that issued it: once STRATA_URL or `serverUrl`
+// points somewhere else, the stored sign-in reads as signed out (and capture stays local) until /strata:login is run
+// against the new server. A sign-in saved without its server can't show where it came from, so it's treated the same.
+export const storedAuth = () => readJson(p("auth.json"), null);
+export const getAuth = () => {
+  const auth = storedAuth();
+  return auth?.serverUrl && sameServer(auth.serverUrl, serverUrl()) ? auth : null;
+};
+// Where the stored sign-in belongs when that isn't where the plugin now points, so a message can say so.
+export const signedInElsewhere = () => {
+  const auth = storedAuth();
+  if (!auth?.token || getAuth()) return null;
+  return auth.serverUrl || "a server it didn't record";
+};
 export const setAuth = (auth) => writeJson(p("auth.json"), auth);
 export const clearAuth = () => fs.rmSync(p("auth.json"), { force: true });
 

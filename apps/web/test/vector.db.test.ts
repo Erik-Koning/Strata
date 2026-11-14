@@ -1,13 +1,11 @@
 // Retrieval governance on a real Atlas Search engine (the team's atlas-local MongoDB): recall and frozen give back only
 // the scope's live memories, even when what they must leave out are the nearest vectors there are. Also: the vector
 // index follows the provider's dimensions. On a database of its own, dropped afterwards.
-import { randomBytes } from "node:crypto";
 import { ObjectId } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `am_vec_${randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("am_vec");
 process.env.MEMORY_AI_PROVIDER = "stub";
 
 const { db, closeMongo } = await import("../server/db.ts");
@@ -99,7 +97,7 @@ beforeAll(async () => {
   await searchable([...kept, ...left, otherModel].map((m) => m._id));
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 
@@ -183,7 +181,11 @@ describe("health", () => {
       search: "ready",
       embeddings: { provider: "stub", model: "fnv1a-hash", dimensions: 256, semantic: false },
       vectorIndex: { state: "ready", numDimensions: 256, expectedDimensions: 256, matchesProvider: true },
-      cluster: { kind: "local", version: expect.any(String) },
+      // Whichever MongoDB the tests run on: the team's Atlas cluster, or a local one (atlas-local, a plain mongod).
+      cluster: {
+        kind: /^mongodb\+srv:|\.mongodb\.net\b/i.test(process.env.MONGODB_URI ?? "") ? "atlas" : "local",
+        version: expect.any(String),
+      },
     });
   });
 });

@@ -1,7 +1,6 @@
-import { spawn } from "node:child_process";
 import crypto from "node:crypto";
-import fs from "node:fs";
 import { log } from "./log.mjs";
+import { runModel } from "./model.mjs";
 import { bumpQueueItem, listQueue, readSummary, removeQueueItem, tryLock, writeSummary } from "./records.mjs";
 import { isEmptySummary, sanitizeSummary } from "./schema.mjs";
 import { getHealth, p, readJson, setHealth, settings, writeJson } from "./store.mjs";
@@ -12,7 +11,6 @@ import { getHealth, p, readJson, setHealth, settings, writeJson } from "./store.
 const BATCH = 8;
 const MAX_ATTEMPTS = 3;
 const ITEM_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-const CALL_TIMEOUT_MS = 120_000;
 const LOCK_TTL_MS = 10 * 60 * 1000;
 
 const SYSTEM = `You maintain a short, factual work summary for a shared engineering context for the team. Colleagues and managers read it to learn what was built, why, and who to ask.
@@ -35,76 +33,10 @@ Rules:
 Answer with exactly one JSON object and nothing else:
 {"skip": false, "title": "<=100 chars", "built": "what now exists or works, <=500 chars", "why": "purpose or context if stated, else empty, <=300", "decisions": ["<=5 choices made and the reason, <=160 chars each"], "areas": ["<=8 short component or path names"], "open": ["<=5 unfinished items, risks or follow-ups"], "insights": ["<=5, <=200 chars each"], "workflow": ["<=5, <=200 chars each"], "painPoints": ["<=5, <=200 chars each"], "gaps": ["<=5, <=200 chars each"]}`;
 
-export const claudeBin = () => process.env.STRATA_CLAUDE_BIN || settings().claudeBin || "claude";
-export const summaryModel = () => settings().summaryModel || "haiku";
+export { claudeBin, summaryModel } from "./model.mjs";
 
 // ---------- one model call ----------
-function runClaude(prompt) {
-  return new Promise((resolve, reject) => {
-    const cwd = p("summarizer");
-    fs.mkdirSync(cwd, { recursive: true, mode: 0o700 });
-    // Own empty working directory (no repo files to pick up), no tools, no slash commands, no MCP,
-    // project settings off. STRATA_INTERNAL makes our own hooks ignore this session, and
-    // CLAUDE_MEM_INTERNAL does the same for claude-mem, so the summarizer is never itself summarized.
-    const child = spawn(
-      claudeBin(),
-      [
-        "-p",
-        "--model",
-        summaryModel(),
-        "--tools",
-        "",
-        "--no-session-persistence",
-        "--output-format",
-        "json",
-        "--disable-slash-commands",
-        "--strict-mcp-config",
-        "--setting-sources",
-        "local",
-        "--max-budget-usd",
-        "0.05",
-        "--system-prompt",
-        SYSTEM,
-      ],
-      {
-        cwd,
-        env: { ...process.env, STRATA_INTERNAL: "1", CLAUDE_MEM_INTERNAL: "1" },
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      },
-    );
-    let out = "";
-    let err = "";
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error("summarizer timed out"));
-    }, CALL_TIMEOUT_MS);
-    child.stdout.on("data", (d) => {
-      out += d;
-    });
-    child.stderr.on("data", (d) => {
-      err += d;
-    });
-    child.on("error", (e) => {
-      clearTimeout(timer);
-      reject(e.code === "ENOENT" ? new Error(`the claude CLI was not found (looked for "${claudeBin()}")`) : e);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code !== 0) return reject(new Error(`summarizer exited ${code}: ${err.slice(0, 160)}`));
-      try {
-        const doc = JSON.parse(out);
-        if (doc.is_error || typeof doc.result !== "string")
-          throw new Error(String(doc.result ?? "no result").slice(0, 160));
-        resolve(doc.result);
-      } catch (e) {
-        reject(new Error(`unreadable summarizer output: ${e.message}`));
-      }
-    });
-    child.stdin.on("error", () => {});
-    child.stdin.end(prompt);
-  });
-}
+// The backend (claude or opencode) is chosen in model.mjs, so the worker does not care which CLI it is.
 
 export function extractJson(text) {
   // Cut the object out by its braces. A code fence wrapped around it falls away on its own; fences
@@ -208,7 +140,7 @@ export async function summarizeSession(sid) {
       const batch = live.slice(0, BATCH);
       const current = readSummary(sid);
       try {
-        const reply = await runClaude(buildPrompt(current?.summary ?? null, current?.edited ?? false, batch));
+        const reply = await runModel(buildPrompt(current?.summary ?? null, current?.edited ?? false, batch), SYSTEM);
         const result = parseModelReply(reply);
         countUse();
         applyResult(sid, result, batch);

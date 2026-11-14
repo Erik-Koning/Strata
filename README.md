@@ -96,9 +96,9 @@ flowchart LR
     CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>PostToolUse, Stop, PreCompact, PostCompact, SessionEnd" --> PL["Strata plugin<br/>clients/claude-code"]
     CC -- "MCP: strata_record / strata_search" --> PL
     PL --- OB[("event outbox, summary queue,<br/>drafts and the kept overview")]
-    PL -- "claude -p, headless<br/>local summaries" --> CL["your Claude CLI"]
-    OC["OpenCode"] -.-> OP["adapters/opencode<br/>(unverified)"]
-    OP -.-> PL
+    PL -- "claude -p or opencode run, headless<br/>local summaries" --> CL["your agent CLI"]
+    OC["OpenCode"] -- "hooks: prompt, execute.after,<br/>compaction, idle, session lifecycle" --> OP["Strata plugin<br/>clients/opencode"]
+    OP --> PL
   end
   subgraph server["Strata web app: apps/web"]
     API["/api/memory/*<br/>/v1 summaries<br/>/api/records"]
@@ -170,6 +170,7 @@ The data model, who can do what, and how each hook maps to the client are in [`d
 | Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                            |
 | AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                 |
 | Claude Code plugin       | `clients/claude-code`    | hooks, event outbox, records capture, summary dashboard, MCP server; no build step |
+| OpenCode plugin          | `clients/opencode`       | the same capture core behind OpenCode v2 hooks, all 11 commands, MCP and the skill |
 | Contracts                | `packages/contracts`     | contract version, schemas, signals, records, summary, `redact`, render             |
 | Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                           |
 | The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                            |
@@ -199,14 +200,15 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **OpenCode plugin**
 
-- [ ] Verify the real `@opencode-ai/plugin` API against the brief's sketch: hook names, event fields, timeouts,
-      storage, whether a prompt edit shows in the TUI
-- [ ] `.opencode/plugins/memory`: `index.ts`, `api.ts`, `outbox.ts`, `freeze.ts`, `render.ts`, `redact.ts`, `tools.ts`
+- [x] Verify the real `@opencode/plugin` API (v2) against the installed types: hook names, event fields, timeouts
+- [x] `clients/opencode`: a `Plugin.define` server part driving the shared capture core
+- [x] All 11 commands registered through `ctx.command.transform`, MCP through `ctx.mcp.transform`, the skill through
+      `ctx.skill.transform`
+- [x] Acceptance through a fake plugin host: every hook maps to the core's contract, and a throwing hook never
+      propagates into the session
 - [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
-- [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
-      prompts go on and the outbox drains with no duplicates
-- [ ] Bundle `@strata/contracts` into the plugin, as the Claude Code client does: once installed outside this
-      repository it can't import the workspace package
+- [ ] Bundle `@strata/contracts` into the clients: once installed outside this repository they can't import the
+      workspace package, so both clients currently carry their own copy of the summary schema
 
 **Memory pipeline**
 
@@ -220,6 +222,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 - [x] Invite-only accounts; roles (engineer, manager, executive, admin), teams, suspension; the People page and the
       admins' log of access changes (`pnpm invite <email>` makes the first admin)
+- [x] My Day, for people who use the plugin: approve, edit or discard what their sessions drafted (session
+      summaries at session end, and findings), and keep or set aside suggested memories
 - [ ] Home views by role, over approved records (everyone sees those; private memory stays its owner's): pain points
       and context gaps for engineers; features and who worked on them for managers; progress for executives. Who,
       never how much: no counts, rankings or activity about people
@@ -329,9 +333,16 @@ Open the link to make your account (accounts are by invitation; invite everyone 
 /plugin install strata@strata
 ```
 
-The plugin finds the app at `STRATA_URL` (set it in `~/.claude/settings.json` under `env`, or in your shell). Then run
-`/strata:login` in Claude Code: it opens the app's `/activate` page, you approve the sign-in there, and the plugin keeps
-its token in `~/.strata/auth.json`. It needs no API key; the keys on **Connect** are for scripts and other clients.
+The plugin finds the app at `http://localhost:9316`, the address `pnpm dev` serves, unless `STRATA_URL` (in
+`~/.claude/settings.json` under `env`, or in your shell) or `serverUrl` in `~/.strata/config.json` names another: a
+different port, or a deployed app. Then run `/strata:login` in Claude Code: it opens the app's `/activate` page, you
+approve the sign-in there, and the plugin keeps its token in `~/.strata/auth.json`. It needs no API key; the keys on
+**Connect** are for scripts and other clients.
+
+A token only ever goes to the server that issued it. Point the plugin somewhere else and it reads as signed out, keeping
+everything local, until you run `/strata:login` there; point it back and the earlier sign-in works again. A server run on
+another port sets `PORT`, and `BETTER_AUTH_URL` too if `.env.local` names one, so the links it hands out (the plugin's
+sign-in page) open the same server.
 
 To run the plugin from this checkout against the dev server, with a sign-in kept apart from your everyday one:
 
@@ -341,6 +352,23 @@ STRATA_URL=http://localhost:9316 STRATA_HOME=~/.strata-dev claude --plugin-dir c
 
 `STRATA_HOME` is where the plugin keeps its sign-in, settings and local drafts (`~/.strata` by default). The API the
 plugin talks to is described in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
+
+For **OpenCode**, point `opencode.jsonc` at the plugin directory and sign in once:
+
+```jsonc
+// opencode.jsonc
+{
+  "plugins": [{ "package": "./clients/opencode" }]
+}
+```
+
+```sh
+node clients/claude-code/scripts/strata.mjs login
+```
+
+A key is not tied to a client, so the same `am_…` key works for either. Set `summarizerBackend` to `"opencode"` in
+`~/.strata/config.json` to write local summaries with `opencode run` instead of `claude -p`. More in
+[`clients/opencode/README.md`](clients/opencode/README.md).
 
 ## Deploy
 

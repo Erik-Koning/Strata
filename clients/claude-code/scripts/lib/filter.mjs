@@ -1,10 +1,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { settings } from "./store.mjs";
+import { p, settings } from "./store.mjs";
 
 // Glob support for config.json `excludedPaths`: `*`, `**`, `?`, and a leading `~`.
-// Same semantics claude-mem uses for its excluded-projects setting.
 function globToRegex(pattern) {
   let expanded = pattern.replace(/\\/g, "/");
   if (expanded === "~" || expanded.startsWith("~/")) expanded = os.homedir().replace(/\\/g, "/") + expanded.slice(1);
@@ -20,6 +19,9 @@ function globToRegex(pattern) {
 }
 
 export function isExcluded(cwd) {
+  // The summarizer's own working directory. Its calls set STRATA_INTERNAL, but a host that runs inside a
+  // long-lived server (OpenCode) cannot pass that to its plugin, so the path is excluded as well.
+  if (path.resolve(cwd) === path.resolve(p("summarizer"))) return true;
   const patterns = settings().excludedPaths;
   if (!Array.isArray(patterns)) return false;
   const normalized = cwd.replace(/\\/g, "/");
@@ -35,7 +37,7 @@ export function isExcluded(cwd) {
 }
 
 // The directory a hook runs in must be a real absolute directory. Hosts occasionally
-// send an empty, relative or stale cwd (claude-mem rejects these at its adapter).
+// send an empty, relative or stale cwd.
 export function resolveCwd(input) {
   for (const candidate of [input.cwd, process.env.CLAUDE_PROJECT_DIR]) {
     if (typeof candidate !== "string" || !path.isAbsolute(candidate)) continue;

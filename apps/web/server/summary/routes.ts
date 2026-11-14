@@ -120,8 +120,8 @@ export const postSummaryEvent = v1Route(async (request) => {
   await assertMember(me.userId, event.projectId);
   const summary = sanitizeSummary(event.summary);
   if (isEmptySummary(summary)) throw new V1Error(422, "empty_summary");
+  // Links are optional: a summary may arrive with no ticket and no PR.
   const links = sanitizeLinks(event.links);
-  if (!links.jira.length && !links.pr && !links.noTicket) throw new V1Error(422, "unlinked");
 
   const { duplicate } = await storeRevision({
     v: event.v,

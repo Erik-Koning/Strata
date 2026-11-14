@@ -136,8 +136,6 @@ http
       if (event.review?.approved !== true || !event.review?.approvedAt)
         return send(res, 422, { error: "not_approved" });
       if (!event.summary?.title || !event.summary?.built) return send(res, 422, { error: "empty_summary" });
-      if (!event.links?.jira?.length && !event.links?.pr && !event.links?.noTicket)
-        return send(res, 422, { error: "unlinked" });
       // The server stamps the author from the token; nothing the client sends can set it.
       const key = `${user.id}:${event.idempotencyKey}`;
       posts.set(key, (posts.get(key) ?? 0) + 1);

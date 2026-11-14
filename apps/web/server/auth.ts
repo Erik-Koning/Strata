@@ -11,6 +11,7 @@ import { bearer, deviceAuthorization } from "better-auth/plugins";
 import { invites, members } from "./collections.ts";
 import { config } from "./config.ts";
 import { db, mongo } from "./db.ts";
+import { RESET_LINK_SECONDS, sendResetLink } from "./password-reset.ts";
 
 function makeAuth() {
   const { authSecret, baseURL } = config();
@@ -20,7 +21,20 @@ function makeAuth() {
     basePath: "/api/auth",
     secret: authSecret,
     database: mongodbAdapter(db(), { client: mongo() }),
-    emailAndPassword: { enabled: true, minPasswordLength: 10, maxPasswordLength: 128, autoSignIn: true },
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 10,
+      maxPasswordLength: 128,
+      autoSignIn: true,
+      // "Forgot your password?" (password-reset.ts). Not awaited, so the answer takes as long whether or not the email
+      // has an account: waiting on the email would say which.
+      sendResetPassword: async ({ user, token }) => {
+        void sendResetLink(user.email, token);
+      },
+      resetPasswordTokenExpiresIn: RESET_LINK_SECONDS,
+      // A new password ends every session the old one opened, the plugin's sign-in included.
+      revokeSessionsOnPasswordReset: true,
+    },
     session: { expiresIn: 60 * 60 * 24 * 14, updateAge: 60 * 60 * 24 },
     advanced: { cookiePrefix: "strata" },
     disabledPaths: ["/sign-up/email"],

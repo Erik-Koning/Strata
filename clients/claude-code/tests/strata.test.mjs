@@ -326,17 +326,11 @@ test("retract removes it from the hub; the local copy stays and needs approval a
 });
 
 // ---------- links ----------
-test("work with no ticket or PR is held until it is linked or marked as having none", async () => {
+test("links are optional: a summary can be approved and sent without a ticket or PR", async () => {
   turn("nolink", "tidy the readme", "Rewrote the readme intro.", PLAIN);
-  assert.equal(await status("nolink"), "needs-link");
-  assert.equal((await approve("nolink")).status, 409);
+  assert.equal(await status("nolink"), "draft");
   assert.equal((await patch("nolink", { links: { jira: ["not a key"] } })).status, 400);
   assert.equal((await patch("nolink", { links: { prUrl: "javascript:alert(1)" } })).status, 400);
-  assert.equal(
-    (await patch("nolink", { links: { jira: ["PAY-7"], prUrl: "https://github.com/acme/plain/pull/9" } })).status,
-    200,
-  );
-  assert.equal(await status("nolink"), "draft");
   assert.equal((await approve("nolink")).status, 200);
   assert.equal(await status("nolink"), "ready", "approved, but this repo has no project yet");
   assert.equal((await dashFetch("/api/sessions/nolink/sync", { method: "POST" })).status, 200);
@@ -346,6 +340,20 @@ test("work with no ticket or PR is held until it is linked or marked as having n
   assert.equal((await dashFetch("/api/sessions/nolink/sync", { method: "POST" })).status, 200);
   const event = (await stored()).find((e) => e.sessionId === "nolink");
   assert.equal(event.projectId, "p_search");
+  assert.deepEqual(event.links.jira, []);
+  assert.equal(event.links.pr, null);
+  assert.equal(event.links.noTicket, false);
+});
+
+test("links, when the work has them, ride along untouched", async () => {
+  turn("linked", "x", "Fixed the export rounding.", PLAIN);
+  assert.equal(
+    (await patch("linked", { links: { jira: ["PAY-7"], prUrl: "https://github.com/acme/plain/pull/9" } })).status,
+    200,
+  );
+  assert.equal((await patch("linked", { projectId: "p_search" })).status, 200);
+  assert.equal((await approve("linked", true)).status, 200);
+  const event = (await stored()).find((e) => e.sessionId === "linked");
   assert.deepEqual(event.links.jira, ["PAY-7"]);
   assert.equal(event.links.pr.url, "https://github.com/acme/plain/pull/9");
 });
@@ -557,11 +565,36 @@ test('"keep on this machine" sessions are never sent, even if approved', async (
 });
 
 test("refuses to send credentials over plain http to a remote host", () => {
+  // Signed in to that host itself, so it's the plain-http rule that refuses here, not the server check below.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "strata-plain-http-"));
+  fs.writeFileSync(
+    path.join(home, "auth.json"),
+    JSON.stringify({
+      token: "t",
+      user: { name: "Ada", email: "ada@example.com" },
+      serverUrl: "http://hub.example.com",
+    }),
+  );
   const r = spawnSync(process.execPath, [HUB, "projects"], {
-    env: { ...env, STRATA_URL: "http://hub.example.com" },
+    env: { ...env, STRATA_HOME: home, STRATA_URL: "http://hub.example.com" },
     encoding: "utf8",
   });
   assert.match(r.stdout, /refusing to send credentials/);
+});
+
+test("a token goes only to the server that issued it: pointed elsewhere, the plugin asks for a new sign-in", () => {
+  const r = spawnSync(process.execPath, [HUB, "projects"], {
+    env: { ...env, STRATA_URL: "https://hub.example.com" },
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /Signed in to http:\/\/localhost:\d+, but Strata now points at https:\/\/hub\.example\.com/);
+  assert.match(r.stdout, /Run \/strata:login/);
+  const status = spawnSync(process.execPath, [HUB, "status"], {
+    env: { ...env, STRATA_URL: "https://hub.example.com" },
+    encoding: "utf8",
+  });
+  assert.match(status.stdout, /user: +signed in to http:\/\/localhost:\d+, not this server/);
 });
 
 // ---------- dashboard ----------
@@ -883,31 +916,4 @@ test("team: search and roll-ups read approved summaries from the hub; MCP search
   await dashFetch("/api/logout", { method: "POST" });
   assert.doesNotMatch(run("search", "suite", "four").stdout, /From the team/, "signed out: local results only");
   assert.match(run("rollup", "--team").stdout, /sign in/);
-});
-
-test("opencode adapter: events drive the same hooks and a broken hook never throws", async () => {
-  const mod = await import(path.join(ROOT, "adapters/opencode/strata.js"));
-  const OC = repo("oc-repo", "OC-1-x", "https://github.com/acme/oc.git");
-  const plugin = await mod.Strata({ directory: OC });
-  const fire = (type, properties) => plugin.event({ event: { type, properties } });
-  await fire("message.updated", {
-    sessionID: "oc-1",
-    info: { role: "user" },
-    parts: [{ type: "text", text: "add retry" }],
-  });
-  await fire("message.updated", {
-    sessionID: "oc-1",
-    info: { role: "assistant" },
-    parts: [{ type: "text", text: pad("Added retry to the sync worker.") }],
-  });
-  Object.assign(process.env, {
-    STRATA_HOME: HOME,
-    STRATA_URL: URL_,
-    STRATA_INLINE_WORKER: "1",
-    STRATA_CLAUDE_BIN: path.join(ROOT, "tests/fake-claude.mjs"),
-  });
-  await fire("session.idle", { sessionID: "oc-1" });
-  assert.ok(read("oc-1", "summary.json")?.summary.title, "an opencode turn became a summary");
-  await fire("unknown.event", { sessionID: "oc-1" });
-  await fire("session.compacted", {});
 });

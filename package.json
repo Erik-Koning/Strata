@@ -15,7 +15,7 @@
     "format": "biome check --write .",
     "test": "pnpm -r --workspace-concurrency=1 run test",
     "test:db": "pnpm --filter @strata/web run test:db",
-    "test:acceptance": "pnpm --filter @strata/claude-code run test:acceptance",
+    "test:acceptance": "pnpm --filter @strata/claude-code run test:acceptance && pnpm --filter @strata/opencode run test",
     "db:indexes": "pnpm --filter @strata/web run db:indexes",
     "db:seed": "pnpm --filter @strata/web run db:seed",
     "invite": "pnpm --filter @strata/web run invite",

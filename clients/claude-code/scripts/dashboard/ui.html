@@ -125,7 +125,6 @@ function projectSelect(value, onChange, noneLabel) {
 
 const STATUS = {
   summarizing: ['Writing summary…', ''],
-  'needs-link': ['Needs a ticket or PR', 'rejected'],
   draft: ['Review needed', 'pending'],
   updated: ['Changed since sent: review again', 'updated'],
   ready: ['Approved: ready to send', 'ready'],
@@ -173,7 +172,6 @@ function banners() {
   if (health.summarizerError) out.push(h('div', { class: 'notice bad' }, `Summaries could not be written: ${health.summarizerError}. The queued turns are kept for a few days and retried.`));
   const parts = [];
   if (held.needsReview) parts.push(`${held.needsReview} summar${held.needsReview === 1 ? 'y waits' : 'ies wait'} for your review. Nothing leaves this machine until you approve it.`);
-  if (held.needsLink) parts.push(`${held.needsLink} need a Jira ticket or PR link.`);
   if (held.noProject) parts.push(`${held.noProject} approved summar${held.noProject === 1 ? 'y needs' : 'ies need'} a project.`);
   if (!signedIn && held.signedOut + held.noProject > 0) parts.push('Sign in to send approved summaries.');
   if (parts.length) out.push(h('div', { class: 'notice' }, parts.join(' ')));
@@ -249,7 +247,7 @@ async function pageSession(id) {
   );
 
   const linksCard = h('div', { class: 'card' }, h('h2', {}, 'Ticket and pull request'),
-    h('div', { class: 'muted' }, s.links.jira.length || s.links.pr ? `Linked: ${[...s.links.jira, s.links.pr ? `PR ${s.links.pr.number ? `#${s.links.pr.number}` : ''}`.trim() : null].filter(Boolean).join(', ')}` : 'Nothing linked yet. A summary needs the ticket or PR behind it before it can be sent.'),
+    h('div', { class: 'muted' }, s.links.jira.length || s.links.pr ? `Linked: ${[...s.links.jira, s.links.pr ? `PR ${s.links.pr.number ? `#${s.links.pr.number}` : ''}`.trim() : null].filter(Boolean).join(', ')}` : 'Nothing linked. That is fine: links are optional.'),
     h('label', { class: 'f' }, 'Jira tickets (comma separated)'), jira,
     h('label', { class: 'f' }, 'Pull request link'), prUrl,
     h('label', { class: 'row field-row', for: 'noTicket' }, none, 'No ticket exists for this work'),
@@ -284,8 +282,8 @@ async function pageSession(id) {
   const field = (label, el, hint) => h('div', {}, h('label', { class: 'f' }, label), el, hint ? h('div', { class: 'hint' }, hint) : null);
   const sent = s.upload.syncedRevision > 0;
   const buttons = [h('button', { onclick: save }, 'Save edits')];
-  if (!s.approved) buttons.push(h('button', { class: 'primary', disabled: !s.linked, title: s.linked ? '' : 'Link a ticket or PR first', onclick: act(() => post(`${url}/approve`, { send: false }), 'Approved') }, 'Approve'));
-  if (!s.approved && state?.signedIn) buttons.push(h('button', { class: 'primary', disabled: !s.linked, onclick: act(() => post(`${url}/approve`, { send: true }), (r) => (r.error ? `Approved; upload error: ${r.error}` : r.sent ? 'Approved and sent' : 'Approved; waiting for a project')) }, 'Approve and send'));
+  if (!s.approved) buttons.push(h('button', { class: 'primary', onclick: act(() => post(`${url}/approve`, { send: false }), 'Approved') }, 'Approve'));
+  if (!s.approved && state?.signedIn) buttons.push(h('button', { class: 'primary', onclick: act(() => post(`${url}/approve`, { send: true }), (r) => (r.error ? `Approved; upload error: ${r.error}` : r.sent ? 'Approved and sent' : 'Approved; waiting for a project')) }, 'Approve and send'));
   if (s.approved) buttons.push(h('button', { onclick: act(() => post(`${url}/unapprove`), 'Approval removed') }, 'Unapprove'));
   if (s.approved && s.status !== 'synced') buttons.push(h('button', { class: 'primary', disabled: !state?.signedIn, onclick: act(() => post(`${url}/sync`), (r) => (r.error ? `Error: ${r.error}` : r.sent ? 'Sent' : 'Not sent: pick a project first')) }, 'Send now'));
   if (s.status === 'rejected') buttons.push(h('button', { onclick: act(() => post(`${url}/retry`), 'Will retry') }, 'Retry as is'));
