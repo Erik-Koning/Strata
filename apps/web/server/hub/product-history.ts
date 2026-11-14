@@ -53,6 +53,8 @@ export interface HandoffContext {
   finishPushed: boolean | null;
   summary: string;
   outcome: string;
+  // What the recipient listed as done when completing it: their account, not verified by Strata.
+  reported: string[];
   decisions: string[];
   failedApproaches: string[];
   changedFiles: string[];
@@ -287,6 +289,7 @@ async function handoffView(h: HandoffDoc, viewerId: string): Promise<HandoffCont
     finishPushed: h.continuation?.repo?.pushed ?? null,
     summary: h.summary,
     outcome: h.continuation?.summary ?? "",
+    reported: h.continuation?.completed ?? [],
     decisions: h.decisions,
     failedApproaches: h.failedApproaches,
     changedFiles: h.continuation?.changedFiles?.length ? h.continuation.changedFiles : h.changedFiles,

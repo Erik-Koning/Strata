@@ -136,7 +136,7 @@ export function DiffView({ diff, same }: { diff: Diff; same: boolean }) {
     <section className="card min-w-0" aria-labelledby="changes-title">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-line border-b px-5 py-3.5">
         <h2 id="changes-title" className="font-semibold text-[15px]">
-          Changes
+          Code changes
         </h2>
         {count ? (
           <span className="inline-flex items-baseline gap-2 text-[13px] text-ink-2">

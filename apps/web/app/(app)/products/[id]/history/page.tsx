@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ContextColumn } from "../../../../../components/history/context.tsx";
 import { DiffView } from "../../../../../components/history/diff-view.tsx";
+import { ProductImpact } from "../../../../../components/history/impact.tsx";
 import { Changes, historyHref, Timeline } from "../../../../../components/history/timeline.tsx";
 import type { Commit } from "../../../../../server/hub/git-history.ts";
 import { productHistory } from "../../../../../server/hub/product-history.ts";
@@ -99,6 +100,8 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
 
       {/* The comparison itself: Before and After, always visible, and the form that changes them without the rail. */}
       <form
+        key={`${before?.sha ?? "root"}..${after.sha}`}
+        autoComplete="off"
         method="get"
         action={`/products/${encodeURIComponent(product.id)}/history`}
         className="card mb-5 grid items-end gap-3 px-4 py-3.5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]"
@@ -174,7 +177,8 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
             range={range}
           />
         </div>
-        <div className="min-w-0 max-lg:order-1">
+        <div className="flex min-w-0 flex-col gap-4 max-lg:order-1">
+          <ProductImpact handoffs={context.handoffs} range={range} />
           <DiffView diff={diff} same={same} />
         </div>
         <aside
