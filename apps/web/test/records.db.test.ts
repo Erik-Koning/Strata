@@ -1,16 +1,15 @@
 // The record pipeline end to end: versioned events in, drafts out, review, approval into memories, raw text gone.
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `records_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("records_test");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
 process.env.BETTER_AUTH_URL = "http://localhost:9316";
 
 const { postEvents } = await import("../server/memory/routes.ts");
+const { draftPending } = await import("../server/memory/ingest.ts");
 const { listRecords, getRecord, patchRecord, approveRecord, discardRecord } = await import(
   "../server/records/routes.ts"
 );
@@ -77,7 +76,8 @@ beforeAll(async () => {
   key = (await createKey("records-user", "test")).key;
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await draftPending();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 
@@ -86,6 +86,8 @@ describe("drafting", () => {
     const res = await call(postEvents, { token: key, body: { batch: sessionBatch } });
     expect(res.status).toBe(202);
     expect((await res.json()).accepted).toBe(7);
+    // Drafting runs after the answer.
+    await draftPending();
 
     const drafts = await records().find({ sessionID: "s1" }).toArray();
     expect(drafts.length).toBeGreaterThanOrEqual(2);
@@ -104,6 +106,7 @@ describe("drafting", () => {
   it("redrafting the same session does not duplicate records", async () => {
     const before = await records().countDocuments({ sessionID: "s1" });
     await call(postEvents, { token: key, body: { batch: sessionBatch } });
+    await draftPending();
     expect(await records().countDocuments({ sessionID: "s1" })).toBe(before);
   });
 });
