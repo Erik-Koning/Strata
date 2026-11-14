@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { classNoun, formatDay, formatDuration, formatLost, type TimeRow } from "../../server/hub/time-page.ts";
 import { CopyButton } from "../copy.tsx";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { Sparkline } from "./sparkline.tsx";
 
@@ -83,7 +84,7 @@ export function TimeItem({ row, topMs }: { row: TimeRow; topMs: number }) {
               <ul className="mt-2 divide-y divide-line">
                 {row.painPoints.map((point) => (
                   <li key={point.id} className="py-2.5 first:pt-0">
-                    <p className="whitespace-pre-wrap break-words text-[14px]">{point.text}</p>
+                    <Markdown className="break-words text-[14px]">{point.text}</Markdown>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-3">
                       {point.mentions ? <span className="chip">about {classNoun(row.class)}</span> : null}
                       <Ago at={point.at} />

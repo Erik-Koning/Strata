@@ -3,6 +3,7 @@
 import { CircleDot, CircleHelp } from "lucide-react";
 import Link from "next/link";
 import type { WorkItem } from "../../server/hub/overview.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { names, RefChips, SessionLink } from "../products/refs.tsx";
 import { Ago } from "../time.tsx";
 import { BigEmpty, CardHeader, FootLink } from "./parts.tsx";
@@ -34,7 +35,7 @@ export function WorkList({ work, more }: { work: WorkItem[]; more: number }) {
                       <CircleHelp size={15} aria-hidden className="mt-[3px] flex-none text-amber" />
                       <span className="line-clamp-2 min-w-0 flex-1 break-words">
                         <span className="sr-only">Open question: </span>
-                        {question.text}
+                        <InlineMarkdown>{question.text}</InlineMarkdown>
                       </span>
                     </li>
                   ))}

@@ -4,6 +4,7 @@
 // viewer is allowed to see it.
 import { FolderGit2, GitBranch, GitCommitHorizontal, LoaderCircle, Lock, ShieldCheck, Ticket, X } from "lucide-react";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { InlineMarkdown, Markdown } from "../../../components/markdown.tsx";
 import { Ago } from "../../../components/time.tsx";
 import type { Evidence, SourceCard } from "../../../server/intelligence/types.ts";
 import { openEvidence } from "./actions.ts";
@@ -170,7 +171,9 @@ function EvidenceBody({ evidence, onOpen }: { evidence: Evidence; onOpen: (ref: 
           <CategoryTag card={source} />
           <span className="chip chip-mono">{source.project === "*" ? "every project" : source.project}</span>
         </div>
-        <blockquote className="ledger mt-3 rounded-[10px] px-4 py-2.5 text-[13px]">{source.text}</blockquote>
+        <blockquote className="ledger mt-3 rounded-[10px] px-4 py-2.5 text-[13px]">
+          <Markdown className="break-words">{source.text}</Markdown>
+        </blockquote>
         {notes.length ? (
           <ul className="mt-2 space-y-1 text-[13px] text-ink-3">
             {notes.map((n) => (
@@ -295,7 +298,9 @@ function EvidenceBody({ evidence, onOpen }: { evidence: Evidence; onOpen: (ref: 
                     <CategoryTag card={r} small />
                     <span className="ml-auto font-mono text-[11px] text-ink-3">{shortRef(r.ref)}</span>
                   </span>
-                  <span className="mt-1 line-clamp-2 block text-[13px] text-ink-2">{r.text}</span>
+                  <InlineMarkdown links={false} className="mt-1 line-clamp-2 block text-[13px] text-ink-2">
+                    {r.text}
+                  </InlineMarkdown>
                 </button>
               </li>
             ))}

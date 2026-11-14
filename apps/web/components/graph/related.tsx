@@ -5,6 +5,7 @@ import { Waypoints } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { type Related, type RelatedItem, type RelatedSubject, relatedTo } from "../../server/hub/graph.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 
 const HEADER = "flex flex-wrap items-center gap-x-2 gap-y-1 border-line border-b px-5 py-3.5";
@@ -139,7 +140,7 @@ function StaleList({ stale }: { stale: Related["stale"] }) {
           <li key={s.recordId} className="text-[13.5px]">
             <p className="break-words">
               <span className="text-ink-3">{s.kindLabel}: </span>
-              {s.text}
+              <InlineMarkdown>{s.text}</InlineMarkdown>
             </p>
             <p className="mt-0.5 text-[12.5px] text-ink-3">
               Later work changed <span className="font-mono text-[12px]">{s.place}</span>:{" "}

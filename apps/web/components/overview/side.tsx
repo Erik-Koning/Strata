@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { GapItem, OwnSession, TimeLine } from "../../server/hub/overview.ts";
 import { formatLost } from "../../server/hub/time-page.ts";
+import { InlineMarkdown } from "../markdown.tsx";
 import { sessionHref } from "../sessions/format.ts";
 import { Ago } from "../time.tsx";
 import { CardHeader, FootLink, plural, ROW_LINK, SideEmpty, times } from "./parts.tsx";
@@ -58,7 +59,9 @@ export function GapList({
             {gaps.map((gap) => (
               <li key={gap.id}>
                 <Link href={`/gaps/${gap.id}`} className={ROW_LINK}>
-                  <span className="line-clamp-3 break-words text-[14px]">{gap.text}</span>
+                  <InlineMarkdown links={false} className="line-clamp-3 break-words text-[14px]">
+                    {gap.text}
+                  </InlineMarkdown>
                   <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] text-ink-3">
                     <Dotted
                       parts={[
