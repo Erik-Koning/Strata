@@ -37,6 +37,18 @@ function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: s
       return { icon: KeyRound, tone: "text-accent-text", text: `Made the API key “${String(d.name ?? "")}”` };
     case "key.revoke":
       return { icon: KeyRound, tone: "text-danger", text: "Revoked an API key" };
+    case "summary.receive":
+      return {
+        icon: Sparkles,
+        tone: "text-accent-text",
+        text: `Received an approved session summary (revision ${Number(d.revision ?? 1)})`,
+      };
+    case "summary.retract":
+      return {
+        icon: Trash2,
+        tone: "text-danger",
+        text: `Retracted a session summary (${n(Number(d.revisions ?? 1), "revision")})`,
+      };
     default:
       return { icon: ScrollText, tone: "text-ink-2", text: entry.action };
   }
@@ -50,7 +62,7 @@ export default async function AuditPage() {
       <PageHeader
         eyebrow="Audit log"
         title="What changed, and who did it"
-        lede="Every memory saved or forgotten, every summary made at a compaction, every key made or revoked."
+        lede="Every summary received or retracted, every memory saved or forgotten, every key made or revoked."
       />
       {entries.length ? (
         <ol className="card divide-y divide-line">

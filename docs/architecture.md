@@ -5,13 +5,16 @@ What exists, how the parts talk, and what's next. Every later change reads this 
 ## The shape
 
 ```
-Claude Code ──hooks──▶ clients/claude-code ──HTTPS + bearer key──▶ apps/web (API) ──▶ MongoDB (atlas-local / Atlas)
-OpenCode    ──plugin─▶ .opencode/plugins/memory (next) ──────────▶        │
-                                                                          └──▶ the web pages (Better Auth sessions)
+Claude Code ──hooks──▶ clients/claude-code ──▶ local store (queue, summaries, drafts, overview)
+                          │  └─ claude -p ──▶ one session summary, written locally
+                          └──HTTPS + device token──▶ apps/web /v1 (next) ──▶ MongoDB
+OpenCode    ──adapter─▶ clients/claude-code/adapters/opencode (unverified) ─┘
+apps/web today: /api/memory/*, Better Auth, the web pages
 ```
 
-One deployable (`apps/web`) and one database. Only the API touches MongoDB. Both clients share
-`packages/contracts`: the zod schemas for every wire shape, `redact` and `renderFrozen`/`renderRecall`.
+One deployable (`apps/web`) and one database. Only the API touches MongoDB. The web app still serves the memory API
+described below; the client was replaced with a summary-first plugin that targets `/v1`. Until those routes exist, the
+client runs entirely locally, and `packages/contracts` still describes the memory API, not the summary event.
 
 ## The data
 
@@ -34,12 +37,13 @@ Recall uses it where it's ready and the text index otherwise.
 
 - **People** sign up with an email and a password (Better Auth). A session cookie, `strata.session_token`. Each
   person sees and governs only their own memory.
-- **Clients** send an API key made on the Connect page (`am_…`, shown once, kept as a SHA-256). A key covers its own
-  person in the one organisation (`default`) and any project; naming another person or organisation is a 403.
+- **Memory clients** send an API key made on the Connect page (`am_…`, shown once, kept as a SHA-256). A key covers
+  its own person in the one organisation (`default`) and any project; naming another person or organisation is a 403.
+  The summary client uses a device-code sign-in and a bearer token from `/v1/auth/*` once that backend exists.
 - **The service token** (`MEMORY_API_TOKEN` in the app's environment) covers every scope: tests, scripts, the
   OpenCode sandbox.
 
-## How memory is made
+## How memory is made (the memory API)
 
 1. A client sends events (`prompt`, `assistant`, `tool`, `transcript`, `session`, `event`). The API stores each once
    and redacts it again.
@@ -52,31 +56,46 @@ Recall uses it where it's ready and the text index otherwise.
 Still to build, in the brief's order: dedupe beyond identical text, real embeddings, summarize, score and policy as
 scheduled jobs (`POST /api/jobs/run`), and the real AI providers behind `server/ai/provider.ts`.
 
-## The Claude Code client, and the cache
+## The Claude Code client
 
-| Hook                            | What it does                                                             | Network                    |
-| ------------------------------- | ------------------------------------------------------------------------ | -------------------------- |
-| `SessionStart` (startup, clear) | Fetches the frozen block once, keeps it per session, sends it as context | 800 ms, else freezes empty |
-| `SessionStart` (resume, fork)   | Sends the kept block byte for byte; none kept means none sent            | none                       |
-| `SessionStart` (compact)        | Fetches again: the cache rebuilds at a compaction anyway                 | 800 ms                     |
-| `UserPromptSubmit`              | Captures the prompt; adds what recall finds to this prompt only          | 800 ms, fails open         |
-| `PostToolUse(Failure)`          | Captures the tool's name and whether it worked, never its content        | none (async)               |
-| `PreCompact`                    | Captures the transcript; asks the API to summarize                       | 5 s                        |
-| `Stop`, `SessionEnd`            | Captures Claude's last reply; starts the outbox flush in the background  | none                       |
+The client is summary-first: it never uploads a prompt or a reply. It keeps a short-lived, redacted queue of turn text,
+asks the engineer's own Claude to fold that text into one session summary, deletes the raw text, and sends only the
+summary the engineer approved.
 
-The outbox is one file per event under the plugin's data folder, sent in batches by a detached flusher that holds a
-lock, deletes only what the API acknowledged, and backs off on failure. Proven by `pnpm test:acceptance` (the hooks as
-real processes), and by a real `claude -p` session on 2026-11-14: the block arrived, the prompt and tools were
-captured, `memory_save` worked, and the next session answered from memory.
+| Hook               | What it does                                                                   | Network              |
+| ------------------ | ------------------------------------------------------------------------------ | -------------------- |
+| `SessionStart`     | Marks the session active; builds the repo overview from local summaries        | none                 |
+| `UserPromptSubmit` | Redacts the prompt and keeps it for `Stop`; private and internal payloads skip | none                 |
+| `Stop`             | Queues the redacted turn and changed file paths; starts the summarizer         | none                 |
+| `PreCompact`       | Summarizes whatever is still queued before the conversation is dropped         | none                 |
+| `SessionEnd`       | Summarizes the last queue, then flushes approved summaries                     | upload, if signed in |
 
-## The OpenCode plugin (next)
+**How a summary is made.** `summarize.mjs` runs `claude -p` with a small model, no tools, no MCP, no slash commands,
+no session persistence, its own empty working directory and a budget cap. The new work is fenced between random
+`BEGIN`/`END` lines so prompt text cannot instruct the model. The reply must be one JSON object; `schema.mjs` then
+enforces the field limits and strips tags, code fences, long inline code and secrets no matter what the model said.
+Raw queue files are deleted on success, after three attempts, or after three days. A daily cap stops runaway cost.
 
-The brief fixes its files and rules. Its sketch (`Plugin.define`, `ctx.session.hook`, `ctx.storage`) is shorthand:
-map each piece onto the real `@opencode-ai/plugin` API and record the mapping here before building. The Claude Code
-client is the reference for behaviour; the contracts are shared.
+**The approval gate.** `records.mjs` keeps `session.json`, `summary.json`, `review.json` and `upload.json` per session;
+one writer per file and short locks keep the hooks, summarizer, syncer and dashboard from overwriting each other.
+Status moves `summarizing → needs-link → draft/updated → ready → synced`, with `rejected` and `local` beside it. A
+summary needs a Jira key, a PR, or an explicit "no ticket", and an approval of the exact revision, before it is sent.
+
+**What the client needs from the backend.** The contract is in `clients/claude-code/docs/api-contract.md`: device-code
+auth, projects and membership, `POST /v1/events` for approved `session_summary` revisions, `DELETE /v1/sessions/:id`
+to retract, and `GET /v1/search` / `GET /v1/rollups` for teammates' approved summaries. The mock server implements it
+for tests; `apps/web` does not yet.
+
+## The OpenCode adapter
+
+`clients/claude-code/adapters/opencode/strata.js` maps opencode events (`session.created`, `message.updated`,
+`session.idle`, `session.compacted`, `session.deleted`) onto the same hook entrypoint, so capture, redaction,
+summarizing, review and sync are shared. The event names are unverified against a live opencode and are the first thing
+to check. The Claude Code client is the reference for behaviour.
 
 ## Running it
 
 The team's environment (`.a6g/adapters/env.sh`): the app on 9316, MongoDB (`mongodb/mongodb-atlas-local:8.0`) on 9317,
-the stub provider (`MEMORY_AI_PROVIDER=stub`). Production: one container of `apps/web` and MongoDB Atlas (vector and
-text search are Atlas features). A Dockerfile and CI are still to write.
+the stub provider (`MEMORY_AI_PROVIDER=stub`). `pnpm test:acceptance` runs the client's hooks, CLI and dashboard as
+real processes against its mock server. Production: one container of `apps/web` and MongoDB Atlas (vector and text
+search are Atlas features). A Dockerfile and CI are still to write.

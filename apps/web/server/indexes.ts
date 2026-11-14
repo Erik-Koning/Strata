@@ -3,7 +3,17 @@
 // runs it), which becomes queryable a little after it's created: `wait` polls until it is.
 
 import { provider } from "./ai/provider.ts";
-import { apiKeys, audits, events, memories, summaries, VECTOR_INDEX } from "./collections.ts";
+import {
+  apiKeys,
+  audits,
+  events,
+  memories,
+  projectMembers,
+  projects,
+  summaries,
+  summaryRevisions,
+  VECTOR_INDEX,
+} from "./collections.ts";
 import { db } from "./db.ts";
 
 const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -13,7 +23,17 @@ export async function ensureIndexes({
   timeoutMs = 120_000,
 } = {}): Promise<{ vector: "ready" | "pending" | "unavailable" }> {
   const existing = new Set((await db().listCollections({}, { nameOnly: true }).toArray()).map((c) => c.name));
-  for (const name of ["memory_events", "memories", "memory_summaries", "memory_audit", "api_keys"])
+  for (const name of [
+    "memory_events",
+    "memories",
+    "memory_summaries",
+    "memory_audit",
+    "api_keys",
+    "projects",
+    "project_members",
+    "summary_revisions",
+    "deviceCode",
+  ])
     if (!existing.has(name))
       await db()
         .createCollection(name)
@@ -40,6 +60,21 @@ export async function ensureIndexes({
     audits().createIndex({ "actor.id": 1, ts: -1 }, { name: "by_actor" }),
     apiKeys().createIndex({ hash: 1 }, { unique: true, name: "hash_unique" }),
     apiKeys().createIndex({ userId: 1, createdAt: -1 }, { name: "by_user" }),
+    projectMembers().createIndex({ userId: 1, projectId: 1 }, { unique: true, name: "member_unique" }),
+    projectMembers().createIndex(
+      { userId: 1, isDefault: 1 },
+      { unique: true, partialFilterExpression: { isDefault: true }, name: "one_default_unique" },
+    ),
+    projectMembers().createIndex({ projectId: 1 }, { name: "by_project" }),
+    summaryRevisions().createIndex({ userId: 1, idempotencyKey: 1 }, { unique: true, name: "idempotency_unique" }),
+    summaryRevisions().createIndex({ userId: 1, sessionId: 1, revision: 1 }, { unique: true, name: "revision_unique" }),
+    summaryRevisions().createIndex({ projectId: 1, updatedAt: -1 }, { name: "by_project_recent" }),
+    summaryRevisions().createIndex({ userId: 1, updatedAt: -1 }, { name: "by_user_recent" }),
+    summaryRevisions().createIndex({ "links.jira": 1 }, { name: "by_jira" }),
+    summaryRevisions().createIndex({ "links.pr.url": 1 }, { name: "by_pr" }),
+    // Better Auth's device-authorization model.
+    db().collection("deviceCode").createIndex({ deviceCode: 1 }, { unique: true, name: "device_code_unique" }),
+    db().collection("deviceCode").createIndex({ userCode: 1 }, { unique: true, name: "user_code_unique" }),
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };
 }

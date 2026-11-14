@@ -1,55 +1,67 @@
 # Strata
 
-Long-term memory for coding agents. Strata captures what happens in your Claude Code sessions, keeps what's worth
-remembering, and gives it back to the next session without breaking the prompt cache. Compacted summaries sit on top,
-so a long history stays small.
+Engineer-reviewed session summaries for coding agents. Strata captures what happens in your Claude Code sessions,
+turns it into short summaries your team can search, and keeps the raw prompts and replies on your machine. Colleagues
+get what was built, why, the decisions behind it, and the gaps worth documenting, with the Jira ticket and GitHub PR
+attached.
+
+The web app in this repository is still the earlier long-term memory API. The client now targets a `/v1` summary API;
+building that backend is the next step. Until it exists, the plugin works locally: capture, summaries, review, local
+overview, search and roll-ups all run on your machine.
 
 ## What's built so far
 
-On 14 November 2026 Strata went from an empty repository to a working loop, end to end. **The web app** (Next.js 16,
-`apps/web`) has accounts with email and password, API keys you make per machine, and the whole memory API: capture,
-recall, the frozen block, compaction summaries, save and forget. Every route checks a bearer key first and validates its
-body against a shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, an audit log and
-the keys, with a vector index for recall and a text index behind it. **The Claude Code plugin** (`clients/claude-code`)
-gives each session a frozen block of memory it never changes, recalls what matches each prompt within 800 ms or not at
-all, queues every capture in a durable outbox, removes secrets before anything leaves the machine, and gives Claude
-`memory_search`, `memory_save` and `memory_forget`. **The pages** show what's remembered and where it came from, let you
-keep a candidate or forget a memory after seeing exactly what goes with it, connect a client step by step, and list
-every change in an audit log, in light and dark and on a phone. It's covered by unit tests, database tests against the
-real engine, and acceptance tests that run the plugin's hooks as real processes, and it was checked in a real Claude
-Code session: the second session answered from what the first one saved. The rest is in the to-do below, which an
-[Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is now working through.
+**The web app** (Next.js 16, `apps/web`) has accounts with email and password, API keys you make per machine, and the
+memory API: capture, recall, the frozen block, compaction summaries, save and forget. Every route checks a bearer key
+first and validates its body against a shared contract. **MongoDB** (the Atlas-local image) holds events, memories,
+summaries, an audit log and the keys, with a vector index for recall and a text index behind it.
+
+**The Claude Code plugin** (`clients/claude-code`) is summary-first. It captures each prompt locally, queues the
+redacted turn text when Claude finishes, and asks your own `claude -p` (headless, small model, no tools, no MCP) to
+fold it into one session summary. Raw text is deleted as soon as the summary is written. You review and edit the
+summary in a local dashboard, link the Jira ticket or PR, and approve it; only then does it leave the machine, one
+`session_summary` event per revision. Claude also gets `strata_record` and `strata_search`, and each session starts
+with a local overview of what earlier sessions in the repo learned.
+
+**The pages** show what's remembered and where it came from, let you keep a candidate or forget a memory after seeing
+exactly what goes with it, connect a client step by step, and list every change in an audit log, in light and dark and
+on a phone.
+
+The client is covered by 38 tests that run the hooks, CLI and dashboard as real processes against a mock server. The
+memory API has unit and database tests. The `/v1` backend for the summary client is the next build; the rest is in the
+to-do below, which an [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is working through.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   subgraph machine["Your machine"]
-    CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>PostToolUse, PreCompact, Stop" --> PL["Strata plugin<br/>clients/claude-code"]
-    CC -- "MCP: memory_search / save / forget" --> PL
-    PL --- OB[("outbox and frozen blocks<br/>plugin data folder")]
-    OC["OpenCode"] -.-> OP["OpenCode plugin<br/>(to do)"]
+    CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>Stop, PreCompact, SessionEnd" --> PL["Strata plugin<br/>clients/claude-code"]
+    CC -- "MCP: strata_record / strata_search" --> PL
+    PL --- OB[("summary queue, drafts and<br/>the kept overview")]
+    PL -- "claude -p, headless<br/>local summaries" --> CL["your Claude CLI"]
+    OC["OpenCode"] -.-> OP["adapters/opencode<br/>(unverified)"]
+    OP -.-> PL
   end
   subgraph server["Strata web app: apps/web"]
-    API["/api/memory/*<br/>bearer key, zod, one error shape"]
+    API["/api/memory/* today<br/>/v1 summary API next"]
     UI["Pages: Overview, Memories,<br/>Connect, Audit log"]
     AUTH["Better Auth<br/>accounts, sessions"]
     JOBS["Extract (inline today)<br/>dedupe, embed, summarize, score: to do"]
   end
   DB[("MongoDB<br/>memory_events, memories, memory_summaries,<br/>memory_audit, api_keys, auth")]
-  PL -- "HTTPS + API key" --> API
-  OP -.-> API
+  PL -- "HTTPS + device token<br/>(when /v1 exists)" --> API
   UI --- AUTH
   API --> JOBS
   API --> DB
   JOBS --> DB
   UI --> DB
-  CT["packages/contracts<br/>schemas, redact, render"] -.- PL
-  CT -.- API
+  CT["packages/contracts<br/>schemas, redact, render"] -.- API
 ```
 
-Only the API touches the database. Both sides share `packages/contracts`: every wire shape as a zod schema, and the two
-pure functions they must agree on, redaction and rendering.
+Only the API touches the database. The summary client talks to `/v1`; until that exists it runs locally against its
+own store. The memory API and its pages still use `packages/contracts`; the plugin carries its own summary schema and
+redaction for now.
 
 **One session, as the plugin sees it:**
 
@@ -57,47 +69,52 @@ pure functions they must agree on, redaction and rendering.
 sequenceDiagram
   participant C as Claude Code
   participant P as Strata plugin
-  participant A as Strata API
-  C->>P: SessionStart (startup)
-  P->>A: GET /frozen (800 ms)
-  A-->>P: active memories, chosen the same way every time
-  P-->>C: the frozen block, kept byte for byte all session
-  loop every prompt
+  participant L as local claude -p
+  participant D as review dashboard
+  participant A as Strata /v1 (next)
+  C->>P: SessionStart
+  P->>P: build the repo overview from earlier summaries
+  P-->>C: overview as context, kept for this session
+  loop every turn
     C->>P: UserPromptSubmit
-    P->>P: redact, queue the prompt in the outbox
-    P->>A: POST /recall (800 ms, else nothing)
-    P-->>C: matching memories, added to this prompt only
+    P->>P: redact and keep the prompt until Stop
+    C->>P: Stop
+    P->>P: queue the redacted turn; delete the prompt file
+    P->>L: fold the turn into the session summary
+    L-->>P: updated summary
+    P->>P: delete the raw turn text
   end
-  C->>P: PostToolUse (tool name and ok/error only)
-  C->>P: PreCompact
-  P->>A: POST /compress (5 s): a summary on top
-  C->>P: SessionStart (compact): the only time the block is fetched again
-  C->>P: Stop / SessionEnd
-  P->>A: background flush: POST /events, deduped on each event's id
+  C->>P: PreCompact / SessionEnd
+  P->>L: summarize anything still queued
+  D->>P: edit, link Jira/PR, approve
+  P->>A: POST /v1/events (approved session_summary, idempotent)
+  A-->>P: { ok: true }
 ```
 
-**The rule everything follows:** bytes already sent in a session never change. The frozen block is rendered sorted by
-id with no timestamps and fetched again only when the session compacts, which rebuilds the cache anyway. Each prompt's
-recall is added to that prompt only, so the provider's prompt cache holds turn after turn. The other rules:
+**The rule everything follows:** only an approved summary leaves the machine. The rest follows from it:
 
-- a prompt never waits more than 800 ms for memory;
-- every capture goes through an outbox, keyed so a retry never stores anything twice;
-- secrets are redacted before anything is queued, and again on the server;
-- only what you said in your own turn becomes an active memory by itself; anything else is a candidate until you keep
-  it.
+- prompts and replies are captured locally and never uploaded; the raw turn text is deleted as soon as it is
+  summarized;
+- a summary is sent only when the engineer approved it and it carries a Jira key, a PR, or an explicit "no ticket";
+- secrets and `<private>` blocks are stripped before the summarizer sees anything, code is removed from summaries,
+  and the server redacts again;
+- the summarizer runs headless with no tools, no MCP, no slash commands, its own empty working directory, a small
+  model, and a daily cap;
+- the `SessionStart` overview is built from local summaries and kept for the session, so a resume gets the same bytes;
+- each approved revision is uploaded with an idempotency key, and a retry never stores it twice.
 
-The data model, who can do what, and how each hook maps to the cache rules are in
+The memory API's data model, who can do what, and how each hook maps to the client are in
 [`docs/architecture.md`](docs/architecture.md).
 
-| Part                     | Where                    | What it is                                                            |
-| ------------------------ | ------------------------ | --------------------------------------------------------------------- |
-| Web app and API          | `apps/web`               | Next.js 16, App Router, Better Auth, the MongoDB driver, Tailwind     |
-| Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save               |
-| AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet    |
-| Claude Code plugin       | `clients/claude-code`    | hooks, outbox, frozen blocks, MCP server; `dist/` is the built plugin |
-| Contracts                | `packages/contracts`     | zod schemas, `redact`, `renderFrozen`, `renderRecall`                 |
-| Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository              |
-| The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to               |
+| Part                     | Where                    | What it is                                                                              |
+| ------------------------ | ------------------------ | --------------------------------------------------------------------------------------- |
+| Web app and API          | `apps/web`               | Next.js 16, App Router, Better Auth, the MongoDB driver, Tailwind                       |
+| Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                                 |
+| AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                      |
+| Claude Code plugin       | `clients/claude-code`    | hooks, session summaries, review dashboard, MCP server, OpenCode adapter; no build step |
+| Contracts                | `packages/contracts`     | zod schemas, `redact`, `renderFrozen`, `renderRecall` (memory API)                      |
+| Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                                |
+| The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                                 |
 
 ## To-do
 
@@ -110,24 +127,33 @@ What's left, in the order the team is working through it. Each group is one jour
 - [x] MongoDB collections, indexes and the vector index, created by `pnpm db:indexes`
 - [x] The memory API: events, recall, frozen, compress, forget (with a preview), save
 - [x] Extraction: what the user says to remember becomes an active memory; anything else is a candidate
-- [x] The Claude Code plugin: frozen block, recall, outbox, redaction, MCP tools, marketplace
+- [x] The Claude Code plugin: local capture, session summaries, review dashboard, redaction, MCP tools, marketplace
 - [x] The pages: Overview, Memories, Connect, Audit log
+
+**Summary backend (next)**
+
+- [ ] `/v1/auth/device`, `/v1/auth/token`, `/v1/me`: device-code sign-in for the plugin
+- [ ] `/v1/projects`: projects and team membership
+- [ ] `/v1/events`: approved `session_summary` revisions only, idempotent, author from the token
+- [ ] `DELETE /v1/sessions/:id`, `/v1/search`, `/v1/rollups`
+- [ ] MongoDB collections for summaries, revisions, projects and the audit log
+- [ ] The web pages read the summary store; Connect issues a plugin sign-in
 
 **Test harness**
 
 - [ ] Playwright suite and page checks (axe, overflow, touch targets) at desktop, laptop and phone, light and dark
 - [ ] End-to-end journeys: sign up, make a key, a session's memory shown, keep a candidate, forget with its cascade
 
-**OpenCode plugin**
+**OpenCode adapter**
 
-- [ ] Verify the real `@opencode-ai/plugin` API against the brief's sketch: hook names, event fields, timeouts,
-      storage, whether a prompt edit shows in the TUI
-- [ ] `.opencode/plugins/memory`: `index.ts`, `api.ts`, `outbox.ts`, `freeze.ts`, `render.ts`, `redact.ts`, `tools.ts`
-- [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
-- [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
-      prompts go on and the outbox drains with no duplicates
+- [ ] Verify the real `@opencode-ai/plugin` event names and fields against `adapters/opencode/strata.js`
+- [ ] Install the adapter in a live OpenCode session and confirm a turn becomes a summary
+- [ ] Acceptance through a fake OpenCode host, alongside the Claude Code hook tests
 
 **Memory pipeline**
+
+These belong to the memory API. The summary client no longer uses them; decide whether to keep or retire them when the
+backend changes.
 
 - [ ] Jobs on a schedule (`POST /api/jobs/run`): extract > dedupe > embed > summarize > score > policy
 - [ ] Dedupe beyond identical text: near-duplicates, and `supersedes` when a memory replaces another
@@ -161,17 +187,23 @@ pnpm db:indexes
 pnpm dev                              # http://localhost:9316 by default (PORT)
 ```
 
-Create an account, then open **Connect**: make an API key, install the plugin, and start a Claude Code session.
+Install the plugin, then open its dashboard with `/strata:dashboard`:
 
 ```
 /plugin marketplace add Erik-Koning/Strata
 /plugin install strata@strata
 ```
 
-Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
-plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+The plugin works locally with no backend: it writes summaries, keeps a per-repo overview, and lets you review, edit
+and link work. Sign-in, sending approved summaries and team search wait for the `/v1` backend. Settings, sign-in and
+review live in the dashboard; `STRATA_URL` and `STRATA_HOME` are optional environment overrides. More in
+[`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
 ## The API
+
+The memory API below is what the web app serves today. The Claude Code client now speaks the summary API described in
+[`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md); its `/v1` routes are the next
+backend build.
 
 Every route takes `Authorization: Bearer <key>` and answers `{ error: { code, message } }` when it fails. The scope
 is `{ project }`; the organisation and the person come from the key.
@@ -188,16 +220,16 @@ is `{ project }`; the organisation and the person come from the key.
 
 ## Develop
 
-| Command                | What it runs                                                         |
-| ---------------------- | -------------------------------------------------------------------- |
-| `pnpm typecheck`       | TypeScript across the workspace                                      |
-| `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes              |
-| `pnpm test`            | Unit tests: no database, no network                                  |
-| `pnpm test:db`         | API and database tests on a database of their own on `MONGODB_URI`   |
-| `pnpm test:acceptance` | The plugin's hooks as real processes against a fake API              |
-| `pnpm build`           | The plugin's bundles (`clients/claude-code/dist`), then `next build` |
-| `pnpm db:indexes`      | Every index, the vector index included, idempotently                 |
-| `pnpm db:seed`         | Made-up memories for the pages                                       |
+| Command                | What it runs                                                       |
+| ---------------------- | ------------------------------------------------------------------ |
+| `pnpm typecheck`       | TypeScript across the web app and contracts                        |
+| `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes            |
+| `pnpm test`            | Unit tests and the client suite: no database, no external network  |
+| `pnpm test:db`         | API and database tests on a database of their own on `MONGODB_URI` |
+| `pnpm test:acceptance` | The client's hooks, CLI and dashboard as real processes            |
+| `pnpm build`           | `next build` (the plugin has no build step)                        |
+| `pnpm db:indexes`      | Every index, the vector index included, idempotently               |
+| `pnpm db:seed`         | Made-up memories for the pages                                     |
 
 Embeddings and summaries go through one interface (`apps/web/server/ai/provider.ts`). The default, `stub`, is
 deterministic and offline, so every test runs without a key.

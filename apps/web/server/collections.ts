@@ -1,5 +1,13 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
-import type { EventKind, MemoryKind, MemoryStatus, Scope, TrustLevel } from "@strata/contracts";
+import type {
+  EventKind,
+  MemoryKind,
+  MemoryStatus,
+  Scope,
+  SummaryLinks,
+  SummarySummary,
+  TrustLevel,
+} from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
 import { db } from "./db.ts";
 
@@ -54,11 +62,57 @@ export interface SummaryDoc {
 export interface AuditDoc {
   _id?: ObjectId;
   actor: { kind: "user" | "service" | "key"; id: string; label: string };
-  action: "memory.save" | "memory.forget" | "memory.compress" | "memory.promote" | "key.create" | "key.revoke";
+  action:
+    | "memory.save"
+    | "memory.forget"
+    | "memory.compress"
+    | "memory.promote"
+    | "key.create"
+    | "key.revoke"
+    | "summary.receive"
+    | "summary.retract";
   targetIds: string[];
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;
   ts: Date;
+}
+
+export interface ProjectDoc {
+  _id: ObjectId;
+  name: string;
+  teamName: string;
+  description: string;
+  createdAt: Date;
+}
+
+export interface ProjectMemberDoc {
+  _id: ObjectId;
+  projectId: ObjectId;
+  userId: string;
+  role: "owner" | "member";
+  // The one project the app creates for a person; the index makes it one per user.
+  isDefault?: boolean;
+  createdAt: Date;
+}
+
+// One approved revision of one session. The highest revision for (userId, sessionId) is the current summary;
+// older ones stay for audit. The plugin never sends prompts or replies, so neither is stored.
+export interface SummaryRevisionDoc {
+  _id?: ObjectId;
+  userId: string;
+  authorName: string | null;
+  sessionId: string;
+  projectId: string;
+  revision: number;
+  idempotencyKey: string;
+  updatedAt: Date;
+  receivedAt: Date;
+  client: { plugin: string; platform: string } | null;
+  repo: { remote: string; branch: string; head: string };
+  links: SummaryLinks;
+  summary: SummarySummary;
+  files: string[];
+  review: { approved: true; approvedAt: Date; edited: boolean };
 }
 
 export interface ApiKeyDoc {
@@ -79,5 +133,9 @@ export const memories = (): Collection<MemoryDoc> => db().collection<MemoryDoc>(
 export const summaries = (): Collection<SummaryDoc> => db().collection<SummaryDoc>("memory_summaries");
 export const audits = (): Collection<AuditDoc> => db().collection<AuditDoc>("memory_audit");
 export const apiKeys = (): Collection<ApiKeyDoc> => db().collection<ApiKeyDoc>("api_keys");
+export const projects = (): Collection<ProjectDoc> => db().collection<ProjectDoc>("projects");
+export const projectMembers = (): Collection<ProjectMemberDoc> => db().collection<ProjectMemberDoc>("project_members");
+export const summaryRevisions = (): Collection<SummaryRevisionDoc> =>
+  db().collection<SummaryRevisionDoc>("summary_revisions");
 
 export const VECTOR_INDEX = "memories_embedding";
