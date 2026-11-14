@@ -60,3 +60,40 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
   Set `MONGODB_URI=mongodb+srv://…` in `apps/web/.env.local`, then run `pnpm db:indexes`.
 - **Embeddings key**: none in the environment. Search uses the deterministic `stub` provider, which is **not**
   semantic. A real provider needs the operator's key.
+- **Session secret for any hosted deploy**: `BETTER_AUTH_SECRET` (32+ chars) and `BETTER_AUTH_URL` are unset. Without
+  them sessions are signed with a development constant: fine on localhost, not on a public URL.
+
+## Integration: Relay + Intelligence (`integration/relay-intelligence`)
+
+Relay `ee569ec` + Intelligence `8ab35c5`, merged in `8315307`. Conflicts only in `components/nav.tsx` and
+`apps/web/package.json`; both sides kept (Intelligence and Relay nav entries; `atlas:check`, `db:reembed`,
+`relay:demo-accounts` and `intelligence:demo` scripts).
+
+- `7cf53dd`: a semantic conflict with no textual one. Relay made "live" (active **and** not expired, `liveFilter`) the
+  rule for every memory read, and restricted `$vectorSearch` to the active embedding model. Intelligence predated that,
+  so on the merged tree Ask Strata cited an expired memory and Pulse counted it. Intelligence's memory reads now use
+  `liveFilter` and the model filter. A new assertion in `intelligence.db.test.ts` fails on `8315307` and passes now.
+- `43a6ba1`: one suggested question said "the team"; Ask Strata reads only the asker's own records. Now "I".
+- Intelligence is **owner-scoped and extractive**: no model writes answers (labelled "extractive · no model" and "your
+  scope only"; the page lists team-wide records and AI-written answers as unavailable).
+
+Run on `43a6ba1`, Node 22.23.3, Atlas Local 8.0.34 (database `strata_integration`, `?directConnection=true`):
+
+- typecheck OK; lint OK (200 files); unit 73 + 51 + 43; acceptance 6/6; DB 59/59 (53 Relay + 6 Intelligence);
+  `pnpm build` OK, and the rebuilt `clients/claude-code/dist/mcp.mjs` is byte-identical to the committed one.
+- `node demo/relay/run.mjs --api http://localhost:9340` against `next start`: **26/26**, twice (on `8315307` and on
+  `43a6ba1`), with real headless Claude Code sessions; nothing was built while they ran.
+- `atlas:check` passes (local, stub).
+- In Chrome at a 1440 px viewport: `/relay` and `/intelligence` load with no console errors and no horizontal scroll.
+  Alice sees her shared and private memories; Bob, the recipient, gets **0 records** in Ask Strata (Relay sharing
+  doesn't widen Intelligence's scope). Evidence drilldown shows owner, authorization and provenance.
+
+Found, not changed:
+
+- Relay's three-pane layout never turns on: Tailwind emits `min-[1380px]:` before `lg:`, so `lg:grid-cols-[260px_…]`
+  wins. At 1440 px it renders as two panes, which reads fine. Forcing the three-pane CSS in the browser showed the
+  checkpoint overlapping the right column, so fixing the breakpoint alone would make it worse.
+- Stub embeddings aren't semantic: as Alice, "How should durations be rounded?" also cites her private "interviewing"
+  memory (her own record, so not a leak, but don't demo Ask Strata as Alice on a shared screen).
+- `pnpm build` rewrites `apps/web/next-env.d.ts` (`.next/dev/types` → `.next/types`); revert it before committing.
+- The repository's `engines` says Node ≥ 24; everything here ran on 22.23.3. The default `node` on this machine is 18.
