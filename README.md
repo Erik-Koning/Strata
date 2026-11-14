@@ -4,6 +4,12 @@ Long-term memory for coding agents. Strata captures what happens in your Claude 
 remembering, and gives it back to the next session without breaking the prompt cache. Compacted summaries sit on top,
 so a long history stays small.
 
+![How Strata works: capture on the engineer's machine, a draft only its author sees, the engineer's review, then product pages, where engineering time goes, context gaps and an assistant for the team](docs/how-strata-works.svg)
+
+The diagram's source is [`docs/how-strata-works.excalidraw.json`](docs/how-strata-works.excalidraw.json). Open it at
+excalidraw.com or with the VS Code Excalidraw extension, and export it again as `docs/how-strata-works.svg` after a
+change.
+
 ## What's built so far
 
 On 14 November 2026 Strata went from an empty repository to a working loop, end to end. **The web app** (Next.js 16,
