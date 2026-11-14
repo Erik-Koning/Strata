@@ -1,42 +1,63 @@
 // The checkpoint, read-only: what was done, what's left, what failed and why, and the one thing to do next.
 import type { Handoff } from "@strata/contracts";
-import { ArrowRight, ShieldCheck, TriangleAlert } from "lucide-react";
-import { Ago } from "../time.tsx";
+import { ArrowRight, Check, Circle, CircleSlash, ShieldCheck, TriangleAlert } from "lucide-react";
+import type { ReactNode } from "react";
 import { RepoLine } from "./repo.tsx";
 
-export function ItemList({ title, items, tone }: { title: string; items: string[]; tone?: "danger" }) {
+type Tone = "done" | "open" | "danger" | "muted";
+
+const MARK = {
+  done: <Check size={13} strokeWidth={2.5} className="text-accent" aria-hidden />,
+  open: <Circle size={11} strokeWidth={2} className="text-ink-3" aria-hidden />,
+  danger: <TriangleAlert size={13} className="text-danger" aria-hidden />,
+  muted: <CircleSlash size={12} className="text-ink-3" aria-hidden />,
+} satisfies Record<Tone, ReactNode>;
+
+export function ItemList({
+  title,
+  items,
+  tone = "open",
+  className = "",
+}: {
+  title: string;
+  items: string[];
+  tone?: Tone | "neutral";
+  className?: string;
+}) {
+  const mark = tone === "neutral" ? null : MARK[tone];
   return (
-    <section>
-      <h3 className={`eyebrow ${tone === "danger" && items.length ? "text-danger" : ""}`}>
+    <section className={`min-w-0 ${className}`}>
+      <h3
+        className={`flex items-center gap-2 font-semibold text-[12.5px] ${tone === "danger" && items.length ? "text-danger" : "text-ink"}`}
+      >
         {title}
-        {items.length ? <span className="ml-1.5 text-ink-3">{items.length}</span> : null}
+        <span className="count">{items.length || ""}</span>
       </h3>
       {items.length ? (
-        <ul className="mt-2 grid gap-1.5 text-[14px]">
+        <ul className="mt-2.5 grid gap-2 text-[13.5px] leading-snug">
           {items.map((item, i) => (
             <li key={i} className="flex gap-2.5">
-              <span className="mt-[9px] size-1 flex-none rounded-full bg-ink-3" aria-hidden />
-              <span className="min-w-0">{item}</span>
+              <span className="mt-[3px] grid size-[14px] flex-none place-items-center">
+                {mark ?? <span className="size-1 rounded-full bg-ink-3" aria-hidden />}
+              </span>
+              <span className="min-w-0 text-ink-2">{item}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-[13px] text-ink-3">None</p>
+        <p className="mt-2.5 text-[12.5px] text-ink-3">None</p>
       )}
     </section>
   );
 }
 
-export function NextAction({ text }: { text: string }) {
+export function NextAction({ text, label = "Next action" }: { text: string; label?: string }) {
   return (
-    <section
-      aria-labelledby="next-title"
-      className="rounded-[12px] border border-accent/25 bg-accent-soft px-4 py-3.5 text-accent-text"
-    >
+    <section aria-labelledby="next-title" className="min-w-0">
       <h3 id="next-title" className="eyebrow flex items-center gap-1.5 text-accent-text">
-        <ArrowRight size={13} aria-hidden /> Next recommended action
+        <ArrowRight size={12} aria-hidden /> {label}
       </h3>
-      <p className={`mt-1.5 font-medium text-[15.5px] ${text ? "text-ink" : "text-ink-3"}`}>
+      <p className={`mt-2 font-medium text-[17px] leading-snug tracking-[-0.01em] ${text ? "text-ink" : "text-ink-3"}`}>
         {text || "None given. Read Remaining and Blockers first."}
       </p>
     </section>
@@ -46,19 +67,24 @@ export function NextAction({ text }: { text: string }) {
 export function CheckpointBody({ handoff }: { handoff: Handoff }) {
   return (
     <>
-      <section>
-        <h3 className="eyebrow">Summary</h3>
-        <p className={`mt-2 whitespace-pre-wrap text-[14.5px] ${handoff.summary ? "" : "text-ink-3"}`}>
-          {handoff.summary || "No summary."}
-        </p>
-      </section>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <ItemList title="Completed" items={handoff.completed} />
-        <ItemList title="Remaining" items={handoff.remaining} />
-        <ItemList title="Blockers" items={handoff.blockers} tone="danger" />
-        <ItemList title="Tried & failed" items={handoff.failedApproaches} />
-      </div>
-      <ItemList title="Decisions" items={handoff.decisions} />
+      <p
+        className={`max-w-[72ch] whitespace-pre-wrap text-[14.5px] leading-relaxed ${handoff.summary ? "text-ink" : "text-ink-3"}`}
+      >
+        {handoff.summary || "No summary."}
+      </p>
+      {handoff.completed.length || handoff.remaining.length || handoff.blockers.length ? (
+        <div className="grid gap-px overflow-hidden rounded-[var(--radius)] border border-line bg-line lg:grid-cols-3">
+          <ItemList title="Completed" items={handoff.completed} tone="done" className="bg-surface p-4" />
+          <ItemList title="Remaining" items={handoff.remaining} tone="open" className="bg-surface p-4" />
+          <ItemList title="Blockers" items={handoff.blockers} tone="danger" className="bg-surface p-4" />
+        </div>
+      ) : null}
+      {handoff.failedApproaches.length || handoff.decisions.length ? (
+        <div className="grid gap-6 pt-1 lg:grid-cols-2">
+          <ItemList title="Tried & failed" items={handoff.failedApproaches} tone="muted" />
+          <ItemList title="Decisions" items={handoff.decisions} tone="neutral" />
+        </div>
+      ) : null}
     </>
   );
 }
@@ -69,55 +95,34 @@ export function Continuation({ handoff }: { handoff: Handoff }) {
   const c = handoff.continuation;
   if (!c) return null;
   return (
-    <section aria-labelledby="cont-title" className="rounded-[12px] border border-line bg-surface-2/60 px-4 py-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="cont-title" className="eyebrow">
-          Continuation{handoff.recipient ? ` by ${handoff.recipient.name}` : ""}
-        </h3>
-        <span className="flex items-center gap-2 text-[12.5px] text-ink-3">
-          {c.verified ? (
-            <span className="chip badge-verified">
-              <ShieldCheck size={12} aria-hidden /> TESTS VERIFIED
-            </span>
-          ) : (
-            <span className="chip badge-claimed">
-              <TriangleAlert size={12} aria-hidden /> UNVERIFIED
-            </span>
-          )}
-          {handoff.completedAt ? <Ago at={handoff.completedAt} /> : null}
+    <section
+      aria-label="Result"
+      className={`overflow-hidden rounded-[var(--radius)] border bg-surface ${c.verified ? "border-verified/35" : "border-amber/35"}`}
+    >
+      <div
+        className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2.5 text-[12.5px] ${
+          c.verified
+            ? "border-verified/20 bg-verified-soft text-verified-text"
+            : "border-amber/20 bg-amber-soft/60 text-amber"
+        }`}
+      >
+        {c.verified ? <ShieldCheck size={14} aria-hidden /> : <TriangleAlert size={14} aria-hidden />}
+        <span className="font-medium">
+          {c.verified
+            ? "Verified: every test command passed in a run Strata made after the claim"
+            : "Unverified: treat it as reported, not proven"}
         </span>
       </div>
-      <p className="mt-2 whitespace-pre-wrap text-[14.5px]">{c.summary}</p>
-      {!c.verified ? (
-        <p className="mt-1.5 text-[12.5px] text-ink-3">
-          Not every test command passed in a verified run after the claim. Treat it as reported, not proven.
-        </p>
-      ) : null}
-      {c.completed.length ? (
-        <div className="mt-3">
-          <ItemList title="Done in this session" items={c.completed} />
-        </div>
-      ) : null}
-      <dl className="mt-3 grid gap-2 border-line border-t pt-3 text-[13px]">
-        <div className="grid gap-0.5 sm:grid-cols-[92px_minmax(0,1fr)] sm:gap-3">
-          <dt className="text-ink-3">At handoff</dt>
-          <dd>
-            <RepoLine repo={handoff.repo} />
-          </dd>
-        </div>
-        <div className="grid gap-0.5 sm:grid-cols-[92px_minmax(0,1fr)] sm:gap-3">
-          <dt className="text-ink-3">At claim</dt>
-          <dd>
-            <RepoLine repo={c.claimRepo} />
-          </dd>
-        </div>
-        <div className="grid gap-0.5 sm:grid-cols-[92px_minmax(0,1fr)] sm:gap-3">
-          <dt className="text-ink-3">Final</dt>
-          <dd>
+      <div className="grid gap-4 px-4 py-4">
+        <p className="max-w-[72ch] whitespace-pre-wrap text-[14.5px] text-ink leading-relaxed">{c.summary}</p>
+        {c.completed.length ? <ItemList title="Done in this session" items={c.completed} tone="done" /> : null}
+        {c.repo ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-line border-t pt-3">
+            <span className="text-[12px] text-ink-3">Final</span>
             <RepoLine repo={c.repo} />
-          </dd>
-        </div>
-      </dl>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

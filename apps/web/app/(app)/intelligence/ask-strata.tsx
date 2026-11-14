@@ -1,7 +1,7 @@
 "use client";
 // Ask Strata: a question in, an answer out that's made only of the asker's own records, each point cited. Clicking a
 // citation opens the record's evidence. When nothing matches, the answer says so and says what was searched.
-import { ArrowUp, CircleAlert, CornerDownLeft, Info, Quote, SearchX, Sparkles } from "lucide-react";
+import { ArrowUp, CircleAlert, CornerDownLeft, Info, Quote, SearchX } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState, useTransition } from "react";
 import type { Answer } from "../../../server/intelligence/types.ts";
 import { askStrata } from "./actions.ts";
@@ -65,19 +65,12 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
 
   return (
     <section aria-labelledby="ask-title" className="card relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(60%_100%_at_50%_0%,var(--accent-soft),transparent)] opacity-70"
-      />
       <header className="relative flex flex-wrap items-center gap-3 px-5 pt-5 sm:px-6">
-        <span className="grid size-9 place-items-center rounded-[10px] bg-accent text-accent-ink shadow-[var(--shadow)]">
-          <Sparkles size={17} aria-hidden />
-        </span>
         <div className="min-w-0 flex-1">
-          <h2 id="ask-title" className="font-semibold text-[17px] tracking-[-0.01em]">
-            Ask Strata
+          <h2 id="ask-title" className="font-semibold text-[15px] tracking-[-0.01em]">
+            Ask a question
           </h2>
-          <p className="text-[13px] text-ink-3">
+          <p className="text-[12.5px] text-ink-3">
             Answers come from your {records.toLocaleString()} records, quoted and cited. Nothing is made up.
           </p>
         </div>
@@ -89,43 +82,8 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
         </span>
       </header>
 
-      {turns.length ? (
-        <div
-          className="relative mt-4 max-h-[640px] space-y-5 overflow-y-auto border-line border-t px-5 py-5 sm:px-6"
-          aria-live="polite"
-        >
-          {turns.map((t) => (
-            <article key={t.id} className="space-y-3">
-              <p className="ml-auto w-fit max-w-[85%] rounded-[12px] rounded-br-[4px] bg-ink px-3.5 py-2 text-[14px] text-bg">
-                {t.question}
-              </p>
-              {t.status === "pending" ? (
-                <div role="status" className="space-y-2.5 rounded-[12px] border border-line p-4">
-                  <p className="flex items-center gap-2 text-[13px] text-ink-3">
-                    <span className="dot animate-pulse text-accent" aria-hidden /> Searching your records…
-                  </p>
-                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
-                  <div className="h-3.5 w-full animate-pulse rounded bg-surface-2" />
-                  <div className="h-3.5 w-2/3 animate-pulse rounded bg-surface-2" />
-                </div>
-              ) : t.status === "error" ? (
-                <p
-                  className="flex items-center gap-2 rounded-[12px] bg-danger-soft px-4 py-3 text-[14px] text-danger"
-                  role="alert"
-                >
-                  <CircleAlert size={16} aria-hidden /> {t.error}
-                </p>
-              ) : (
-                <AnswerView answer={t.answer} />
-              )}
-            </article>
-          ))}
-          <div ref={end} />
-        </div>
-      ) : null}
-
       <form onSubmit={onSubmit} className="relative px-5 pt-4 pb-5 sm:px-6" aria-label="Ask a question">
-        <label className="group relative flex items-center rounded-[12px] border border-line-strong bg-surface shadow-[var(--shadow)] transition-colors focus-within:border-accent">
+        <label className="group relative flex items-center rounded-[10px] border border-line-strong bg-sunk transition-[border-color,box-shadow] focus-within:border-accent/60 focus-within:shadow-[0_0_0_3px_var(--accent-soft)]">
           <span className="sr-only">Question</span>
           <input
             ref={input}
@@ -133,7 +91,7 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
             onChange={(e) => setValue(e.target.value)}
             maxLength={500}
             placeholder="What's blocking billing? Why did we choose this approach?"
-            className="h-12 min-w-0 flex-1 bg-transparent pr-2 pl-4 text-[15px] outline-none placeholder:text-ink-3 focus-visible:outline-none"
+            className="h-14 min-w-0 flex-1 bg-transparent pr-2 pl-4 text-[16px] outline-none placeholder:text-ink-3 focus-visible:outline-none"
             autoComplete="off"
           />
           <span className="hidden pr-2 text-ink-3 sm:inline">
@@ -142,7 +100,7 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
           <button
             type="submit"
             disabled={pending || value.trim().length < 2}
-            className="btn btn-primary btn-sm mr-1.5 size-9 p-0"
+            className="btn btn-primary btn-sm mr-2 size-9 p-0"
             aria-label="Ask"
           >
             <ArrowUp size={16} aria-hidden />
@@ -162,6 +120,38 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
           ))}
         </div>
       </form>
+      {turns.length ? (
+        <div
+          className="relative max-h-[720px] space-y-6 overflow-y-auto border-line border-t bg-bg/40 px-5 py-5 sm:px-6"
+          aria-live="polite"
+        >
+          {turns.map((t) => (
+            <article key={t.id} className="space-y-3">
+              <p className="w-fit max-w-[85%] font-medium text-[15px] text-ink tracking-[-0.01em]">{t.question}</p>
+              {t.status === "pending" ? (
+                <div role="status" className="space-y-2.5 rounded-[10px] border border-line bg-surface p-4">
+                  <p className="flex items-center gap-2 text-[13px] text-ink-3">
+                    <span className="dot animate-pulse text-accent" aria-hidden /> Searching your records…
+                  </p>
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-surface-2" />
+                  <div className="h-3.5 w-full animate-pulse rounded bg-surface-2" />
+                  <div className="h-3.5 w-2/3 animate-pulse rounded bg-surface-2" />
+                </div>
+              ) : t.status === "error" ? (
+                <p
+                  className="flex items-center gap-2 rounded-[10px] bg-danger-soft px-4 py-3 text-[14px] text-danger"
+                  role="alert"
+                >
+                  <CircleAlert size={16} aria-hidden /> {t.error}
+                </p>
+              ) : (
+                <AnswerView answer={t.answer} />
+              )}
+            </article>
+          ))}
+          <div ref={end} />
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -172,7 +162,7 @@ function AnswerView({ answer }: { answer: Answer }) {
   const nothing = !answer.sources.length;
   const searched = answer.searched.memories + answer.searched.summaries + answer.searched.findings;
   return (
-    <div className="rounded-[12px] border border-line bg-surface p-4 sm:p-5">
+    <div className="rounded-[10px] border border-line bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
         {answer.reading.intentLabel ? <span className="chip">{answer.reading.intentLabel}</span> : null}
         {answer.reading.terms.map((t) => (
