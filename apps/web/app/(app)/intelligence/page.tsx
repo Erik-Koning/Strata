@@ -11,6 +11,15 @@ import { AskStrata } from "./ask-strata.tsx";
 import { EvidenceProvider, RecordButton } from "./evidence.tsx";
 import { CategoryTag, shortRef } from "./labels.tsx";
 
+// One hue, steps far enough apart in lightness to tell four kinds apart on the dark ground.
+const SHADES = [
+  "var(--accent-text)",
+  "var(--accent)",
+  "color-mix(in srgb, var(--accent) 55%, var(--surface-2))",
+  "color-mix(in srgb, var(--accent) 30%, var(--surface-2))",
+];
+const shade = (i: number) => SHADES[i % SHADES.length];
+
 export const metadata: Metadata = { title: "Intelligence" };
 export const dynamic = "force-dynamic";
 
@@ -44,9 +53,8 @@ export default async function IntelligencePage() {
   return (
     <EvidenceProvider>
       <PageHeader
-        eyebrow="Intelligence"
-        title="Product pulse"
-        lede="What's happening across your engineering work, counted from what Strata has stored and answered from its records. Every number and every answer traces back to a source."
+        title="Ask Strata"
+        lede="Ask about your own engineering work. Answers are quoted from your records, never generated, and every one links to its source."
         actions={
           <span className="chip chip-mono" title="Counted when this page loaded">
             <span className="size-1.5 flex-none rounded-full bg-accent" aria-hidden /> live from MongoDB ·{" "}
@@ -55,6 +63,13 @@ export default async function IntelligencePage() {
         }
       />
 
+      <div className="mb-8">
+        <AskStrata suggestions={suggestionsFor(p)} records={records} />
+      </div>
+
+      <h2 className="mb-3 flex items-baseline gap-2 font-semibold text-[13px]">
+        Product pulse <span className="font-normal text-[12px] text-ink-3">counted from your records</span>
+      </h2>
       <section
         aria-label="Pulse metrics"
         className="card mb-4 grid grid-cols-2 divide-line sm:grid-cols-3 lg:grid-cols-6 lg:divide-x [&>*]:border-line max-lg:[&>*]:border-b"
@@ -89,7 +104,7 @@ export default async function IntelligencePage() {
         <Metric label="Summaries" value={p.totals.summaries} hint={`${p.totals.projects} projects tracked`} />
       </section>
 
-      <section className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <section className="mb-8 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="card p-5">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="font-semibold text-[14px]">Engineering activity</h2>
@@ -134,14 +149,14 @@ export default async function IntelligencePage() {
           </div>
           {totalKinds ? (
             <>
-              <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+              <div className="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
                 {p.kinds.map((k, i) => (
                   <div
                     key={k.kind}
                     className="h-full"
                     style={{
                       width: `${(k.count / totalKinds) * 100}%`,
-                      background: `color-mix(in srgb, var(--accent) ${100 - i * 17}%, var(--surface-2))`,
+                      background: shade(i),
                     }}
                   />
                 ))}
@@ -149,11 +164,7 @@ export default async function IntelligencePage() {
               <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
                 {p.kinds.map((k, i) => (
                   <li key={k.kind} className="flex items-center gap-2">
-                    <span
-                      className="size-2 rounded-[2px]"
-                      style={{ background: `color-mix(in srgb, var(--accent) ${100 - i * 17}%, var(--surface-2))` }}
-                      aria-hidden
-                    />
+                    <span className="size-2 rounded-[2px]" style={{ background: shade(i) }} aria-hidden />
                     <span className="capitalize text-ink-2">{k.kind}</span>
                     <span className="ml-auto font-mono text-[12px] tabular-nums">{k.count}</span>
                   </li>
@@ -165,10 +176,6 @@ export default async function IntelligencePage() {
           )}
         </div>
       </section>
-
-      <div className="mb-6">
-        <AskStrata suggestions={suggestionsFor(p)} records={records} />
-      </div>
 
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
         <RecordList
@@ -187,7 +194,7 @@ export default async function IntelligencePage() {
         />
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      <div className="mb-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <RecordList
           title="Recently updated context"
           note="Active memories and session summaries, newest first."
@@ -259,7 +266,7 @@ export default async function IntelligencePage() {
           </span>
         </header>
         {p.projects.length ? (
-          <div className="overflow-x-auto">
+          <div className="max-w-full overflow-x-auto [contain:paint]">
             <table className="w-full min-w-[640px] text-[13px]">
               <thead>
                 <tr className="text-left text-[11.5px] text-ink-3">

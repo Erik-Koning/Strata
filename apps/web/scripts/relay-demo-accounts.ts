@@ -54,7 +54,7 @@ try {
       text: "Durations are always integer milliseconds: round once, at the end, never per part.",
       kind: "decision",
       sessionID: null,
-      source: "manual",
+      source: "seed",
     });
     const secret = await saveMemory({
       actor,
@@ -62,7 +62,7 @@ try {
       text: "Private: I'm interviewing elsewhere next week, don't mention it to the team.",
       kind: "fact",
       sessionID: null,
-      source: "manual",
+      source: "seed",
     });
     memories = { shared: shared._id.toHexString(), private: secret._id.toHexString() };
   }

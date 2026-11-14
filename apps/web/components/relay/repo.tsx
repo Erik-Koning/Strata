@@ -35,21 +35,28 @@ export function RepoLine({ repo }: { repo: RepoState | null | undefined }) {
   );
 }
 
-export function RepoWarning({ repo }: { repo: RepoState | null | undefined }) {
+// `past`: the work has already moved on (someone resumed it), so this is a record of how it left, not an alarm.
+export function RepoWarning({ repo, past = false }: { repo: RepoState | null | undefined; past?: boolean }) {
   if (!repo) return null;
   const unpushed = repo.pushed === false;
   const uncommitted = repo.uncommitted ?? [];
   if (!unpushed && !uncommitted.length) return null;
   return (
-    <div role="note" className="mt-3 rounded-[10px] bg-danger-soft px-3.5 py-3 text-[13.5px] text-danger">
-      <p className="flex items-center gap-2 font-semibold">
-        <TriangleAlert size={15} aria-hidden /> These changes did not travel
+    <div
+      role="note"
+      className={`mt-3 rounded-[10px] px-3.5 py-3 text-[13.5px] ${
+        past ? "border border-line bg-surface text-ink-2" : "bg-danger-soft text-danger"
+      }`}
+    >
+      <p className={`flex items-center gap-2 font-semibold ${past ? "text-ink" : ""}`}>
+        <TriangleAlert size={15} aria-hidden className={past ? "text-amber" : ""} />
+        {past ? "At handoff, these changes hadn't travelled" : "These changes did not travel"}
       </p>
       <ul className="mt-1.5 grid gap-1 text-ink-2">
         {unpushed ? (
           <li>
             Commit <span className="font-mono">{shortSha(repo.commit) ?? "(unknown)"}</span> isn't on a remote branch.
-            Push it before anyone resumes.
+            {past ? "It had to be pushed before anyone could resume." : "Push it before anyone resumes."}
           </li>
         ) : null}
         {uncommitted.length ? (

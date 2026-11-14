@@ -158,7 +158,12 @@ export const SharedMemory = z.object({
   createdAt: z.string(),
   provenance: z.object({
     sessionID: z.string().nullable(),
+    // "record": captured in a session (strata_record or the session's draft) and approved by its owner on review.
+    // "manual" or "tool": saved directly by the owner. "seed": made by a script, not by anyone's work.
     source: z.string(),
+    // The captured event it came from, and the reviewed record whose approval made it, when there are such.
+    eventId: z.string().nullable().default(null),
+    recordId: z.string().nullable().default(null),
   }),
   // Set when this memory replaced the one the sender shared (a correction).
   correctionOf: z.string().nullable(),
@@ -259,6 +264,9 @@ export function renderResume(h: Handoff, memories: SharedMemory[]): string {
     `Task: ${h.title}`,
     `Project: ${h.project}`,
     `From: ${h.sender.name} → To: ${h.recipient?.name ?? "(not approved)"}`,
+    `Source session: ${h.sourceSessionID ?? "unknown"}`,
+    "Everything from Summary to Next recommended action was written by the sender (or their agent) at handoff: claims,",
+    "except test runs marked [verified]. Shared memories are listed apart from it, each with where it came from.",
     `Repository: ${repo?.url ?? "unknown"} · branch ${repo?.branch ?? "unknown"} · commit ${repo?.commit ?? "unknown"}${repo?.pushed === false ? " (NOT pushed)" : ""}`,
     repo?.uncommitted.length
       ? `Uncommitted at handoff (did NOT travel): ${repo.uncommitted.join(", ")}`
@@ -295,11 +303,25 @@ export function renderResume(h: Handoff, memories: SharedMemory[]): string {
     "## Shared memories (approved by the sender)",
     memories.length
       ? memories
-          .map((m) => `- ${m._id} [${m.kind}] ${m.text}${m.correctionOf ? ` (correction of ${m.correctionOf})` : ""}`)
+          .map(
+            (m) =>
+              `- ${m._id} [${m.kind}] ${m.text}${m.correctionOf ? ` (correction of ${m.correctionOf})` : ""} {${memoryOrigin(m)}}`,
+          )
           .join("\n")
       : "- (none)",
     "</strata-handoff>",
   ].join("\n");
+}
+
+// Where a shared memory came from, in a few words a receiving session can quote: captured and reviewed, saved
+// directly, or seeded by a script.
+export function memoryOrigin(m: Pick<SharedMemory, "provenance">): string {
+  const p = m.provenance;
+  const session = p.sessionID ? `session ${p.sessionID}` : "no session";
+  if (p.source === "record") return `captured in ${session}, approved as record ${p.recordId ?? "unknown"}`;
+  if (p.source === "seed") return "seeded by a script, not captured from a session";
+  if (p.source === "manual" || p.source === "tool") return `saved directly by the sender (${p.source}), ${session}`;
+  return `kept from ${session} (${p.source}), not reviewed as a record`;
 }
 
 // POST /api/memory/correct: the owner replaces one of their memories with a corrected one. The new memory supersedes

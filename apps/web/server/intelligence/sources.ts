@@ -176,6 +176,7 @@ export async function loadSource(
 }
 
 export const FINDING_LABELS: Record<(typeof FINDING_TYPES)[number], string> = {
+  summary: "Summary",
   insight: "Insight",
   workflow: "Workflow note",
   pain_point: "Pain point",

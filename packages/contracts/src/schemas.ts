@@ -173,9 +173,12 @@ export const EventPayload = z.looseObject({
 
 // finding: what the agent logs the moment it runs into it (the record_finding tool). It becomes a draft record that
 // only its author sees until they approve it.
-export const FINDING_TYPES = ["insight", "workflow", "pain_point", "context_gap"] as const;
+// A "summary" is the session's own account of itself, written by the client (the plugin summarizes on the engineer's
+// machine): the server drafts it as it is instead of writing one.
+export const FINDING_TYPES = ["summary", "insight", "workflow", "pain_point", "context_gap"] as const;
 export const FindingPayload = z.looseObject({
   type: openName(FINDING_TYPES),
+  title: z.string().max(200).optional(),
   text: z.string().min(1).max(4000),
   refs: z.array(Ref).max(20).optional(),
 });

@@ -1,8 +1,8 @@
 import type { MemoryStatus } from "@strata/contracts";
 
 const STATUS_LABEL: Record<MemoryStatus, string> = {
-  active: "Active",
-  candidate: "Candidate",
+  active: "Remembered",
+  candidate: "Needs review",
   superseded: "Superseded",
   archived: "Archived",
 };

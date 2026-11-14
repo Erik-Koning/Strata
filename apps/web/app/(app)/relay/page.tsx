@@ -2,15 +2,28 @@
 // approves a draft here; the recipient copies the command that resumes it in Claude Code. Claiming, test runs and
 // completing happen in Claude Code, and show up here.
 import type { Handoff, HandoffListItem, Person, SharedMemory } from "@strata/contracts";
-import { ChevronLeft, Plus } from "lucide-react";
+import {
+  ChevronLeft,
+  FlaskConical,
+  GitCommitHorizontal,
+  History,
+  Library,
+  ListChecks,
+  PanelRight,
+  Plus,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { CheckpointBody, Continuation, NextAction } from "../../../components/relay/checkpoint.tsx";
+import { DrawerProvider, DrawerTrigger } from "../../../components/relay/drawer.tsx";
+import { latestRuns } from "../../../components/relay/flow.tsx";
 import { Inbox } from "../../../components/relay/inbox.tsx";
 import { ChangedFiles, ExcludedMemories, SharedMemories } from "../../../components/relay/memories.tsx";
 import { RepoLine, RepoWarning } from "../../../components/relay/repo.tsx";
 import { ResumeBlock } from "../../../components/relay/resume.tsx";
-import { nameOf, StatusPill } from "../../../components/relay/status.tsx";
+import { StatusPill } from "../../../components/relay/status.tsx";
+import { firstName, lead, Result, TransferSequence } from "../../../components/relay/story.tsx";
 import { Tests } from "../../../components/relay/tests.tsx";
 import { Timeline } from "../../../components/relay/timeline.tsx";
 import { Ago } from "../../../components/time.tsx";
@@ -24,6 +37,7 @@ import {
 } from "../../../server/handoffs/service.ts";
 import { ApiError } from "../../../server/http.ts";
 import { overview } from "../../../server/stats.ts";
+import { PageHeader } from "../page-header.tsx";
 import { requireCaller } from "./caller.ts";
 import { DraftEditor } from "./draft-editor.tsx";
 import { NewHandoff } from "./new-handoff.tsx";
@@ -86,141 +100,208 @@ async function load(caller: Caller, id: string): Promise<Detail> {
   }
 }
 
-function StatusNote({
-  handoff,
-  party,
-  viewerId,
-}: {
-  handoff: Handoff;
-  party: "sender" | "recipient";
-  viewerId: string;
-}) {
-  const recipient = nameOf(handoff.recipient, viewerId);
-  if (handoff.status === "revoked")
-    return (
-      <p role="note" className="rounded-[10px] bg-danger-soft px-3.5 py-2.5 text-[13.5px] text-danger">
-        Revoked {handoff.revokedAt ? <Ago at={handoff.revokedAt} /> : null}
-        {handoff.recipient ? `. ${handoff.recipient.name} can no longer read it.` : "."}
-        {handoff.revokeReason ? <span className="mt-0.5 block text-ink-2">Reason: {handoff.revokeReason}</span> : null}
-      </p>
-    );
-  if (handoff.status === "approved")
-    return (
-      <p className="text-[13.5px] text-ink-2">
-        {party === "recipient"
-          ? "Handed to you. Resume it in a fresh Claude Code session; claiming it there tells the sender you've started."
-          : `Waiting for ${recipient} to resume it.`}
-      </p>
-    );
-  if (handoff.status === "claimed")
-    return (
-      <p className="rounded-[10px] bg-amber-soft px-3.5 py-2.5 text-[13.5px] text-amber">
-        Claimed by {recipient} {handoff.claimedAt ? <Ago at={handoff.claimedAt} /> : null}. Work continues in their
-        Claude Code session; tests and completion appear here.
-      </p>
-    );
-  return null;
-}
-
 function Checkpoint({ detail, viewerId }: { detail: Extract<Detail, { kind: "ok" }>; viewerId: string }) {
   const { handoff, party } = detail;
   const draft = handoff.status === "draft";
   const canRevoke = party === "sender" && ["draft", "approved", "claimed"].includes(handoff.status);
   const showResume = handoff.status === "approved" || handoff.status === "claimed";
+  const explanation = handoff.summary ? lead(handoff.summary) : null;
   return (
-    <article className="card grid gap-6 p-5 sm:p-6" aria-labelledby="handoff-title">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <StatusPill status={handoff.status} />
-            <span className="font-mono text-[12px] text-ink-3">{handoff.project}</span>
+    <DrawerProvider title={handoff.title} panel={<Evidence detail={detail} viewerId={viewerId} />}>
+      <article className="grid min-w-0 gap-7" aria-labelledby="handoff-title">
+        <header className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
+              <StatusPill status={handoff.status} />
+              <span>{handoff.project}</span>
+              <span>
+                Updated <Ago at={handoff.updatedAt} />
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <DrawerTrigger className="btn btn-sm">
+                <PanelRight size={14} aria-hidden /> Inspect evidence
+              </DrawerTrigger>
+              {canRevoke ? (
+                <RevokeControl
+                  key={handoff._id}
+                  id={handoff._id}
+                  status={handoff.status}
+                  recipient={handoff.recipient?.name ?? null}
+                />
+              ) : null}
+            </div>
           </div>
-          <h2 id="handoff-title" className="mt-2 font-semibold text-[22px] leading-tight tracking-[-0.02em]">
+          <h2
+            id="handoff-title"
+            className="max-w-[34ch] font-semibold text-[30px] text-ink leading-[1.1] tracking-[-0.035em] sm:text-[34px]"
+          >
             {handoff.title}
           </h2>
-          <p className="mt-1.5 text-[13.5px] text-ink-2">
-            <span className="font-medium text-ink">{nameOf(handoff.sender, viewerId)}</span>
-            <span aria-hidden className="mx-1.5 text-ink-3">
-              →
-            </span>
-            <span className="sr-only">to</span>
-            <span className={handoff.recipient ? "font-medium text-ink" : "text-ink-3"}>
-              {nameOf(handoff.recipient, viewerId)}
-            </span>
-            <span className="text-ink-3">
-              {" "}
-              · drafted <Ago at={handoff.createdAt} />
-            </span>
-          </p>
-        </div>
-        {canRevoke ? (
-          <RevokeControl
-            key={handoff._id}
-            id={handoff._id}
-            status={handoff.status}
-            recipient={handoff.recipient?.name ?? null}
-          />
+          {explanation ? <p className="max-w-[64ch] text-[16px] text-ink-2 leading-relaxed">{explanation}</p> : null}
+        </header>
+
+        <TransferSequence handoff={handoff} memories={detail.memories} viewerId={viewerId}>
+          <Result handoff={handoff} />
+        </TransferSequence>
+
+        {showResume ? (
+          <section
+            aria-label="Pick it up"
+            className="panel grid gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+          >
+            <NextAction text={handoff.nextAction} />
+            <div className="min-w-0">
+              <ResumeBlock handoff={handoff} forRecipient={party === "recipient"} />
+            </div>
+          </section>
         ) : null}
-      </header>
 
-      <StatusNote handoff={handoff} party={party} viewerId={viewerId} />
-      {handoff.continuation ? <Continuation handoff={handoff} /> : null}
-      {showResume ? <NextAction text={handoff.nextAction} /> : null}
-      {showResume ? <ResumeBlock handoff={handoff} forRecipient={party === "recipient"} /> : null}
+        {draft ? (
+          <section aria-label="Review the draft" className="panel p-6">
+            <DraftEditor
+              key={handoff._id}
+              handoff={handoff}
+              recipients={detail.recipients}
+              shareable={detail.shareable}
+            />
+          </section>
+        ) : null}
 
-      <section aria-labelledby="repo-title">
-        <h3 id="repo-title" className="eyebrow">
-          Repository at handoff
-        </h3>
-        <div className="mt-2">
-          <RepoLine repo={handoff.repo} />
-          <RepoWarning repo={handoff.repo} />
-        </div>
-      </section>
-
-      {draft ? (
-        <DraftEditor key={handoff._id} handoff={handoff} recipients={detail.recipients} shareable={detail.shareable} />
-      ) : (
-        <CheckpointBody handoff={handoff} />
-      )}
-      <Tests handoff={handoff} />
-    </article>
+        <EvidenceLinks handoff={handoff} />
+      </article>
+    </DrawerProvider>
   );
 }
 
-function Context({ detail, viewerId }: { detail: Extract<Detail, { kind: "ok" }>; viewerId: string }) {
+// The way into the technical record: each link opens the inspector at its section.
+function EvidenceLinks({ handoff }: { handoff: Handoff }) {
+  const tests = latestRuns(handoff);
+  const files = new Set([...handoff.changedFiles, ...(handoff.continuation?.changedFiles ?? [])]).size;
+  const links = [
+    { target: "evidence-checkpoint", icon: ListChecks, label: "Full checkpoint", count: null },
+    {
+      target: "evidence-tests",
+      icon: FlaskConical,
+      label: "Test runs",
+      count: handoff.tests.length ? `${handoff.tests.length}` : null,
+      hide: handoff.status === "draft" || (handoff.status === "revoked" && !handoff.tests.length),
+    },
+    { target: "evidence-memories", icon: Library, label: "Memory sources", count: `${handoff.memoryIds.length}` },
+    {
+      target: "evidence-files",
+      icon: GitCommitHorizontal,
+      label: "Commits and files",
+      count: files ? `${files}` : null,
+    },
+    { target: "evidence-activity", icon: History, label: "Activity log", count: `${handoff.timeline.length}` },
+  ].filter((l) => !l.hide);
+  return (
+    <nav aria-label="Evidence" className="flex flex-wrap items-center gap-x-1 gap-y-1 border-line border-t pt-4">
+      <span className="mr-2 font-medium text-[13px] text-ink">Evidence</span>
+      {links.map(({ target, icon: Icon, label, count }) => (
+        <DrawerTrigger key={target} target={target} className="evidence-link">
+          <Icon size={14} aria-hidden className="text-ink-3" />
+          {label}
+          {count ? <span className="count">{count}</span> : null}
+        </DrawerTrigger>
+      ))}
+      {tests.named ? (
+        <span className="ml-auto text-[12.5px] text-ink-3">
+          {tests.passing} of {tests.named} test commands passing in the latest runs
+        </span>
+      ) : null}
+    </nav>
+  );
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className="evidence-section grid scroll-mt-4 gap-4">
+      <h3 id={`${id}-title`} className="font-semibold text-[15px] text-ink tracking-[-0.01em]">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+// The inspector's contents: everything the story leaves out, in full.
+function Evidence({ detail, viewerId }: { detail: Extract<Detail, { kind: "ok" }>; viewerId: string }) {
   const { handoff } = detail;
+  const sender = firstName(handoff.sender.name);
+  const recipient = handoff.recipient ? firstName(handoff.recipient.name) : "the recipient";
   const shared = handoff.memoryIds.length;
   return (
     <>
-      {handoff.status === "draft" ? (
-        <section>
-          <h3 className="eyebrow">Shared memories</h3>
-          <p className="mt-2 text-[13px] text-ink-3">
+      <Section id="evidence-checkpoint" title={`What ${sender} handed over`}>
+        <CheckpointBody handoff={handoff} />
+        {handoff.nextAction ? <NextAction text={handoff.nextAction} label="Next step, as handed over" /> : null}
+      </Section>
+      {handoff.status === "draft" || (handoff.status === "revoked" && !handoff.tests.length) ? null : (
+        <Section id="evidence-tests" title="Test runs">
+          <Tests handoff={handoff} />
+        </Section>
+      )}
+      {handoff.continuation ? (
+        <Section id="evidence-session" title={`${recipient}'s session`}>
+          <Continuation handoff={handoff} />
+        </Section>
+      ) : null}
+      <Section id="evidence-memories" title="Where the shared memory came from">
+        {handoff.status === "draft" ? (
+          <p className="text-[13.5px] text-ink-3">
             None until you approve. Tick the ones to send in the draft; each is re-checked whenever it's read.
           </p>
-        </section>
-      ) : detail.memories ? (
-        <>
-          <SharedMemories memories={detail.memories} />
-          <ExcludedMemories excluded={detail.excluded} />
-        </>
-      ) : (
-        <SharedMemories
-          memories={[]}
-          note={
-            shared
-              ? `${shared} shared. They're readable while the handoff is open.`
-              : "None were shared with this handoff."
-          }
-        />
-      )}
-      <ChangedFiles files={handoff.changedFiles} />
-      {handoff.continuation?.changedFiles.length ? (
-        <ChangedFiles title="Changed in the continuation" files={handoff.continuation.changedFiles} />
-      ) : null}
-      <Timeline handoff={handoff} viewerId={viewerId} />
+        ) : detail.memories ? (
+          <>
+            <SharedMemories memories={detail.memories} />
+            <ExcludedMemories excluded={detail.excluded} />
+          </>
+        ) : (
+          <SharedMemories
+            memories={[]}
+            note={
+              shared
+                ? `${shared} shared. They're readable while the handoff is open.`
+                : "None were shared with this handoff."
+            }
+          />
+        )}
+      </Section>
+      <Section id="evidence-files" title="Commits and files">
+        <div className="grid gap-1.5">
+          <p className="text-[12.5px] text-ink-3">Repository at handoff</p>
+          <RepoLine repo={handoff.repo} />
+          <RepoWarning repo={handoff.repo} past={Boolean(handoff.claimedAt)} />
+        </div>
+        <ChangedFiles files={handoff.changedFiles} />
+        {handoff.continuation?.changedFiles.length ? (
+          <ChangedFiles title={`Changed in ${recipient}'s session`} files={handoff.continuation.changedFiles} />
+        ) : null}
+      </Section>
+      <Section id="evidence-activity" title="Activity log">
+        <Timeline handoff={handoff} viewerId={viewerId} />
+      </Section>
     </>
+  );
+}
+
+// With nothing chosen, open the handoff that most wants attention: one handed to you that's waiting or underway, then
+// one of yours in flight, then the latest finished one, then a draft to review. Lists arrive newest first.
+function pick(inbox: HandoffListItem[], sent: HandoffListItem[]): string | null {
+  const first = (items: HandoffListItem[], statuses: HandoffListItem["status"][]) =>
+    items.find((h) => statuses.includes(h.status));
+  return (
+    (
+      first(inbox, ["approved", "claimed"]) ??
+      first(sent, ["claimed", "approved"]) ??
+      first([...inbox, ...sent], ["completed"]) ??
+      first(sent, ["draft"]) ??
+      inbox[0] ??
+      sent[0] ??
+      null
+    )?._id ?? null
   );
 }
 
@@ -228,78 +309,67 @@ export default async function RelayPage({ searchParams }: PageProps<"/relay">) {
   const caller = await requireCaller();
   const params = await searchParams;
   const creating = one(params.new) === "1";
-  const id = creating ? null : (one(params.id) ?? null);
-  const [inbox, sent, detail, projects]: [HandoffListItem[], HandoffListItem[], Detail | null, string[]] =
-    await Promise.all([
-      listHandoffs(caller, "inbox"),
-      listHandoffs(caller, "outbox"),
-      id ? load(caller, id) : Promise.resolve(null),
-      creating ? overview(caller.userId).then((o) => o.projects) : Promise.resolve([]),
-    ]);
-  const open = Boolean(id || creating);
+  const chosen = creating ? null : (one(params.id) ?? null);
+  const [inbox, sent, projects]: [HandoffListItem[], HandoffListItem[], string[]] = await Promise.all([
+    listHandoffs(caller, "inbox"),
+    listHandoffs(caller, "outbox"),
+    creating ? overview(caller.userId).then((o) => o.projects) : Promise.resolve([]),
+  ]);
+  // An automatic pick shows on wide screens only: on a phone the list comes first until you choose.
+  const id = creating ? null : (chosen ?? pick(inbox, sent));
+  const detail = id ? await load(caller, id) : null;
+  const open = Boolean(chosen || creating);
 
   return (
     <>
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0 max-w-2xl">
-          <p className="eyebrow">Relay</p>
-          <h1 className="mt-1.5 font-semibold text-[30px] leading-tight tracking-[-0.025em]">Handoffs</h1>
-          <p className="mt-2 text-[15px] text-ink-2">
-            Unfinished work, handed on as a checkpoint someone can verify: what's done and left, the commit it stands
-            on, test evidence, and only the memories you choose to share.
-          </p>
-        </div>
-        <Link href="/relay?new=1" className="btn" aria-current={creating ? "page" : undefined}>
-          <Plus size={15} aria-hidden /> New handoff
-        </Link>
-      </header>
+      <PageHeader
+        title="Handoffs"
+        lede="Your teammate started it. Strata remembers it. Your agent finishes it."
+        actions={
+          <Link href="/relay?new=1" className="btn btn-primary btn-sm" aria-current={creating ? "page" : undefined}>
+            <Plus size={14} aria-hidden /> New handoff
+          </Link>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] min-[1380px]:grid-cols-[256px_minmax(0,1fr)_288px]">
+      <div className="grid gap-8 lg:grid-cols-[248px_minmax(0,1fr)] xl:gap-12">
         <nav
           aria-label="Handoffs"
-          className={`lg:sticky lg:top-6 lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:-mx-3 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto ${open ? "max-lg:hidden" : ""}`}
+          className={`min-w-0 lg:sticky lg:top-6 lg:-ml-3 lg:max-h-[calc(100dvh-3rem)] lg:self-start lg:overflow-y-auto ${open ? "max-lg:hidden" : ""}`}
         >
           <Inbox inbox={inbox} sent={sent} selected={id} />
         </nav>
 
-        {open ? (
-          <div className="min-w-0 lg:col-start-2 lg:row-start-1">
-            <Link href="/relay" className="btn btn-quiet btn-sm -ml-2.5 mb-2 min-h-11 lg:hidden">
+        {creating || detail ? (
+          <div className={`min-w-0 ${open ? "" : "max-lg:hidden"}`}>
+            <Link href="/relay" className="btn btn-quiet btn-sm -ml-2.5 mb-3 min-h-11 lg:hidden">
               <ChevronLeft size={15} aria-hidden /> All handoffs
             </Link>
             {creating ? (
-              <div className="card p-5 sm:p-6">
+              <div className="panel p-5 sm:p-6">
                 <NewHandoff projects={projects} />
               </div>
             ) : detail?.kind === "ok" ? (
               <Checkpoint detail={detail} viewerId={caller.userId} />
             ) : (
-              <div className="card px-6 py-10">
-                <p className="font-semibold text-[16px]">Not available</p>
-                <p className="mt-1.5 max-w-md text-[14px] text-ink-3">{detail?.message}</p>
+              <div className="panel px-6 py-10">
+                <p className="font-semibold text-[15px]">Not available</p>
+                <p className="mt-1.5 max-w-md text-[13.5px] text-ink-3">{detail?.message}</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="max-lg:hidden lg:col-start-2 lg:row-start-1 min-[1380px]:col-span-2">
-            <div className="rounded-[14px] border border-line border-dashed px-6 py-10">
-              <p className="font-medium text-[15px]">Select a handoff to see its checkpoint.</p>
-              <p className="mt-1.5 max-w-lg text-[14px] text-ink-3">
+          <div className="max-lg:hidden">
+            <div className="panel px-8 py-10">
+              <p className="text-[12px] text-ink-3">Checkpoint → Approved memory → Resumed → Verified completion</p>
+              <p className="mt-2.5 font-semibold text-[16px]">No handoffs yet</p>
+              <p className="mt-1.5 max-w-lg text-[13.5px] text-ink-3">
                 Run <code className="kbd">/strata:handoff</code> in Claude Code to draft one from your session, review
                 it here and approve it for a teammate, who picks it up with <code className="kbd">/strata:resume</code>.
               </p>
             </div>
           </div>
         )}
-
-        {detail?.kind === "ok" ? (
-          <aside
-            aria-label="Shared context"
-            className="grid min-w-0 content-start gap-6 lg:col-start-2 lg:row-start-2 min-[1380px]:col-start-3 min-[1380px]:row-start-1"
-          >
-            <Context detail={detail} viewerId={caller.userId} />
-          </aside>
-        ) : null}
       </div>
     </>
   );

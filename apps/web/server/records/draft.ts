@@ -15,6 +15,7 @@ const holdsText = (event: { kind: string; payload: Record<string, unknown> }): b
   TEXT_KINDS.has(event.kind) || (event.kind === "event" && event.payload.type === "compact_summary");
 const MAX_RECORDS = 20;
 const FINDING_KINDS = {
+  summary: "summary",
   insight: "insight",
   workflow: "workflow",
   pain_point: "pain_point",
@@ -165,27 +166,32 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
   );
 
   // A finding the agent or engineer logged live is already a record: carry it through with the drafted ones.
-  const findings: DraftRecord[] = undrafted
+  const findings: (DraftRecord & { eventId?: string })[] = undrafted
     .filter((event) => event.known && event.kind === "finding")
     .flatMap((event) => {
       const type = typeof event.payload.type === "string" ? event.payload.type : "";
       const kind = FINDING_KINDS[type as keyof typeof FINDING_KINDS];
       const text = textOf(event);
       if (!kind || !text.trim()) return [];
-      return [{ kind, text, refs: asRefs(event.payload.refs) }];
+      const title = typeof event.payload.title === "string" ? event.payload.title : undefined;
+      return [{ kind, text, ...(title ? { title } : {}), refs: asRefs(event.payload.refs), eventId: event.id }];
     });
+  // A client that summarized the session itself has said what it wants drafted; the model is not asked again.
+  const clientSummary = findings.some((draft) => draft.kind === "summary");
 
-  const drafts = [
+  const drafts: (DraftRecord & { eventId?: string })[] = [
     ...findings,
-    ...(await provider().draftRecords({
-      sessionID,
-      project: scope.project,
-      prompts,
-      replies,
-      compactSummary: compact ? textOf(compact) : null,
-      tools,
-      refs,
-    })),
+    ...(clientSummary
+      ? []
+      : await provider().draftRecords({
+          sessionID,
+          project: scope.project,
+          prompts,
+          replies,
+          compactSummary: compact ? textOf(compact) : null,
+          tools,
+          refs,
+        })),
   ].slice(0, MAX_RECORDS);
 
   const now = new Date();
@@ -206,7 +212,10 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
         text,
         textKey,
         refs: draft.refs?.length ? asRefs(draft.refs) : refs,
-        eventIds: sessionEvents.map((event) => event.id),
+        // A finding's own event first: the memory its approval makes names it as where it came from.
+        eventIds: draft.eventId
+          ? [draft.eventId, ...sessionEvents.map((event) => event.id).filter((id) => id !== draft.eventId)]
+          : sessionEvents.map((event) => event.id),
         edited: false,
         createdAt: now,
         updatedAt: now,

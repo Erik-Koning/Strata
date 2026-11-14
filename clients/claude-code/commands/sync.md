@@ -1,7 +1,7 @@
 ---
 
-description: Sync turns saved on this machine to the Strata now
+description: Upload events captured on this machine to the Strata server now
 allowed-tools: Bash(node:*)
 ---
 
-Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/strata.mjs" sync` and show its output as-is. If it says some turns are still local, tell the user they can open /strata:dashboard to pick a project or change a session's sync mode.
+Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/strata.mjs" flush-events` and show its output as-is. Events upload on their own as they are captured; this only forces a retry. Drafts are reviewed on the server's My Day page, not here.

@@ -35,6 +35,7 @@ const view = (doc: RecordDoc): RecordView => ({
   createdAt: doc.createdAt.toISOString(),
   updatedAt: doc.updatedAt.toISOString(),
   approvedAt: doc.approvedAt?.toISOString() ?? null,
+  memoryId: doc.memoryId?.toHexString() ?? null,
 });
 
 // The service token may read everything. A person sees their own drafts, and every approved record: approval is what
@@ -156,7 +157,17 @@ async function rememberApproved(doc: RecordDoc, kind: MemoryKind): Promise<Objec
     await memories().updateOne(
       { _id: previous._id },
       {
-        $set: { kind, text, textKey: key, embedding, status: "active", trust: "explicit", updatedAt: new Date() },
+        $set: {
+          kind,
+          text,
+          textKey: key,
+          embedding,
+          status: "active",
+          trust: "explicit",
+          "provenance.source": "record",
+          "provenance.recordId": doc._id.toHexString(),
+          updatedAt: new Date(),
+        },
       },
     );
     return previous._id;
@@ -168,11 +179,14 @@ async function rememberApproved(doc: RecordDoc, kind: MemoryKind): Promise<Objec
     status: "active",
     trust: "explicit",
     confidence: 0.9,
+    // Captured in the record's session and approved on review: the record names it, and a record drafted from a finding
+    // lists that finding's event first (records/draft.ts).
     provenance: {
       sessionID: doc.sessionID,
       messageID: null,
       eventId: doc.eventIds[0] ?? null,
-      source: "manual",
+      source: "record",
+      recordId: doc._id.toHexString(),
     },
   });
   if (previous && !previous._id.equals(memory._id)) await retireMemory(doc);
