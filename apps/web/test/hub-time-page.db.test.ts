@@ -18,6 +18,7 @@ type RecordDoc = import("../server/collections.ts").RecordDoc;
 
 const BILLING = "github.com/acme/billing";
 const SHOP = "github.com/acme/shop";
+const MONO = "github.com/acme/mono";
 const F1 = "1111111111111111";
 const F2 = "2222222222222222";
 const F3 = "3333333333333333";
@@ -196,5 +197,50 @@ describe("where engineering time goes", () => {
     const page = await timePage(user, query(30, "shop"), { baseURL: BASE });
     expect(page.movedTo).toBe("billing");
     expect(page.rows).toEqual([]);
+  });
+});
+
+describe("a repository split into products by folder", () => {
+  const F5 = "5555555555555555";
+
+  it("gives the same command a row per product, each with its own product's trend", async () => {
+    const at = new Date();
+    await products().insertMany(
+      (["api", "web"] as const).map((folder) => ({
+        _id: `mono-${folder}`,
+        org: "default",
+        name: `mono ${folder}`,
+        repos: [{ repo: MONO, path: folder }],
+        repoKeys: [`${MONO}#${folder}`],
+        mergedInto: null,
+        createdAt: at,
+        updatedAt: at,
+      })),
+    );
+    const start = (sessionID: string, path: string) =>
+      event(sessionID, MONO, "session", { event: "start", git: { remote: MONO, branch: "main", path } });
+    const failing = (sessionID: string) =>
+      event(sessionID, MONO, "tool", bash("error", 60_000, { class: "test", exit: 1, fp: F5 }));
+    await ingest(principal(user), [start("sM1", "api"), failing("sM1")]);
+    await ingest(principal(other), [start("sM2", "web"), failing("sM2"), failing("sM2"), failing("sM2")]);
+    await records().insertOne(
+      record(user, "sM1", "insight", "Mono is shared now.", { scope: { org: "default", project: MONO, user } }),
+    );
+
+    const page = await timePage(user, query(30), { baseURL: BASE });
+    const mono = page.rows.filter((r) => r.repo === MONO);
+    expect(mono.map((r) => [r.productId, r.runs]).sort()).toEqual([
+      ["mono-api", 1],
+      ["mono-web", 3],
+    ]);
+    for (const row of mono) {
+      expect(row.trend.reduce((sum, w) => sum + w.runs, 0)).toBe(row.runs);
+      expect(row.trend.reduce((sum, w) => sum + w.lostMs, 0)).toBe(row.lost.totalMs);
+    }
+    expect(new Set(page.rows.map((r) => r.id)).size).toBe(page.rows.length);
+
+    const web = await timePage(user, query(30, "mono-web"), { baseURL: BASE });
+    expect(web.rows.map((r) => [r.productId, r.runs])).toEqual([["mono-web", 3]]);
+    expect(web.rows[0]?.trend.reduce((sum, w) => sum + w.runs, 0)).toBe(3);
   });
 });

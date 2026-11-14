@@ -4,8 +4,8 @@
 // or missed, by backfillSignals. An event is counted once: signaledAt marks it.
 //
 // No row names a person, and none can be traced to one: time is measured on tools, never on people. Rows outlive the
-// events' 30 days, which is the point. The pages read them through timeLost and timeTrend (how hours lost are worked
-// out is in time-math.ts), and only for products people can see (those with approved work).
+// events' 30 days, which is the point. The pages read them through timeLost, and timeTrend or timeTrends (how hours lost
+// are worked out is in time-math.ts), and only for products people can see (those with approved work).
 import { createHash } from "node:crypto";
 import type { AnyBulkWriteOperation } from "mongodb";
 import { type EventDoc, events, type SignalDailyDoc, signalDaily } from "../collections.ts";
@@ -249,7 +249,7 @@ export async function backfillSignals({ settleMs = 5 * 60_000 } = {}): Promise<{
 }
 
 export interface TimeItem {
-  // For timeTrend.
+  // For timeTrend and timeTrends, with productId: the same command can run in more than one product of a monorepo.
   key: string;
   productId: string | null;
   repo: string;
@@ -356,21 +356,22 @@ export interface TrendWeek {
   hours: number;
 }
 
+// Which item a trend is for: its key (TimeItem.key) and, as timeLost gives it, the product it ran in. A repository
+// split into products by folder runs the same command in more than one product; without a product the trend adds them
+// all up.
+export interface TrendFor {
+  key: string;
+  productId?: string | null;
+}
+
 // One item's weeks, oldest first, every week in the range (an empty one is zeros), its slowness measured against
-// the whole range's typical run so the weeks compare. Empty for an item people can't see.
-export async function timeTrend(
-  itemKey: string,
-  query: { since: Date; until?: Date },
-  viewer: ViewerRef,
-): Promise<TrendWeek[]> {
-  if (!(await reader(viewer))) return [];
-  const until = query.until ?? new Date();
-  const { rows } = await visibleRows({ item: itemKey, day: dayRange(query.since, until) });
+// the whole range's typical run so the weeks compare.
+function weeksOf(rows: SignalDailyDoc[], since: Date, until: Date): TrendWeek[] {
   if (!rows.length) return [];
   const whole = rows.reduce((all, row) => mergeCounters(all, rowCounters(row)), emptyCounters());
   const typical = medianMs(whole.okHist);
   const weeks = new Map<number, SignalCounters>();
-  for (let t = weekStart(query.since).getTime(); t <= until.getTime(); t += WEEK_MS) weeks.set(t, emptyCounters());
+  for (let t = weekStart(since).getTime(); t <= until.getTime(); t += WEEK_MS) weeks.set(t, emptyCounters());
   for (const row of rows) {
     const t = weekStart(new Date(`${row.day}T00:00:00Z`)).getTime();
     weeks.set(t, mergeCounters(weeks.get(t) ?? emptyCounters(), rowCounters(row)));
@@ -389,4 +390,40 @@ export async function timeTrend(
         hours: toHours(lost.totalMs),
       };
     });
+}
+
+// Several items' trends at once, in the order asked, reading the product list and the rows once: what a page with a
+// trend per row uses. An item people can't see, or a product that isn't there (after merges), gets [].
+export async function timeTrends(
+  items: TrendFor[],
+  query: { since: Date; until?: Date },
+  viewer: ViewerRef,
+): Promise<TrendWeek[][]> {
+  if (!items.length || !(await reader(viewer))) return items.map(() => []);
+  const until = query.until ?? new Date();
+  const keys = [...new Set(items.map((item) => item.key))];
+  const { rows, index } = await visibleRows({ item: { $in: keys }, day: dayRange(query.since, until) });
+  const byItem = new Map<string, SignalDailyDoc[]>();
+  for (const row of rows) byItem.set(row.item, [...(byItem.get(row.item) ?? []), row]);
+  return items.map(({ key, productId }) => {
+    const all = byItem.get(key) ?? [];
+    if (!productId) return weeksOf(all, query.since, until);
+    const ids = new Set(index.aliases(productId));
+    return weeksOf(
+      all.filter((row) => row.productId !== null && ids.has(row.productId)),
+      query.since,
+      until,
+    );
+  });
+}
+
+// One item's weeks, oldest first, every week in the range (an empty one is zeros): in one product when productId is
+// given (as timeLost gives it), else in every product it ran in. Empty for an item people can't see.
+export async function timeTrend(
+  itemKey: string,
+  query: { since: Date; until?: Date; productId?: string | null },
+  viewer: ViewerRef,
+): Promise<TrendWeek[]> {
+  const [weeks] = await timeTrends([{ key: itemKey, productId: query.productId }], query, viewer);
+  return weeks ?? [];
 }

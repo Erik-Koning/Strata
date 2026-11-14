@@ -12,6 +12,7 @@ import { z } from "zod";
 import { DEFAULT_ORG } from "../api-auth.ts";
 import { audit } from "../audit.ts";
 import {
+  audits,
   type GapDoc,
   type GapOccurrence,
   gaps,
@@ -365,27 +366,33 @@ async function change(
 export const takeGap = (id: string, viewer: ViewerRef): Promise<GapDetail> =>
   change(id, viewer, "gap.take", { ownerId: viewerIdOf(viewer) });
 
-const Resolution = z
-  .object({
-    url: z
-      .string()
-      .trim()
-      .max(2000)
-      .optional()
-      .transform((url) => url || null)
-      .refine((url) => url === null || /^https?:\/\/[^\s]+$/i.test(url), { message: "a web address (https://…)" }),
-    note: z.string().max(1000).default(""),
-  })
-  .refine((r) => r.url || r.note.trim(), { message: "a link or a note, at least one" });
+// What answers a gap: a note saying what it is or where it's written down, always (the page asks for one too); a link to
+// it when there is one.
+const Resolution = z.object({
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .transform((url) => url || null)
+    .refine((url) => url === null || /^https?:\/\/[^\s]+$/i.test(url), {
+      error: "the link as a web address (https://…)",
+    }),
+  note: z
+    .string({ error: "a note" })
+    .trim()
+    .min(1, { error: "a note: what answers it, or where it's written down" })
+    .max(1000, { error: "a note under 1,000 characters" }),
+});
 
-// Resolved, with the doc, ADR or comment that answers it.
+// Resolved, with a note on what answers it, and the doc, ADR or comment it's in when there's a link.
 export async function resolveGap(
   id: string,
   viewer: ViewerRef,
   input: { url?: string | null; note: string },
 ): Promise<GapDetail> {
-  const parsed = Resolution.safeParse({ url: input.url ?? undefined, note: input.note });
-  if (!parsed.success) throw new Refusal(`Give ${parsed.error.issues[0]?.message ?? "a link or a note"}.`);
+  const parsed = Resolution.safeParse({ url: input?.url ?? undefined, note: input?.note });
+  if (!parsed.success) throw new Refusal(`Give ${parsed.error.issues[0]?.message ?? "a note"}.`);
   return change(id, viewer, "gap.resolve", {
     status: "resolved",
     resolution: { url: parsed.data.url, note: cleanText(parsed.data.note, 1000), at: new Date() },
@@ -395,3 +402,41 @@ export async function resolveGap(
 // Open again: what answered it didn't.
 export const reopenGap = (id: string, viewer: ViewerRef): Promise<GapDetail> =>
   change(id, viewer, "gap.reopen", { status: "open", resolution: null });
+
+export type GapEvent =
+  | { kind: "session"; at: Date; sessionId: string }
+  | { kind: "question"; at: Date }
+  | { kind: "take" | "resolve" | "reopen"; at: Date; by: string; url: string | null };
+
+const CHANGES = { "gap.take": "take", "gap.resolve": "resolve", "gap.reopen": "reopen" } as const;
+
+// A gap's history, newest first, up to `limit`: each time it came up (its occurrences) and each change made to it (the
+// audit log's takes, resolutions and reopenings). Who asked a question isn't kept, so a question has no name, and nor
+// does a session here; a change carries the name of the person who made it. Empty for a viewer who can't read approved
+// work, and for a gap that isn't there.
+export async function gapHistory(id: string, viewer: ViewerRef, limit = 50): Promise<GapEvent[]> {
+  const _id = objectId(id);
+  if (!_id || !(await reader(viewer))) return [];
+  const [doc, changes] = await Promise.all([
+    gaps().findOne({ _id }, { projection: { occurrences: 1 } }),
+    audits()
+      .find({ targetIds: _id.toHexString(), action: { $in: Object.keys(CHANGES) as (keyof typeof CHANGES)[] } })
+      .sort({ ts: -1 })
+      .limit(limit)
+      .toArray(),
+  ]);
+  if (!doc) return [];
+  const names = await namesOf(changes.map((c) => c.actor.id));
+  const seen: GapEvent[] = (doc.occurrences ?? []).map((o) =>
+    o.sessionId
+      ? { kind: "session", at: new Date(o.at), sessionId: o.sessionId }
+      : { kind: "question", at: new Date(o.at) },
+  );
+  const made: GapEvent[] = changes.flatMap((c) => {
+    const kind = CHANGES[c.action as keyof typeof CHANGES];
+    if (!kind) return [];
+    const url = typeof c.detail?.url === "string" ? c.detail.url : null;
+    return [{ kind, at: c.ts, by: names.get(c.actor.id) ?? c.actor.label, url }];
+  });
+  return [...seen, ...made].sort((a, b) => b.at.getTime() - a.at.getTime()).slice(0, limit);
+}

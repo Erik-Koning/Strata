@@ -1,7 +1,8 @@
 // The team read model: approved work from both write paths, read as one list (decision D3). The server-drafted
 // `records` that their authors approved, and the latest approved revision of each plugin summary in
 // `summary_revisions`, whose built line, decisions, open questions, insights, workflow notes, pain points and gaps each
-// become one TeamRecord. The same line said twice in one session (once in each store) is shown once, the record's.
+// become one TeamRecord. The same line said twice in one session (once in each store) is shown once, the record's; and a
+// session has one summary, the plugin's reviewed one when it has both (oneSummaryPerSession).
 //
 // Who sees what (access.ts): approved work is for everyone in the organisation who isn't suspended; a draft is its
 // author's alone, and only a session's own page shows it to them. A suspended viewer reads nothing. Every function
@@ -134,6 +135,42 @@ export function fromSummary(doc: SummaryRevisionDoc): RawTeamRecord[] {
   return out;
 }
 
+const refKey = (ref: Ref): string => `${ref.type}\u001f${ref.id}`;
+
+// One summary per session. A session can have a summary in both stores, worded differently: the server drafted one
+// from its events and the engineer reviewed another in the plugin. The plugin's is kept, since its author wrote or
+// checked it line by line; the drafted summary record goes, its tickets and pull requests carried over to the one
+// kept, and its title when that has none. Every other finding of the session, from either store, is left for
+// dedupeWithinSession, which drops only lines that say the same thing. A draft stays as it is: it's for its author to
+// review, not shown to anyone else.
+export function oneSummaryPerSession<T extends RawTeamRecord>(items: T[]): T[] {
+  const reviewed = new Set(
+    items
+      .filter((r) => r.kind === "summary" && r.source === "summary" && r.status === "approved")
+      .map((r) => r.sessionId),
+  );
+  if (!reviewed.size) return items;
+  const isDropped = (r: T) =>
+    r.kind === "summary" && r.source === "record" && r.status === "approved" && reviewed.has(r.sessionId);
+  const dropped = new Map<string, T[]>();
+  for (const r of items) if (isDropped(r)) dropped.set(r.sessionId, [...(dropped.get(r.sessionId) ?? []), r]);
+  const merged = new Set<string>();
+  return items.flatMap((r) => {
+    if (isDropped(r)) return [];
+    const others = dropped.get(r.sessionId);
+    if (!others || r.kind !== "summary" || r.source !== "summary" || merged.has(r.sessionId)) return [r];
+    merged.add(r.sessionId);
+    const refs = [...r.refs];
+    const seen = new Set(refs.map(refKey));
+    for (const ref of others.flatMap((o) => o.refs))
+      if (!seen.has(refKey(ref))) {
+        seen.add(refKey(ref));
+        refs.push(ref);
+      }
+    return [{ ...r, refs, title: r.title ?? others.find((o) => o.title)?.title ?? null }];
+  });
+}
+
 // Names for the people these ids belong to, from their accounts.
 export async function namesOf(ids: Iterable<string>): Promise<Map<string, string>> {
   const hex = [...new Set(ids)].filter((id) => /^[a-f0-9]{24}$/i.test(id));
@@ -236,7 +273,7 @@ async function loadApproved(query: Query): Promise<TeamRecord[]> {
   const raw = [...recordDocs.map(fromRecord), ...summaryDocs.flatMap(fromSummary)].filter(
     (r) => (!repos || repos.includes(r.repo)) && (!query.until || r.at < query.until),
   );
-  const all = await finish(dedupeWithinSession(raw), index);
+  const all = await finish(dedupeWithinSession(oneSummaryPerSession(raw)), index);
   const wanted = productIds ? all.filter((r) => r.productId !== null && productIds.has(r.productId)) : all;
   return wanted.sort((a, b) => b.at.getTime() - a.at.getTime());
 }
@@ -454,11 +491,13 @@ export async function sessionDetail(sessionId: string, viewer: ViewerRef): Promi
   if (!approvedDocs.length && !draftDocs.length && !summaryDocs.length) return null;
 
   const summaryDoc = summaryDocs[0] ?? null;
-  const raw = dedupeWithinSession([
-    ...approvedDocs.map(fromRecord),
-    ...summaryDocs.flatMap(fromSummary),
-    ...draftDocs.map(fromRecord),
-  ]);
+  const raw = dedupeWithinSession(
+    oneSummaryPerSession([
+      ...approvedDocs.map(fromRecord),
+      ...summaryDocs.flatMap(fromSummary),
+      ...draftDocs.map(fromRecord),
+    ]),
+  );
   const items = (await finish(raw, index)).sort(
     (a, b) => Number(a.status === "draft") - Number(b.status === "draft") || b.at.getTime() - a.at.getTime(),
   );
@@ -470,7 +509,7 @@ export async function sessionDetail(sessionId: string, viewer: ViewerRef): Promi
   const refs: Ref[] = [];
   const seenRefs = new Set<string>();
   for (const ref of items.flatMap((r) => r.refs)) {
-    const key = `${ref.type}\u001f${ref.id}`;
+    const key = refKey(ref);
     if (seenRefs.has(key)) continue;
     seenRefs.add(key);
     refs.push(ref);

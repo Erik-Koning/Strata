@@ -11,12 +11,13 @@ const { ObjectId } = await import("mongodb");
 const { db, closeMongo } = await import("../server/db.ts");
 const { ensureIndexes } = await import("../server/indexes.ts");
 const { draftPending, ingest } = await import("../server/memory/ingest.ts");
-const { events, members, records, signalDaily } = await import("../server/collections.ts");
-const { backfillSignals, itemKeyOf, timeLost, timeTrend } = await import("../server/hub/signals.ts");
+const { events, members, products, records, signalDaily } = await import("../server/collections.ts");
+const { backfillSignals, itemKeyOf, timeLost, timeTrend, timeTrends } = await import("../server/hub/signals.ts");
 const { bucketMid, bucketOf } = await import("../server/hub/time-math.ts");
 
 const BILLING = "github.com/acme/billing";
 const SHOP = "github.com/acme/shop";
+const MONO = "github.com/acme/mono";
 const F1 = "1111111111111111";
 const F2 = "2222222222222222";
 const F3 = "3333333333333333";
@@ -276,5 +277,109 @@ describe("hours lost", () => {
   it("shows a suspended viewer nothing", async () => {
     expect((await timeLost({ since: new Date(0), until: now }, suspended)).items).toEqual([]);
     expect(await timeTrend(itemKeyOf(BILLING, "test", F1), { since: new Date(0) }, suspended)).toEqual([]);
+  });
+});
+
+describe("a repository split into products by folder", () => {
+  const F5 = "5555555555555555";
+  const since = new Date(Date.now() - 21 * DAY);
+  const runs = (weeks: { runs: number }[]) => weeks.reduce((sum, w) => sum + w.runs, 0);
+
+  it("keeps each product's runs of the same command apart, one item at a time or many at once", async () => {
+    const at = new Date();
+    await products().insertMany(
+      (["api", "web"] as const).map((folder) => ({
+        _id: `mono-${folder}`,
+        org: "default",
+        name: `mono ${folder}`,
+        repos: [{ repo: MONO, path: folder }],
+        repoKeys: [`${MONO}#${folder}`],
+        mergedInto: null,
+        createdAt: at,
+        updatedAt: at,
+      })),
+    );
+    const start = (sessionID: string, path: string) =>
+      event(sessionID, MONO, "session", { event: "start", git: { remote: MONO, branch: "main", path } });
+    const test = (sessionID: string, status: string) =>
+      event(
+        sessionID,
+        MONO,
+        "tool",
+        bash(status, 60_000, { class: "test", fp: F5, ...(status === "error" ? { exit: 1 } : {}) }),
+      );
+    await ingest(principal(user), [start("sM1", "api"), test("sM1", "error"), test("sM1", "ok")]);
+    await ingest(principal(other), [
+      start("sM2", "web"),
+      test("sM2", "error"),
+      test("sM2", "error"),
+      test("sM2", "ok"),
+    ]);
+    await records().insertOne({
+      _id: new ObjectId(),
+      scope: { org: "default", project: MONO, user },
+      sessionID: "sM1",
+      kind: "insight",
+      status: "approved",
+      title: null,
+      text: "The mono repository has approved work now.",
+      textKey: "mono",
+      refs: [],
+      eventIds: [],
+      edited: false,
+      createdAt: at,
+      updatedAt: at,
+      approvedAt: at,
+      memoryId: null,
+    });
+
+    const key = itemKeyOf(MONO, "test", F5);
+    const lost = (await timeLost({ since, until: new Date() }, user)).items.filter((i) => i.key === key);
+    expect(lost.map((i) => [i.productId, i.runs]).sort()).toEqual([
+      ["mono-api", 2],
+      ["mono-web", 3],
+    ]);
+
+    expect(runs(await timeTrend(key, { since, productId: "mono-api" }, user))).toBe(2);
+    expect(runs(await timeTrend(key, { since, productId: "mono-web" }, user))).toBe(3);
+    // With no product, the trend adds up every product it ran in.
+    expect(runs(await timeTrend(key, { since }, user))).toBe(5);
+
+    const batch = await timeTrends(
+      [
+        ...lost,
+        { key: itemKeyOf(BILLING, "test", F1), productId: "billing" },
+        { key, productId: "no-such-product" },
+        { key: itemKeyOf(SHOP, "test", F3), productId: "shop" },
+      ],
+      { since },
+      user,
+    );
+    expect(batch).toHaveLength(lost.length + 3);
+    for (const [i, item] of lost.entries())
+      expect(batch[i]).toEqual(await timeTrend(item.key, { since, productId: item.productId }, user));
+    expect(runs(batch[lost.length] ?? [])).toBe(4);
+    // A product that isn't there, and one with no approved work, show nothing.
+    expect(batch.slice(lost.length + 1)).toEqual([[], []]);
+    // Each product's weeks measure slowness against its own typical run, and lose only its own failures.
+    const web = batch[lost.findIndex((i) => i.productId === "mono-web")] ?? [];
+    expect(web.reduce((sum, w) => sum + w.lost.failedMs, 0)).toBe(120_000);
+  });
+
+  it("follows a merged product to the one it joined", async () => {
+    await products().updateOne({ _id: "mono-web" }, { $set: { mergedInto: "mono-api", repos: [], repoKeys: [] } });
+    await products().updateOne(
+      { _id: "mono-api" },
+      { $push: { repos: { repo: MONO, path: "web" }, repoKeys: `${MONO}#web` } },
+    );
+    const key = itemKeyOf(MONO, "test", F5);
+    expect(runs(await timeTrend(key, { since, productId: "mono-api" }, user))).toBe(5);
+    expect(runs(await timeTrend(key, { since, productId: "mono-web" }, user))).toBe(5);
+  });
+
+  it("shows a suspended viewer nothing, however many it asks for", async () => {
+    const key = itemKeyOf(MONO, "test", F5);
+    expect(await timeTrends([{ key, productId: "mono-api" }, { key }], { since }, suspended)).toEqual([[], []]);
+    expect(await timeTrends([], { since }, user)).toEqual([]);
   });
 });

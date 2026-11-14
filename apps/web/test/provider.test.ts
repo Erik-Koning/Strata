@@ -5,6 +5,7 @@ import {
   anthropicProvider,
   citedAnswer,
   type DraftContext,
+  MAX_ANSWER_SENTENCES,
   provider,
   STUB_DIMENSIONS,
   stubAnswer,
@@ -70,6 +71,32 @@ describe("the stub's answers", () => {
     expect(stubAnswer("Who owns the mobile app's push notifications?", SOURCES)).toBeNull();
     expect(stubAnswer("How does the ledger round?", [])).toBeNull();
     expect(stubAnswer("how what why", SOURCES)).toBeNull();
+  });
+});
+
+describe("the stub's answers, long and short", () => {
+  const LONG: AnswerSource[] = [
+    {
+      id: "w1",
+      title: "First week in billing",
+      text: [
+        "Billing week one, Monday: clone the billing repo and run pnpm install.",
+        "Billing week one, Tuesday: read the ledger ADR before touching invoices.",
+        "Billing week one, Wednesday: pair on a retry ticket.",
+        "Billing week one, Thursday: ship a small fix behind a flag.",
+        "Billing week one, Friday: write down what you couldn't find.",
+      ].join(" "),
+    },
+  ];
+
+  it("quotes three sentences by default, and more for a walk-through", () => {
+    const question = "What happens in billing week one?";
+    expect(stubAnswer(question, LONG)?.text.match(/\[1\]/g)).toHaveLength(3);
+    expect(stubAnswer(question, LONG, { maxSentences: 5 })?.text.match(/\[1\]/g)).toHaveLength(5);
+    expect(stubAnswer(question, LONG, { maxSentences: 1 })?.text.match(/\[1\]/g)).toHaveLength(1);
+    // Nonsense is ignored rather than trusted.
+    expect(stubAnswer(question, LONG, { maxSentences: Number.NaN })?.text.match(/\[1\]/g)).toHaveLength(3);
+    expect(stubAnswer(question, LONG, { maxSentences: -4 })?.text.match(/\[1\]/g)).toHaveLength(1);
   });
 });
 
@@ -272,6 +299,113 @@ describe("the Anthropic provider", () => {
   });
 });
 
+describe("the Anthropic provider's answers, with why", () => {
+  const p = (fetch: typeof globalThis.fetch, timeouts?: { answer: number }) =>
+    anthropicProvider({ apiKey: "k", fetch, log: quiet, ...(timeouts ? { timeouts } : {}) });
+
+  it("answers, and says so", async () => {
+    const { fetch } = fakeFetch(message(JSON.stringify({ answered: true, answer: "Per line [1]." })));
+    expect(await p(fetch).answerWithReason("How does the ledger round?", SOURCES)).toEqual({
+      answer: { text: "Per line [1].", cited: ["r1"] },
+      reason: "answered",
+    });
+  });
+
+  it("says there was nothing to answer from, without a call", async () => {
+    const { fetch, calls } = fakeFetch(message("unused"));
+    expect(await p(fetch).answerWithReason("How does the ledger round?", [])).toEqual({
+      answer: null,
+      reason: "no_sources",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("says the sources don't answer it: the model said so, cited nothing, or the question asks nothing", async () => {
+    for (const reply of [
+      { answered: false, answer: "" },
+      { answered: true, answer: "Uncited claim." },
+      { answered: true, answer: "A source that isn't there [9]." },
+    ]) {
+      const { fetch } = fakeFetch(message(JSON.stringify(reply)));
+      expect(await p(fetch).answerWithReason("How does the ledger round?", SOURCES), JSON.stringify(reply)).toEqual({
+        answer: null,
+        reason: "nothing_relevant",
+      });
+    }
+    const { fetch, calls } = fakeFetch(message("unused"));
+    expect((await p(fetch).answerWithReason("   ", SOURCES)).reason).toBe("nothing_relevant");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("says the call failed: an HTTP error, a refusal, a cut-off, output that isn't an answer, no network", async () => {
+    const offline = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof globalThis.fetch;
+    for (const fetch of [
+      fakeFetch({ type: "error", error: { type: "overloaded_error" } }, 529).fetch,
+      fakeFetch({ type: "error", error: { type: "authentication_error" } }, 401).fetch,
+      fakeFetch("<html>bad gateway</html>", 502).fetch,
+      fakeFetch({ ...message(""), content: [], stop_reason: "refusal" }).fetch,
+      fakeFetch(message('{"answered": true, "answer": "Per li', "max_tokens")).fetch,
+      fakeFetch(message("not json")).fetch,
+      fakeFetch(message(JSON.stringify({ answer: "Per line [1]." }))).fetch,
+      offline,
+    ])
+      expect(await p(fetch).answerWithReason("How does the ledger round?", SOURCES)).toEqual({
+        answer: null,
+        reason: "failed",
+      });
+  });
+
+  it("says it ran out of time", async () => {
+    const hang = ((_url: string, init?: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      })) as typeof globalThis.fetch;
+    expect(await p(hang, { answer: 20 }).answerWithReason("How does the ledger round?", SOURCES)).toEqual({
+      answer: null,
+      reason: "timeout",
+    });
+  });
+
+  it("keeps answer() as it was: the answer, or null whatever the reason", async () => {
+    const { fetch } = fakeFetch(message(JSON.stringify({ answered: true, answer: "Per line [1]." })));
+    expect(await p(fetch).answer("How does the ledger round?", SOURCES)).toEqual({
+      text: "Per line [1].",
+      cited: ["r1"],
+    });
+    const failing = fakeFetch({ type: "error", error: { type: "overloaded_error" } }, 529);
+    expect(await p(failing.fetch).answer("How does the ledger round?", SOURCES)).toBeNull();
+  });
+
+  it("asks for a few sentences by default, and makes room for a walk-through when asked", async () => {
+    const reply = message(JSON.stringify({ answered: true, answer: "Clone it first [1]." }));
+    const brief = fakeFetch(reply);
+    await p(brief.fetch).answerWithReason("How does the ledger round?", SOURCES);
+    expect(String(brief.calls[0]?.body.system)).toContain("a few sentences");
+    expect(brief.calls[0]?.body.max_tokens).toBe(4_000);
+
+    const short = fakeFetch(reply);
+    await p(short.fetch).answer("How does the ledger round?", SOURCES, { maxSentences: 2 });
+    expect(String(short.calls[0]?.body.system)).toContain("at most 2 sentences");
+
+    const walk = fakeFetch(reply);
+    const outcome = await p(walk.fetch).answerWithReason("I'm new to billing: where do I start?", SOURCES, {
+      maxSentences: 15,
+    });
+    expect(outcome.reason).toBe("answered");
+    const system = String(walk.calls[0]?.body.system);
+    expect(system).toContain("up to 15 sentences");
+    expect(system).not.toContain("a few sentences");
+    expect(system).toMatch(/only/);
+    expect(walk.calls[0]?.body.max_tokens).toBe(8_000);
+
+    const huge = fakeFetch(reply);
+    await p(huge.fetch).answerWithReason("Where do I start?", SOURCES, { maxSentences: 10_000 });
+    expect(String(huge.calls[0]?.body.system)).toContain(`up to ${MAX_ANSWER_SENTENCES} sentences`);
+  });
+});
+
 describe("choosing the provider", () => {
   const saved = { ...process.env };
   afterEach(() => {
@@ -288,6 +422,22 @@ describe("choosing the provider", () => {
     expect(await p.answer("How does the ledger round invoices?", SOURCES)).toEqual(
       stubAnswer("How does the ledger round invoices?", SOURCES),
     );
+  });
+
+  it("says why the stub has no answer: nothing to answer from, or nothing relevant", async () => {
+    process.env.MONGODB_URI = "mongodb://localhost/unused";
+    delete process.env.MEMORY_AI_PROVIDER;
+    resetConfig();
+    const p = provider();
+    expect(await p.answerWithReason("How does the ledger round?", [])).toEqual({ answer: null, reason: "no_sources" });
+    expect(await p.answerWithReason("Who owns the mobile app's push notifications?", SOURCES)).toEqual({
+      answer: null,
+      reason: "nothing_relevant",
+    });
+    expect(await p.answerWithReason("How does the ledger round invoices?", SOURCES)).toEqual({
+      answer: stubAnswer("How does the ledger round invoices?", SOURCES),
+      reason: "answered",
+    });
   });
 
   it("uses Anthropic when it's chosen and a key is set, and the stub until then", () => {
