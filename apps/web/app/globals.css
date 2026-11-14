@@ -68,50 +68,48 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #120f1b;
-    --surface: #18142a;
-    --surface-2: #211c33;
-    --sunk: #0e0b16;
-    --ink: #ece8f7;
-    --ink-2: #c2bbda;
-    --ink-3: #9d96b8;
-    --line: rgb(236 232 247 / 10%);
-    --line-strong: rgb(236 232 247 / 18%);
-    --rule: rgb(236 232 247 / 6%);
+:root[data-theme="dark"] {
+  --bg: #120f1b;
+  --surface: #18142a;
+  --surface-2: #211c33;
+  --sunk: #0e0b16;
+  --ink: #ece8f7;
+  --ink-2: #c2bbda;
+  --ink-3: #9d96b8;
+  --line: rgb(236 232 247 / 10%);
+  --line-strong: rgb(236 232 247 / 18%);
+  --rule: rgb(236 232 247 / 6%);
 
-    --accent: #7c3aed;
-    --accent-hover: #8b5cf6;
-    --accent-ink: #ffffff;
-    --accent-soft: rgb(139 92 246 / 17%);
-    --accent-text: #c4b5fd;
-    --fuchsia: #e879f9;
+  --accent: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(139 92 246 / 17%);
+  --accent-text: #c4b5fd;
+  --fuchsia: #e879f9;
 
-    --amber: #f5b851;
-    --amber-soft: rgb(245 184 81 / 12%);
-    --danger: #ff8a9b;
-    --danger-soft: rgb(255 122 145 / 13%);
-    --focus: #c4b5fd;
+  --amber: #f5b851;
+  --amber-soft: rgb(245 184 81 / 12%);
+  --danger: #ff8a9b;
+  --danger-soft: rgb(255 122 145 / 13%);
+  --focus: #c4b5fd;
 
-    --fx-k: 0.75;
-    --fx-c-hi: #1d1830;
-    --fx-c-lo: #0f0c18;
-    --fx-hi: rgb(196 176 255 / 6%);
-    --fx-lo: rgb(2 0 10 / 62%);
-    --fx-lo-far: rgb(2 0 10 / 50%);
-    --fx-amb: rgb(2 0 10 / 55%);
-    --fx-rim: rgb(205 188 255 / 10%);
-    --fx-crease: rgb(2 0 10 / 60%);
-    --fx-grid: rgb(170 150 255 / 4.5%);
-    --fx-pool: #1a1530;
-    --fx-solid-hi: #8b5cf6;
-    --fx-solid-lo: #6d28d9;
-    --fx-solid-shade: rgb(8 0 24 / 55%);
-    --fx-lume-glow: rgb(167 139 250 / 50%);
+  --fx-k: 0.75;
+  --fx-c-hi: #1d1830;
+  --fx-c-lo: #0f0c18;
+  --fx-hi: rgb(196 176 255 / 6%);
+  --fx-lo: rgb(2 0 10 / 62%);
+  --fx-lo-far: rgb(2 0 10 / 50%);
+  --fx-amb: rgb(2 0 10 / 55%);
+  --fx-rim: rgb(205 188 255 / 10%);
+  --fx-crease: rgb(2 0 10 / 60%);
+  --fx-grid: rgb(170 150 255 / 4.5%);
+  --fx-pool: #1a1530;
+  --fx-solid-hi: #8b5cf6;
+  --fx-solid-lo: #6d28d9;
+  --fx-solid-shade: rgb(8 0 24 / 55%);
+  --fx-lume-glow: rgb(167 139 250 / 50%);
 
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 /* The depth recipes. Every one has the same six shadow slots, so a rest can ease into a lean and a lean into a well. */
@@ -528,11 +526,9 @@ h3 {
   --relay-blue: #2456b8;
   --relay-blue-soft: #e2e9f7;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --relay-blue: #8fb0ff;
-    --relay-blue-soft: rgb(143 176 255 / 13%);
-  }
+:root[data-theme="dark"] {
+  --relay-blue: #8fb0ff;
+  --relay-blue-soft: rgb(143 176 255 / 13%);
 }
 @layer components {
   .pill-draft {
