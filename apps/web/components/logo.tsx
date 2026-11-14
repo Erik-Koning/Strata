@@ -1,7 +1,8 @@
 import { useId } from "react";
 
-// The mark, as in the explainer video (docs/explainer): four wave layers stacked like strata, the faintest at the
-// bottom, one violet-to-fuchsia sweep across each. `size` is its width; it is a little wider than tall.
+// The mark, exactly as the explainer video exports it (docs/explainer/strata-logo.svg): four wave layers stacked like
+// strata, the faintest at the bottom, one violet-to-fuchsia sweep across each. Its colours are fixed, the same in either
+// theme. `size` is its width; it is a little wider than tall.
 const WAVES = [
   { d: "M10 88 C 34 76, 52 98, 76 86 S 104 80, 110 84", opacity: 0.5 },
   { d: "M10 64 C 34 52, 52 74, 76 62 S 104 56, 110 60", opacity: 0.68 },
@@ -23,12 +24,12 @@ export function Mark({ size = 24 }: { size?: number }) {
     >
       <defs>
         <linearGradient id={gradient} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" style={{ stopColor: "var(--accent-text)" }} />
-          <stop offset="0.6" style={{ stopColor: "var(--accent)" }} />
-          <stop offset="1" style={{ stopColor: "var(--fuchsia)" }} />
+          <stop offset="0" stopColor="#5b21b6" />
+          <stop offset=".6" stopColor="#7c3aed" />
+          <stop offset="1" stopColor="#c026d3" />
         </linearGradient>
       </defs>
-      <g stroke={`url(#${gradient})`} strokeWidth="10" strokeLinecap="round">
+      <g stroke={`url(#${gradient})`} strokeWidth="9" strokeLinecap="round">
         {WAVES.map((w) => (
           <path key={w.d} d={w.d} opacity={w.opacity} />
         ))}
