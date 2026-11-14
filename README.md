@@ -35,9 +35,9 @@ flowchart LR
     CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>PostToolUse, Stop, PreCompact, PostCompact, SessionEnd" --> PL["Strata plugin<br/>clients/claude-code"]
     CC -- "MCP: strata_record / strata_search" --> PL
     PL --- OB[("event outbox, summary queue,<br/>drafts and the kept overview")]
-    PL -- "claude -p, headless<br/>local summaries" --> CL["your Claude CLI"]
-    OC["OpenCode"] -.-> OP["adapters/opencode<br/>(unverified)"]
-    OP -.-> PL
+    PL -- "claude -p or opencode run, headless<br/>local summaries" --> CL["your agent CLI"]
+    OC["OpenCode"] -- "hooks: prompt, execute.after,<br/>compaction, idle, session lifecycle" --> OP["Strata plugin<br/>clients/opencode"]
+    OP --> PL
   end
   subgraph server["Strata web app: apps/web"]
     API["/api/memory/*<br/>/v1 summaries<br/>/api/records"]
@@ -109,6 +109,7 @@ The data model, who can do what, and how each hook maps to the client are in [`d
 | Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                            |
 | AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                 |
 | Claude Code plugin       | `clients/claude-code`    | hooks, event outbox, records capture, summary dashboard, MCP server; no build step |
+| OpenCode plugin          | `clients/opencode`       | the same capture core behind OpenCode v2 hooks, all 11 commands, MCP and the skill |
 | Contracts                | `packages/contracts`     | contract version, schemas, signals, records, summary, `redact`, render             |
 | Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                           |
 | The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                            |
@@ -138,14 +139,15 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **OpenCode plugin**
 
-- [ ] Verify the real `@opencode-ai/plugin` API against the brief's sketch: hook names, event fields, timeouts,
-      storage, whether a prompt edit shows in the TUI
-- [ ] `.opencode/plugins/memory`: `index.ts`, `api.ts`, `outbox.ts`, `freeze.ts`, `render.ts`, `redact.ts`, `tools.ts`
+- [x] Verify the real `@opencode/plugin` API (v2) against the installed types: hook names, event fields, timeouts
+- [x] `clients/opencode`: a `Plugin.define` server part driving the shared capture core
+- [x] All 11 commands registered through `ctx.command.transform`, MCP through `ctx.mcp.transform`, the skill through
+      `ctx.skill.transform`
+- [x] Acceptance through a fake plugin host: every hook maps to the core's contract, and a throwing hook never
+      propagates into the session
 - [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
-- [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
-      prompts go on and the outbox drains with no duplicates
-- [ ] Bundle `@strata/contracts` into the plugin, as the Claude Code client does: once installed outside this
-      repository it can't import the workspace package
+- [ ] Bundle `@strata/contracts` into the clients: once installed outside this repository they can't import the
+      workspace package, so both clients currently carry their own copy of the summary schema
 
 **Memory pipeline**
 
@@ -260,6 +262,23 @@ Open the link to make your account (accounts are by invitation; invite everyone 
 
 Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
 plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+
+For **OpenCode**, point `opencode.jsonc` at the plugin directory and sign in once:
+
+```jsonc
+// opencode.jsonc
+{
+  "plugins": [{ "package": "./clients/opencode" }]
+}
+```
+
+```sh
+node clients/claude-code/scripts/strata.mjs login
+```
+
+A key is not tied to a client, so the same `am_…` key works for either. Set `summarizerBackend` to `"opencode"` in
+`~/.strata/config.json` to write local summaries with `opencode run` instead of `claude -p`. More in
+[`clients/opencode/README.md`](clients/opencode/README.md).
 
 ## The API
 

@@ -6,13 +6,13 @@ What exists, how the parts talk, and what's next. Every later change reads this 
 
 ```
 Claude Code ──hooks──▶ clients/claude-code ──▶ local store (events, summaries, drafts, overview)
-                          │  └─ claude -p ──▶ one session summary, written locally
+                          │  └─ claude -p / opencode run ──▶ one session summary, written locally
                           └──HTTPS + device token──▶ apps/web
                                                       ├─ /api/memory/*  (contract v1)
                                                       ├─ /api/records   (drafted, reviewed)
                                                       ├─ /v1/*          (approved summaries)
                                                       └─▶ MongoDB (atlas-local / Atlas)
-OpenCode    ──adapter─▶ clients/claude-code/adapters/opencode (unverified)
+OpenCode    ──hooks──▶ clients/opencode ──▶ the same capture core (spawns scripts/hook.mjs)
 apps/web pages: Better Auth sessions, Overview, Memories, People, Connect, Audit log
 ```
 
@@ -195,11 +195,40 @@ approves it. The provider is the deterministic stub today; the Anthropic drafter
 Not built yet: deleting a session's prompt and reply text once it is drafted (the 30-day TTL still limits it), and
 forgetting a memory does not yet remove a draft made from the same events.
 
-## The OpenCode adapter
+## The OpenCode client
 
-`clients/claude-code/adapters/opencode/strata.js` maps opencode events (`session.created`, `message.updated`,
-`session.idle`, `session.compacted`, `session.deleted`) onto the same hook entrypoint. The event names are unverified
-against a live opencode and are the first thing to check. The Claude Code client is the reference for behaviour.
+`clients/opencode` is a real OpenCode v2 plugin (`Plugin.define`, `@opencode/plugin` 2.x). It is an adapter, not a
+fork: each OpenCode hook is turned into the JSON the Claude Code hook entrypoint already accepts, and
+`scripts/hook.mjs` is spawned. Redaction, tagging, tool-signal classification, the event outbox, the local queue,
+the summarizer, `/v1` sync and the dashboard are therefore shared, and the Claude Code client stays the reference
+for behaviour.
+
+The mapping, verified against the installed `@opencode/plugin` 2.3.0 types:
+
+| Strata hook     | OpenCode v2 source                                                                            |
+| --------------- | --------------------------------------------------------------------------------------------- |
+| `session-start` | first `prompt` hook per session (and `session.created`)                                       |
+| `prompt`        | `ctx.session.hook("prompt")` — `sessionID`, `messageID` → `prompt_id`, `prompt.text`          |
+| `post-tool`     | `ctx.tool.hook("execute.after")` — `tool`, `id` → `tool_use_id`, `input`, `status`            |
+| `pre-compact`   | `ctx.session.hook("compaction")` — the pre-compaction messages, written as a transcript       |
+| `post-compact`  | `ctx.event.subscribe({ types: ["session.compaction.ended"] })` — the summary text             |
+| `stop`          | `ctx.session.hook("experimental.idle")` + `ctx.session.context()` for the last assistant text |
+| `session-end`   | `ctx.event.subscribe({ types: ["session.deleted"] })`                                         |
+
+Three host differences are bridged in `clients/opencode/src`:
+
+- **Tool names.** OpenCode says `bash`/`edit`/`read`; the core's classifier is keyed on `Bash`/`Edit`. `tools.js`
+  maps them, and passes anything unknown through rather than dropping it.
+- **Session ids.** The core accepts `/^[\w.-]{1,128}$/` because the id becomes a filename. `ids.js` passes valid ids
+  through and maps anything else to a stable `oc_<hash>`, remembered in `~/.strata/opencode/sessions.json`.
+- **The summarizer sandbox.** The plugin runs inside OpenCode's shared server, so the child process's
+  `STRATA_INTERNAL=1` never reaches it. `isExcluded()` therefore also excludes `~/.strata/summarizer` by path.
+
+The commands are registered through `ctx.command.transform` rather than `.opencode/commands/*.md`, because a
+markdown command cannot resolve the plugin's own root and every command shells out to `scripts/strata.mjs`.
+
+Reviews land in the web app's **My Day**; `strata.review` lists the drafts, and the server drafts them from the
+events it ingested, so nothing depends on a local model.
 
 ## Running it
 

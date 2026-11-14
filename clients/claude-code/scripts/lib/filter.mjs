@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { settings } from "./store.mjs";
+import { p, settings } from "./store.mjs";
 
 // Glob support for config.json `excludedPaths`: `*`, `**`, `?`, and a leading `~`.
 function globToRegex(pattern) {
@@ -19,6 +19,9 @@ function globToRegex(pattern) {
 }
 
 export function isExcluded(cwd) {
+  // The summarizer's own working directory. Its calls set STRATA_INTERNAL, but a host that runs inside a
+  // long-lived server (OpenCode) cannot pass that to its plugin, so the path is excluded as well.
+  if (path.resolve(cwd) === path.resolve(p("summarizer"))) return true;
   const patterns = settings().excludedPaths;
   if (!Array.isArray(patterns)) return false;
   const normalized = cwd.replace(/\\/g, "/");

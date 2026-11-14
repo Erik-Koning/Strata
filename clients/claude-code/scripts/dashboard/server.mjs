@@ -58,6 +58,7 @@ const SETTINGS_KEYS = [
   "jiraKeys",
   "retentionDays",
   "summarizer",
+  "summarizerBackend",
   "summaryModel",
   "maxSummariesPerDay",
 ];
@@ -436,9 +437,13 @@ const routes = [
           if (typeof value !== "boolean") throw fail(400, "summarizer must be true or false");
           next.summarizer = value;
         } else if (key === "summaryModel") {
-          if (typeof value !== "string" || !/^[\w.:-]{1,64}$/.test(value))
+          if (typeof value !== "string" || !/^[\w.:/-]{1,64}$/.test(value))
             throw fail(400, "summaryModel must be a model name such as haiku");
           next.summaryModel = value;
+        } else if (key === "summarizerBackend") {
+          if (value !== "claude" && value !== "opencode")
+            throw fail(400, "summarizerBackend must be claude or opencode");
+          next.summarizerBackend = value;
         } else if (key === "maxSummariesPerDay") {
           if (!Number.isInteger(value) || value < 1 || value > 5000)
             throw fail(400, "maxSummariesPerDay must be a whole number from 1 to 5000");

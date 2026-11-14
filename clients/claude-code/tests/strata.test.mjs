@@ -874,30 +874,3 @@ test("team: search and roll-ups read approved summaries from the hub; MCP search
   assert.doesNotMatch(run("search", "suite", "four").stdout, /From the team/, "signed out: local results only");
   assert.match(run("rollup", "--team").stdout, /sign in/);
 });
-
-test("opencode adapter: events drive the same hooks and a broken hook never throws", async () => {
-  const mod = await import(path.join(ROOT, "adapters/opencode/strata.js"));
-  const OC = repo("oc-repo", "OC-1-x", "https://github.com/acme/oc.git");
-  const plugin = await mod.Strata({ directory: OC });
-  const fire = (type, properties) => plugin.event({ event: { type, properties } });
-  await fire("message.updated", {
-    sessionID: "oc-1",
-    info: { role: "user" },
-    parts: [{ type: "text", text: "add retry" }],
-  });
-  await fire("message.updated", {
-    sessionID: "oc-1",
-    info: { role: "assistant" },
-    parts: [{ type: "text", text: pad("Added retry to the sync worker.") }],
-  });
-  Object.assign(process.env, {
-    STRATA_HOME: HOME,
-    STRATA_URL: URL_,
-    STRATA_INLINE_WORKER: "1",
-    STRATA_CLAUDE_BIN: path.join(ROOT, "tests/fake-claude.mjs"),
-  });
-  await fire("session.idle", { sessionID: "oc-1" });
-  assert.ok(read("oc-1", "summary.json")?.summary.title, "an opencode turn became a summary");
-  await fire("unknown.event", { sessionID: "oc-1" });
-  await fire("session.compacted", {});
-});

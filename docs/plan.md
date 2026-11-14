@@ -69,6 +69,8 @@ Planned MCP tools: `strata_search`, `strata_record`.
 
 - What is the record schema, and how much editing does a typical draft need?
 - How many response notes per session help before they turn into noise?
-- Which opencode v2 events map onto `Stop`, `PreCompact` and `SessionEnd`?
+- Which opencode v2 events map onto `Stop`, `PreCompact` and `SessionEnd`? **Answered:** `experimental.idle` →
+  `Stop`, `session.hook("compaction")` → `PreCompact`, `session.compaction.ended` → `PostCompact`, and
+  `session.deleted` → `SessionEnd`. See [`docs/architecture.md`](architecture.md#the-opencode-client).
 - Which embeddings model backs vector search? Voyage AI (owned by MongoDB) is the natural fit.
 - Does the hub read Atlas directly, or go through a Strata API?
