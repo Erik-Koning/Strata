@@ -16,16 +16,20 @@ export async function decideDevice(formData: FormData): Promise<void> {
   if (!code) back("", "error", "No sign-in code was provided.");
 
   const requestHeaders = await headers();
+  // redirect() works by throwing, so it runs after the try: inside it, the catch would turn every success into an error.
+  let outcome: [key: string, value: string];
   try {
     if (decision === "deny") {
       await auth().api.deviceDeny({ body: { userCode: code }, headers: requestHeaders });
-      back(code, "done", "denied");
+      outcome = ["done", "denied"];
+    } else {
+      // Claim the code for this person first; approve refuses a code no verifying session has claimed.
+      await auth().api.deviceVerify({ query: { user_code: code }, headers: requestHeaders });
+      await auth().api.deviceApprove({ body: { userCode: code }, headers: requestHeaders });
+      outcome = ["done", "approved"];
     }
-    // Claim the code for this person first; approve refuses a code no verifying session has claimed.
-    await auth().api.deviceVerify({ query: { user_code: code }, headers: requestHeaders });
-    await auth().api.deviceApprove({ body: { userCode: code }, headers: requestHeaders });
-    back(code, "done", "approved");
   } catch (error) {
-    back(code, "error", error instanceof Error ? error.message : "Could not approve the sign-in.");
+    outcome = ["error", error instanceof Error ? error.message : "Could not approve the sign-in."];
   }
+  back(code, ...outcome);
 }

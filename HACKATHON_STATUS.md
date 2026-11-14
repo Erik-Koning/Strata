@@ -93,16 +93,37 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
   `STRATA_PROJECT`), and adds two checks from Claude Code's own `init` event: the plugin's MCP server `connected`, with
   all five handoff tools.
 
-Run on the merge (Node 22.23.3, Atlas Local): typecheck OK, lint OK, unit contracts 76/76, web 67/67, plugin 50/51,
+Run on that merge (Node 22.23.3, Atlas Local): typecheck OK, lint OK, unit contracts 76/76, web 67/67, plugin 50/51,
 DB 78/78, `pnpm build` OK. Real demo against `next start`: **28/28** (the 26, plus the plugin loading in both
 sessions). `main`'s hooks ran in both sessions too.
 
+### Then `main` `de8bea7` (#12: the team hub, an Anthropic provider, plugin sign-in against the app)
+
+6 more conflicts, all in the web app:
+
+- **Provider.** The two sides gave `MEMORY_AI_PROVIDER` different jobs: `main`'s `anthropic` does the text work
+  (summaries, drafts, team answers) on stub embeddings; this branch's `voyage`/`openai` do the embeddings on stub text
+  work. Both are kept under the one setting, now `stub | voyage | openai | anthropic`, so each side's configuration
+  behaves as before. Each provider takes what it doesn't do from the stub. `Provider` has every member of both
+  sides. The new optional `embedder` field makes Anthropic's memories carry the stub's model id
+  (`stub:fnv1a-hash:256`); otherwise switching to `anthropic` would hide every stored memory from vector search.
+  **Voyage embeddings and Anthropic text together need a second setting: a decision for the owners.**
+- `config.ts`: both sides' settings (`MEMORY_EMBED_*`, `VOYAGE_API_KEY`, `OPENAI_API_KEY`, `MEMORY_AI_MODEL`,
+  `ANTHROPIC_API_KEY`).
+- Collections and indexes: the hub's (`products`, `signal_daily`, `gaps`, `draft_claims`) beside `handoffs`.
+- Nav: Overview, Products, Time, Gaps, Ask, Intelligence, Memories, Relay, Connect, Audit log, with My Day and People.
+- `package.json`: `hub:backfill` beside this branch's scripts.
+
+Run on the final merge (Node 22.23.3, Atlas Local): typecheck OK, lint OK (275 files), unit contracts 76/76, web
+101/101, plugin 52/53, DB 118/118 (12 files), `pnpm build` OK. Real demo against `next start`: **28/28**. The
+plugin's `/strata:login` path (`POST /v1/auth/device` on the origin) now answers 200, after #12.
+
 Not this merge's, found while testing it:
 
-- `main`'s plugin test "roll-up … the dashboard serves it with gaps" fails on `main` alone too (`fetch failed`, 38/39).
-- `/strata:login` with `STRATA_URL` set to the origin (as the Connect page says) posts to `/v1/auth/device`, which
-  `proxy.ts` redirects to sign-in; the route is `/api/v1/auth/device`. With `STRATA_URL=<origin>/api` login works
-  but events would go to `/api/api/memory/events`. Relay works with either.
+- `main`'s plugin test "roll-up … the dashboard serves it with gaps" fails on `main` alone too (`fetch failed`).
+- Two "Ask Strata"s in the nav: `main`'s `/ask` is a "Being built" placeholder for a team-wide one (phase 2; the
+  provider's `answer` is ready for it), and Intelligence's (`/intelligence`) works today, owner-scoped and extractive.
+  Whether Intelligence becomes the base of `/ask` or stays separate is the owners' call.
 
 ## Atlas Cloud (`43a6ba1`, 2026-11-14)
 

@@ -62,26 +62,33 @@ export default async function ConnectPage() {
               <CodeLine code={`/plugin marketplace add ${repo}`} />
               <CodeLine code="/plugin install strata@strata" />
             </div>
-            <p className="mt-3 text-[13.5px] text-ink-3">
-              Or for one session: <span className="kbd break-all">claude --plugin-dir {repo}/clients/claude-code</span>
+            <p className="mt-3 mb-2 text-[13.5px] text-ink-3">
+              Or for one session, straight from this checkout. <span className="kbd">STRATA_HOME</span> keeps this
+              sign-in apart from your everyday one:
             </p>
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
+              <CodeLine
+                code={`STRATA_URL=${origin} STRATA_HOME=~/.strata-dev claude --plugin-dir ${repo}/clients/claude-code`}
+              />
+            </div>
           </Step>
           <Step n={2} title="Point it at this app">
             <p className="mb-3 text-[14px] text-ink-2">
-              The plugin reads <span className="kbd">STRATA_URL</span> from the environment, or the server URL in its
-              dashboard. Set it in <span className="kbd">~/.claude/settings.json</span> under{" "}
-              <span className="kbd">env</span>, or in your shell.
+              The plugin finds the app at <span className="kbd">STRATA_URL</span>. Set it in{" "}
+              <span className="kbd">~/.claude/settings.json</span> under <span className="kbd">env</span>, or in your
+              shell.
             </p>
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
               <CodeLine code={`STRATA_URL=${origin}`} />
             </div>
             <p className="mt-3 text-[13.5px] text-ink-3">
-              Settings, sign-in and review live in <span className="kbd">/strata:dashboard</span>.
+              Settings, sign-in and review also live in <span className="kbd">/strata:dashboard</span>.
             </p>
           </Step>
           <Step n={3} title="Sign in">
             <p className="mb-3 text-[14px] text-ink-2">
-              Run this in Claude Code. It opens a browser and waits; approve the code on this site.
+              Run this in Claude Code. It opens this app's <span className="kbd">/activate</span> page and waits;
+              approve the code there. No API key needed.
             </p>
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
               <CodeLine code="/strata:login" />
@@ -155,7 +162,7 @@ export default async function ConnectPage() {
               })}
             </ul>
           ) : (
-            <p className="px-5 py-6 text-[14px] text-ink-3">No keys yet. Make one in step 1.</p>
+            <p className="px-5 py-6 text-[14px] text-ink-3">No keys yet. Make one above when a script needs one.</p>
           )}
         </section>
       </div>

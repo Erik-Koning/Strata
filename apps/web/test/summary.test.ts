@@ -19,7 +19,7 @@ describe("summary sanitizer", () => {
     const out = sanitizeSummary({
       ...summary,
       title: "T".repeat(300),
-      built: "Did ```rm -rf /``` and <private>secret</private> with sk-" + "q".repeat(30),
+      built: `Did \`\`\`rm -rf /\`\`\` and <private>secret</private> with sk-${"q".repeat(30)}`,
       decisions: ["a", "b", "c", "d", "e", "f"],
     });
     expect(out.title).toHaveLength(100);

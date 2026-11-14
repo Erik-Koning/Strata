@@ -14,6 +14,7 @@
     "db:indexes": "node scripts/db-indexes.ts",
     "db:seed": "node scripts/db-seed.ts",
     "invite": "node scripts/invite.ts",
+    "hub:backfill": "node scripts/hub-backfill.ts",
     "mail:test": "node scripts/mail-test.ts",
     "atlas:check": "node scripts/atlas-check.ts",
     "db:reembed": "node scripts/re-embed.ts",

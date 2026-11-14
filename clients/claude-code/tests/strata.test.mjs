@@ -142,7 +142,7 @@ after(() => {
 test("redaction: vendor keys, URL credentials, keyed values; keeps ordinary code", async () => {
   const { redact } = await import(path.join(ROOT, "scripts/lib/redact.mjs"));
   const cases = [
-    ["sk_live_" + "a".repeat(24), /\[redacted\]/],
+    [`sk_live_${"a".repeat(24)}`, /\[redacted\]/],
     ["postgres://admin:hunter2pass@db.internal/app", /admin:\[redacted\]@db/],
     ['DB_PASSWORD="correcthorse99"', /DB_PASSWORD="\[redacted\]/],
     ["Authorization: Bearer abcdefghijklmnop1234", /Bearer \[redacted\]/],
@@ -153,7 +153,7 @@ test("redaction: vendor keys, URL credentials, keyed values; keeps ordinary code
   for (const keep of ["max_tokens=4096", "const token = getToken();", "token: TokenType;", "password = input()"])
     assert.equal(redact(keep), keep, `should keep: ${keep}`);
   const started = Date.now();
-  redact("a ".repeat(2_000_000) + "sk-" + "x".repeat(30), 8000);
+  redact(`${"a ".repeat(2_000_000)}sk-${"x".repeat(30)}`, 8000);
   assert.ok(Date.now() - started < 3000, "oversize input must not stall");
 });
 
@@ -218,7 +218,7 @@ test("schema: code, secrets and tags are stripped from whatever the model or an 
   const { sanitizeSummary } = await import(path.join(ROOT, "scripts/lib/schema.mjs"));
   const out = sanitizeSummary({
     title: "T".repeat(300),
-    built: "Did ```rm -rf /``` and <private>x</private> key sk-" + "q".repeat(30),
+    built: `Did \`\`\`rm -rf /\`\`\` and <private>x</private> key sk-${"q".repeat(30)}`,
     decisions: "a\nb\nc\nd\ne\nf\ng",
     areas: "x",
   });
@@ -229,7 +229,7 @@ test("schema: code, secrets and tags are stripped from whatever the model or an 
 
 // ---------- the automatic summary ----------
 test("a turn is summarized automatically; raw text is deleted; nothing is sent before approval", async () => {
-  turn("s1", "add tax rounding, key sk-" + "q".repeat(30), "Rounded line totals to cents.");
+  turn("s1", `add tax rounding, key sk-${"q".repeat(30)}`, "Rounded line totals to cents.");
   const summary = read("s1", "summary.json");
   assert.equal(summary.revision, 1);
   assert.match(summary.summary.built, /Rounded line totals/);
@@ -298,7 +298,7 @@ test("more work rolls into the same summary and asks for review again", async ()
 test("an engineer can edit after sending: new revision, re-approve, hub gets the latest", async () => {
   const res = await dashFetch("/api/sessions/s1/summary", {
     method: "PUT",
-    body: { title: "Tax rounding", built: "Rounding now happens per line. ```code``` sk-" + "z".repeat(30) },
+    body: { title: "Tax rounding", built: `Rounding now happens per line. \`\`\`code\`\`\` sk-${"z".repeat(30)}` },
   });
   assert.equal((await res.json()).revision, 3);
   const built = read("s1", "summary.json").summary.built;
@@ -660,7 +660,7 @@ test("dashboard: signing in from the page sends what was approved while signed o
 const MCP = path.join(ROOT, "scripts/mcp.mjs");
 const mcp = (requests, cwd = REPO) => {
   const res = spawnSync(process.execPath, [MCP], {
-    input: requests.map((r) => JSON.stringify({ jsonrpc: "2.0", ...r })).join("\n") + "\n",
+    input: `${requests.map((r) => JSON.stringify({ jsonrpc: "2.0", ...r })).join("\n")}\n`,
     env: { ...env, CLAUDE_PROJECT_DIR: cwd },
     encoding: "utf8",
     cwd,
@@ -681,7 +681,7 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
       method: "tools/call",
       params: {
         name: "strata_record",
-        arguments: { kind: "gap", text: "No record of why the queue delivers at least once. key sk-" + "z".repeat(30) },
+        arguments: { kind: "gap", text: `No record of why the queue delivers at least once. key sk-${"z".repeat(30)}` },
       },
     },
     {
@@ -689,7 +689,7 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
       method: "tools/call",
       params: {
         name: "strata_record",
-        arguments: { kind: "gap", text: "No record of why the queue delivers at least once. key sk-" + "z".repeat(30) },
+        arguments: { kind: "gap", text: `No record of why the queue delivers at least once. key sk-${"z".repeat(30)}` },
       },
     },
     { id: 5, method: "tools/call", params: { name: "strata_record", arguments: { kind: "rant", text: "nope" } } },

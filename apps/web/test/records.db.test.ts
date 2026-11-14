@@ -9,6 +9,7 @@ process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
 process.env.BETTER_AUTH_URL = "http://localhost:9316";
 
 const { postEvents } = await import("../server/memory/routes.ts");
+const { draftPending } = await import("../server/memory/ingest.ts");
 const { listRecords, getRecord, patchRecord, approveRecord, discardRecord } = await import(
   "../server/records/routes.ts"
 );
@@ -75,6 +76,7 @@ beforeAll(async () => {
   key = (await createKey("records-user", "test")).key;
 });
 afterAll(async () => {
+  await draftPending();
   await dropTestDatabase(db(), name);
   await closeMongo();
 });
@@ -84,6 +86,8 @@ describe("drafting", () => {
     const res = await call(postEvents, { token: key, body: { batch: sessionBatch } });
     expect(res.status).toBe(202);
     expect((await res.json()).accepted).toBe(7);
+    // Drafting runs after the answer.
+    await draftPending();
 
     const drafts = await records().find({ sessionID: "s1" }).toArray();
     expect(drafts.length).toBeGreaterThanOrEqual(2);
@@ -102,6 +106,7 @@ describe("drafting", () => {
   it("redrafting the same session does not duplicate records", async () => {
     const before = await records().countDocuments({ sessionID: "s1" });
     await call(postEvents, { token: key, body: { batch: sessionBatch } });
+    await draftPending();
     expect(await records().countDocuments({ sessionID: "s1" })).toBe(before);
   });
 });

@@ -45,6 +45,8 @@ export interface EventDoc {
   processedAt?: Date | null;
   // Set once the session has been drafted; the text is cleared then.
   draftedAt?: Date | null;
+  // Set once a tool event's timing is counted in signal_daily (hub/signals.ts), so it's counted once.
+  signaledAt?: Date | null;
 }
 
 export interface MemoryDoc {
@@ -118,7 +120,10 @@ export interface AuditDoc {
     | "member.restore"
     | "team.create"
     | "team.delete"
-    | "team.member";
+    | "team.member"
+    | "gap.take"
+    | "gap.resolve"
+    | "gap.reopen";
   targetIds: string[];
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;
@@ -162,6 +167,19 @@ export interface RecordDoc {
   updatedAt: Date;
   approvedAt: Date | null;
   memoryId: ObjectId | null;
+}
+
+// Who is drafting a session right now (records/draft.ts). Claimed with a conditional write before drafting, so a retried
+// or repeated end event never drafts the same session twice at once; `again` asks the holder to look once more for
+// events that arrived while it worked. Gone 30 days after the last draft.
+export interface DraftClaimDoc {
+  // org, user, project and session, joined.
+  _id: string;
+  drafting: boolean;
+  token: string | null;
+  again: boolean;
+  claimedAt: Date;
+  doneAt: Date | null;
 }
 
 // One approved revision of one session. The highest revision for (userId, sessionId) is the current summary;
@@ -277,6 +295,92 @@ export interface HandoffDoc {
   revokeReason: string | null;
 }
 
+// The hub: what the team pages read, derived from approved work and from tool timings (server/hub/*).
+
+// A product: one or more repositories, each whole or one folder of it (a monorepo's part). Made automatically, one per
+// repository and named after it, the first time the repository is seen; an admin can rename and merge them later. The
+// id is a slug made once and never changed, so links to a product keep working.
+export interface ProductRepo {
+  // The normalized origin: github.com/acme/billing.
+  repo: string;
+  // The folder inside it ("" for the whole repository).
+  path: string;
+}
+export interface ProductDoc {
+  _id: string;
+  org: string;
+  name: string;
+  repos: ProductRepo[];
+  // `${repo}#${path}` for each of repos: unique across products, so a repository belongs to one product.
+  repoKeys: string[];
+  // Set when an admin merges this product into another: links to it lead there.
+  mergedInto: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Tool time, per UTC day, product, repository, command class and command fingerprint. Counted from tool events as they
+// arrive (and backfilled from the ones still stored), so it outlives the events' 30 days. It carries no person: time
+// is measured on tools, never on people.
+export interface SignalDailyDoc {
+  _id?: ObjectId;
+  day: string;
+  productId: string | null;
+  repo: string;
+  class: string;
+  // The command's fingerprint; "" for a command of class other, which has none.
+  fp: string;
+  // A stable key for (repo, class, fp), so a trend survives a product's rename or merge.
+  item: string;
+  runs: number;
+  // Runs that ended in an error, a non-zero exit, or were interrupted.
+  failures: number;
+  // Runs of a fingerprint already run earlier in the same session.
+  reruns: number;
+  // Runs with a duration of their own (not started in the background).
+  timedRuns: number;
+  totalMs: number;
+  failedMs: number;
+  // Time in re-runs that succeeded (a failed re-run's time is in failedMs).
+  rerunMs: number;
+  // Every timed run by duration bucket, and the successful first runs alone (hub/time-math.ts).
+  hist: Record<string, number>;
+  okHist: Record<string, number>;
+  updatedAt: Date;
+}
+
+// One time a gap came up: in a coding session (from an approved record or summary), or as a question someone asked
+// Ask Strata that it couldn't answer. Who asked is never kept.
+export interface GapOccurrence {
+  sourceId: string;
+  from: "agent" | "person";
+  sessionId: string | null;
+  at: Date;
+}
+
+// A context gap across sessions: what agents and people needed and couldn't find, one document per normalized text per
+// product. Counts are of sessions and questions, never of people.
+export interface GapDoc {
+  _id: ObjectId;
+  // A hash of the product and the normalized text.
+  key: string;
+  text: string;
+  productId: string | null;
+  occurrences: GapOccurrence[];
+  // Worked out from occurrences on every write.
+  firstSeen: Date;
+  lastSeen: Date;
+  sessions: number;
+  fromAgents: number;
+  fromPeople: number;
+  sourceIds: string[];
+  status: "open" | "resolved";
+  ownerId: string | null;
+  resolution: { url: string | null; note: string; at: Date } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const events = (): Collection<EventDoc> => db().collection<EventDoc>("memory_events");
 export const memories = (): Collection<MemoryDoc> => db().collection<MemoryDoc>("memories");
 export const summaries = (): Collection<SummaryDoc> => db().collection<SummaryDoc>("memory_summaries");
@@ -290,6 +394,10 @@ export const records = (): Collection<RecordDoc> => db().collection<RecordDoc>("
 export const members = (): Collection<MemberDoc> => db().collection<MemberDoc>("members");
 export const teams = (): Collection<TeamDoc> => db().collection<TeamDoc>("teams");
 export const invites = (): Collection<InviteDoc> => db().collection<InviteDoc>("invites");
+export const draftClaims = (): Collection<DraftClaimDoc> => db().collection<DraftClaimDoc>("draft_claims");
+export const products = (): Collection<ProductDoc> => db().collection<ProductDoc>("products");
+export const signalDaily = (): Collection<SignalDailyDoc> => db().collection<SignalDailyDoc>("signal_daily");
+export const gaps = (): Collection<GapDoc> => db().collection<GapDoc>("gaps");
 
 export const handoffs = (): Collection<HandoffDoc> => db().collection<HandoffDoc>("handoffs");
 

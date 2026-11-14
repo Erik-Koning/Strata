@@ -7,17 +7,22 @@ const Settings = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required: put it in .env.local at the repository root"),
   // A service token with every scope: tests, scripts, the OpenCode sandbox. Optional: people use API keys.
   MEMORY_API_TOKEN: z.string().min(24).optional(),
-  // Which embeddings: stub (deterministic hash vectors, offline, NOT semantic), voyage (Voyage AI) or openai. anthropic
-  // is accepted for the summaries to come; Anthropic has no embeddings API, so it can't embed.
+  // Which provider: stub (deterministic, offline; its hash vectors are NOT semantic), voyage or openai (real
+  // embeddings; the text work stays the stub's), or anthropic (Claude for summaries, drafts and answers; stub
+  // embeddings). See server/ai/provider.ts.
   MEMORY_AI_PROVIDER: z.enum(["stub", "voyage", "openai", "anthropic"]).default("stub"),
-  // The embedding model and its output size; each provider has a default (voyage-3.5 at 1024, text-embedding-3-small
-  // at 1536). Changing either changes the vector index and needs `pnpm db:indexes` then `pnpm db:reembed`.
+  // The embedding model and its output size; each embeddings provider has a default (voyage-3.5 at 1024,
+  // text-embedding-3-small at 1536). Changing either changes the vector index and needs `pnpm db:indexes` then
+  // `pnpm db:reembed`.
   MEMORY_EMBED_MODEL: z.string().min(1).optional(),
   MEMORY_EMBED_DIMENSIONS: z.coerce.number().int().min(64).max(4096).optional(),
   MEMORY_EMBED_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
+  // The model anthropic asks (server/ai/provider.ts has the default).
+  MEMORY_AI_MODEL: z.string().min(1).max(200).optional(),
   // The keys, read by name only. Each is needed only by its own provider.
   VOYAGE_API_KEY: z.string().min(1).optional(),
   OPENAI_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().positive().default(9316),
@@ -46,6 +51,8 @@ export interface Config {
   embedTimeoutMs: number;
   voyageKey: string | null;
   openaiKey: string | null;
+  aiModel: string | null;
+  anthropicKey: string | null;
   authSecret: string;
   baseURL: string;
   // The email settings, or which of the four are missing (all four when email isn't set up). Checked when mail is
@@ -84,6 +91,8 @@ export function config(): Config {
     embedTimeoutMs: env.MEMORY_EMBED_TIMEOUT_MS,
     voyageKey: env.VOYAGE_API_KEY ?? null,
     openaiKey: env.OPENAI_API_KEY ?? null,
+    aiModel: env.MEMORY_AI_MODEL ?? null,
+    anthropicKey: env.ANTHROPIC_API_KEY ?? null,
     authSecret,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
     mail,
