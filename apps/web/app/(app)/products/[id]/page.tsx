@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, GitCompareArrows } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -36,7 +36,18 @@ export default async function ProductPage({ params }: PageProps<"/products/[id]"
       <Link href="/products" className="btn btn-quiet btn-sm mb-3 -ml-2.5 max-md:min-h-11">
         <ArrowLeft size={15} aria-hidden /> Products
       </Link>
-      <PageHeader eyebrow="Product" title={product.name} />
+      <PageHeader
+        eyebrow="Product"
+        title={product.name}
+        actions={
+          <Link
+            href={`/products/${encodeURIComponent(product.id)}/history`}
+            className="btn btn-primary max-md:min-h-11"
+          >
+            <GitCompareArrows size={15} aria-hidden /> History
+          </Link>
+        }
+      />
       <div className="-mt-5 mb-8 flex flex-wrap gap-1.5">
         <span className="sr-only">Repositories:</span>
         <RepoChips repos={product.repos} />

@@ -31,6 +31,9 @@ const Settings = z.object({
   SES_ACCESS_KEY_ID: z.string().min(1).optional(),
   SES_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   MAIL_FROM: z.string().min(1).optional(),
+  // Product history (hub/git-history.ts): the local clones a product's repository may be read from, as JSON
+  // {"<repository as products name it>": "/absolute/path/to/clone"}. Nothing else on disk is ever read.
+  STRATA_LOCAL_REPOS: z.string().min(2).optional(),
 });
 
 const MAIL_SETTINGS = ["SES_REGION", "SES_ACCESS_KEY_ID", "SES_SECRET_ACCESS_KEY", "MAIL_FROM"] as const;
@@ -58,6 +61,8 @@ export interface Config {
   // The email settings, or which of the four are missing (all four when email isn't set up). Checked when mail is
   // sent, not here: nothing else should stop working over a half-set optional feature.
   mail: MailConfig | { missing: string[] };
+  // Repository (normalized, as a product names it) to the absolute path of a local clone. Empty when unset.
+  localRepos: Record<string, string>;
 }
 
 let cached: Config | null = null;
@@ -96,8 +101,23 @@ export function config(): Config {
     authSecret,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
     mail,
+    localRepos: localReposFrom(env.STRATA_LOCAL_REPOS),
   };
   return cached;
+}
+
+// STRATA_LOCAL_REPOS: only absolute paths, as strings, under a repository name. A malformed value turns history off
+// (with a warning) rather than stopping the app over an optional feature.
+function localReposFrom(raw: string | undefined): Record<string, string> {
+  if (!raw) return {};
+  let json: unknown = null;
+  try {
+    json = JSON.parse(raw);
+  } catch {}
+  const parsed = z.record(z.string().min(1).max(500), z.string().startsWith("/").max(1000)).safeParse(json);
+  if (parsed.success) return parsed.data;
+  console.warn('STRATA_LOCAL_REPOS is ignored: it must be JSON like {"github.com/acme/app": "/abs/path"}');
+  return {};
 }
 
 // For tests that change the environment between cases.

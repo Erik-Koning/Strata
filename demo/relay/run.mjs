@@ -13,7 +13,7 @@
 //   8. The demo checks the result itself: npm test in Bob's clone, and the handoff's recorded state.
 //   9. Revocation: a second handoff is approved for Bob, read by him, revoked by Alice, and then 404 for Bob.
 //
-// Usage: node demo/relay/run.mjs [--api http://localhost:9316] [--dir DIR] [--skip-claude]
+// Usage: node demo/relay/run.mjs [--api http://localhost:9316] [--dir DIR] [--project NAME] [--skip-claude]
 //   Needs the web app running against MongoDB, and `claude` on PATH, signed in.
 //   Each person's Claude Code session gets the plugin's own settings: STRATA_URL, a STRATA_HOME of their own with the
 //   auth.json /strata:login would write (their API key), and STRATA_PROJECT.
@@ -31,7 +31,8 @@ const arg = (name, fallback) => {
 const API = (arg("--api", process.env.MEMORY_API_URL) ?? "http://localhost:9316").replace(/\/+$/, "");
 const DIR = resolve(arg("--dir", join(here, ".demo-run")));
 const SKIP_CLAUDE = process.argv.includes("--skip-claude");
-const PROJECT = "relay-demo/durations";
+// A repository-shaped name (host/path) makes the demo a product on the team pages: --project relay-demo.local/durations
+const PROJECT = arg("--project", "relay-demo/durations");
 const LOG = join(DIR, "..", ".demo-logs");
 mkdirSync(LOG, { recursive: true });
 

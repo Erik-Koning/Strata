@@ -47,6 +47,13 @@
   --radius-sm: 8px;
   --relay-blue: #3a62c2;
   --relay-blue-soft: #e8eefa;
+  /* Product history's diff: green and red only for lines added and removed. */
+  --diff-add-bg: #eef7f1;
+  --diff-add-gutter: #dcefe3;
+  --diff-add-mark: #2e6a4c;
+  --diff-del-bg: #fcf0f1;
+  --diff-del-gutter: #f6dfe2;
+  --diff-del-mark: #a3303d;
   color-scheme: light;
 }
 
@@ -82,6 +89,12 @@
   --shadow-pop: 0 28px 72px -24px rgb(0 0 0 / 70%), 0 0 0 1px rgb(239 237 242 / 8%);
   --relay-blue: #9db4f5;
   --relay-blue-soft: rgb(157 180 245 / 14%);
+  --diff-add-bg: rgb(102 185 141 / 10%);
+  --diff-add-gutter: rgb(102 185 141 / 18%);
+  --diff-add-mark: #93d2b0;
+  --diff-del-bg: rgb(244 144 156 / 9%);
+  --diff-del-gutter: rgb(244 144 156 / 16%);
+  --diff-del-mark: #f4a3ad;
   color-scheme: dark;
 }
 
@@ -910,4 +923,209 @@ h3 {
   position: static;
   width: 7px;
   height: 7px;
+}
+
+/* Product history (/products/[id]/history): the commit rail, the diff, the context column. */
+@layer components {
+  .rail {
+    position: relative;
+  }
+  /* The spine every commit hangs on, and the stretch of it the comparison covers. */
+  .rail::before {
+    content: "";
+    position: absolute;
+    top: 18px;
+    bottom: 18px;
+    left: 19px;
+    width: 1.5px;
+    background: var(--line-strong);
+  }
+  .rail-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .rail-item[data-bar]::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    width: 3.5px;
+    top: 0;
+    bottom: 0;
+    background: var(--accent);
+  }
+  .rail-item[data-bar="top"]::before {
+    top: 22px;
+  }
+  .rail-item[data-bar="bottom"]::before {
+    bottom: calc(100% - 22px);
+  }
+  .rail-node {
+    position: relative;
+    z-index: 1;
+    margin: 17px auto 0;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1.5px var(--ink-3);
+  }
+  .rail-item[data-covered] .rail-node {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  .rail-item[data-role="after"] .rail-node {
+    width: 13px;
+    height: 13px;
+    margin-top: 16px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .rail-item[data-role="before"] .rail-node {
+    width: 13px;
+    height: 13px;
+    margin-top: 16px;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 2.5px var(--accent), 0 0 0 3px var(--accent-soft);
+  }
+  .rail-item[data-role] {
+    background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+  }
+  .rail-pick {
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    background: var(--surface);
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .rail-pick:hover {
+    color: var(--ink);
+    background: var(--surface-2);
+  }
+  .rail-pick[aria-current="true"] {
+    color: var(--accent-ink);
+    background: var(--accent);
+    box-shadow: none;
+  }
+
+  .diffstat {
+    display: inline-flex;
+    gap: 2px;
+  }
+  .diffstat i {
+    width: 7px;
+    height: 7px;
+    border-radius: 1.5px;
+    background: var(--surface-3);
+  }
+  .diffstat i[data-k="add"] {
+    background: var(--verified);
+  }
+  .diffstat i[data-k="del"] {
+    background: var(--danger);
+  }
+  .n-add {
+    color: var(--diff-add-mark);
+  }
+  .n-del {
+    color: var(--diff-del-mark);
+  }
+
+  .file > summary {
+    list-style: none;
+    cursor: pointer;
+  }
+  .file > summary::-webkit-details-marker {
+    display: none;
+  }
+  .file > summary .file-caret {
+    transition: transform 140ms ease;
+  }
+  .file:not([open]) > summary .file-caret {
+    transform: rotate(-90deg);
+  }
+  .file:not([open]) > summary {
+    border-bottom-color: transparent;
+  }
+
+  .code {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 20px;
+    font-variant-ligatures: none;
+    tab-size: 4;
+  }
+  .code td {
+    padding: 0;
+    vertical-align: top;
+  }
+  .code .ln {
+    width: 1%;
+    min-width: 40px;
+    padding: 0 8px 0 10px;
+    text-align: right;
+    color: var(--ink-3);
+    opacity: 0.75;
+    user-select: none;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .code .mk {
+    width: 18px;
+    padding-left: 6px;
+    user-select: none;
+    color: var(--ink-3);
+  }
+  .code .tx {
+    padding-right: 16px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+  }
+  .code tr[data-k="add"] .tx,
+  .code tr[data-k="add"] .mk {
+    background: var(--diff-add-bg);
+  }
+  .code tr[data-k="add"] .ln {
+    background: var(--diff-add-gutter);
+    color: var(--diff-add-mark);
+    opacity: 1;
+  }
+  .code tr[data-k="add"] .mk {
+    color: var(--diff-add-mark);
+  }
+  .code tr[data-k="del"] .tx,
+  .code tr[data-k="del"] .mk {
+    background: var(--diff-del-bg);
+  }
+  .code tr[data-k="del"] .ln {
+    background: var(--diff-del-gutter);
+    color: var(--diff-del-mark);
+    opacity: 1;
+  }
+  .code tr[data-k="del"] .mk {
+    color: var(--diff-del-mark);
+  }
+  .code tr[data-k="note"] .tx {
+    color: var(--ink-3);
+    font-style: italic;
+  }
+  .code tr.hunk td {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    font-size: 12px;
+  }
+  .code tr.hunk .tx {
+    color: var(--accent-text);
+  }
+  .code tr.hunk + tr td {
+    padding-top: 4px;
+  }
 }
