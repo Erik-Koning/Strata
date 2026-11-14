@@ -2,6 +2,7 @@
 // read), checks its body against the contract, and answers in the one envelope (http.ts).
 import {
   CompressRequest,
+  CorrectMemoryRequest,
   EventsRequest,
   ForgetRequest,
   FrozenQuery,
@@ -12,6 +13,7 @@ import { actorOf, authenticate, scopeFor } from "../api-auth.ts";
 import { check, json, parseBody, route } from "../http.ts";
 import { indexesReady } from "../indexes.ts";
 import { compress } from "./compress.ts";
+import { correctMemory } from "./correct.ts";
 import { forget } from "./forget.ts";
 import { frozen } from "./frozen.ts";
 import { ingest } from "./ingest.ts";
@@ -69,4 +71,20 @@ export const postSave = route(async (request) => {
     source: "tool",
   });
   return json({ memory: hit(memory) }, 201);
+});
+
+export const postCorrect = route(async (request) => {
+  const principal = await authenticate(request);
+  const body = await parseBody(request, CorrectMemoryRequest);
+  await indexesReady();
+  const scope = scopeFor(principal, body.scope);
+  const { memory, supersedes } = await correctMemory({
+    actor: actorOf(principal),
+    owner: scope,
+    id: body.id,
+    text: body.text,
+    sessionID: body.sessionID ?? null,
+    source: "tool",
+  });
+  return json({ memory: hit(memory), supersedes }, 201);
 });

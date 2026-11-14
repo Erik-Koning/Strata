@@ -301,3 +301,24 @@ export function renderResume(h: Handoff, memories: SharedMemory[]): string {
     "</strata-handoff>",
   ].join("\n");
 }
+
+// POST /api/memory/correct: the owner replaces one of their memories with a corrected one. The new memory supersedes
+// the old (same scope and kind, trusted as explicit); the old one is marked superseded, so a handoff that shared it
+// returns the correction in its place. The scope is the memory API's (WireScope): a key may leave org and user out.
+export const CorrectMemoryRequest = z.object({
+  scope: z.object({
+    org: z.string().min(1).max(120).optional(),
+    project: z.string().min(1).max(200),
+    user: z.string().min(1).max(120).optional(),
+  }),
+  id: objectId,
+  text: z.string().trim().min(1).max(4000),
+  sessionID: z.string().max(200).nullable().optional(),
+});
+export type CorrectMemoryRequest = z.input<typeof CorrectMemoryRequest>;
+export const CorrectMemoryResponse = z.object({
+  memory: z.object({ _id: z.string(), kind: z.string(), text: z.string() }),
+  // The id of the memory it replaced.
+  supersedes: z.string(),
+});
+export type CorrectMemoryResponse = z.infer<typeof CorrectMemoryResponse>;
