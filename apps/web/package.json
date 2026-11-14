@@ -13,7 +13,8 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:indexes": "node --env-file-if-exists=.env.local scripts/db-indexes.ts",
     "db:seed": "node --env-file-if-exists=.env.local scripts/db-seed.ts",
-    "invite": "node --env-file-if-exists=.env.local scripts/invite.ts"
+    "invite": "node --env-file-if-exists=.env.local scripts/invite.ts",
+    "intelligence:demo": "node --env-file-if-exists=.env.local scripts/intelligence-demo.ts"
   },
   "dependencies": {
     "@strata/contracts": "workspace:*",
