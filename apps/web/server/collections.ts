@@ -38,7 +38,7 @@ export interface EventDoc {
   client: string | null;
   // Set once a job has read it (extract), so it's read once.
   processedAt?: Date | null;
-  // Set once the session has been drafted; the text is cleared then.
+  // Set once the session has been drafted. The raw text stays until the memory_events TTL.
   draftedAt?: Date | null;
 }
 

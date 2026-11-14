@@ -1,6 +1,6 @@
 // Drafting: turn one session's redacted events into reviewed records. The server does this when a session ends;
-// the records belong to the author alone until they approve or discard them, and the raw prompt/reply/transcript
-// text is cleared once the draft exists.
+// the records belong to the author alone until they approve or discard them. The raw prompt, reply and transcript
+// events stay in memory_events until the 30-day TTL, as my-day keeps them.
 import { createHash } from "node:crypto";
 import { type DraftRecord, type Ref, redact, type Scope } from "@strata/contracts";
 import { MongoServerError, ObjectId } from "mongodb";
@@ -9,7 +9,6 @@ import { audit } from "../audit.ts";
 import { events, records } from "../collections.ts";
 import { normalize } from "../memory/extract.ts";
 
-const TEXT_KINDS = new Set(["prompt", "assistant", "transcript", "finding"]);
 const MAX_RECORDS = 20;
 const FINDING_KINDS = {
   insight: "insight",
@@ -52,13 +51,9 @@ export async function draftSession(scope: Scope, sessionID: string): Promise<{ c
     .toArray();
   if (!sessionEvents.length) return { created: 0 };
 
-  // Replaying a session end is a no-op: nothing has new text, and every event already carries a draft.
-  const hasNewText = sessionEvents.some(
-    (event) =>
-      TEXT_KINDS.has(event.kind) && typeof event.payload.text === "string" && event.payload.text.trim().length > 0,
-  );
+  // Replaying a session end is a no-op: every event already carries a draft. New events (a resumed session) redraft.
   const hasUndrafted = sessionEvents.some((event) => !event.draftedAt);
-  if (!hasNewText && !hasUndrafted) return { created: 0 };
+  if (!hasUndrafted) return { created: 0 };
 
   const textOf = (event: (typeof sessionEvents)[number]): string =>
     typeof event.payload.text === "string" ? event.payload.text : "";
@@ -155,11 +150,9 @@ export async function draftSession(scope: Scope, sessionID: string): Promise<{ c
     });
   }
 
-  // The draft is the durable thing. The text that produced it goes, on the same events, now.
+  // The draft is the durable thing. The raw events stay until the memory_events TTL.
   const ids = sessionEvents.map((event) => event._id!);
   await events().updateMany({ _id: { $in: ids } }, { $set: { draftedAt: now } });
-  const textIds = sessionEvents.filter((event) => TEXT_KINDS.has(event.kind)).map((event) => event._id!);
-  if (textIds.length) await events().updateMany({ _id: { $in: textIds } }, { $set: { "payload.text": "" } });
 
   return { created };
 }
