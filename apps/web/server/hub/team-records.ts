@@ -50,6 +50,8 @@ export interface TeamRecord {
   refs: Ref[];
   // The code areas the session's summary names; [] for a server record.
   areas: string[];
+  // The files the session's summary lists (repository paths); missing for a server record.
+  files?: string[];
   author: Person | null;
   // When it was shared: the record's approval, or the summary revision's.
   at: Date;
@@ -112,6 +114,7 @@ export function fromSummary(doc: SummaryRevisionDoc): RawTeamRecord[] {
     sessionId: doc.sessionId,
     refs: summaryRefs(doc),
     areas: doc.summary?.areas ?? [],
+    files: doc.files ?? [],
     authorId: doc.userId,
     authorName: doc.authorName,
     at: doc.review?.approvedAt ?? doc.updatedAt,
