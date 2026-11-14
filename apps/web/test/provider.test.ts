@@ -114,7 +114,7 @@ describe("citations", () => {
   });
 });
 
-// ---------- Anthropic, with a fake fetch: no network ----------
+// ---------- Anthropic, through LangChain's ChatAnthropic with a fake fetch: no network ----------
 
 interface Call {
   url: string;
@@ -127,7 +127,7 @@ function fakeFetch(reply: unknown, status = 200) {
   const fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
       url: String(url),
-      headers: init?.headers as Record<string, string>,
+      headers: Object.fromEntries(new Headers(init?.headers)),
       body: JSON.parse(String(init?.body)),
     });
     return new Response(typeof reply === "string" ? reply : JSON.stringify(reply), {
@@ -161,13 +161,14 @@ const CONTEXT: DraftContext = {
 };
 
 describe("the Anthropic provider", () => {
-  it("asks the Messages API with the key, the API version and the default model", async () => {
+  it("asks the Messages API with the key, the API version and the default model, and no other credential", async () => {
     const { fetch, calls } = fakeFetch(message("The engineer fixed the retry."));
     const p = anthropicProvider({ apiKey: "test-key", fetch, log: quiet });
     expect(await p.summarize([{ role: "user", text: "Fix the retry" }])).toBe("The engineer fixed the retry.");
     const [call] = calls;
-    expect(call?.url).toBe("https://api.anthropic.com/v1/messages");
+    expect(call?.url).toMatch(/^https:\/\/api\.anthropic\.com\/v1\/messages(?:\?beta=true)?$/);
     expect(call?.headers["x-api-key"]).toBe("test-key");
+    expect(call?.headers).not.toHaveProperty("authorization");
     expect(call?.headers["anthropic-version"]).toBe("2026-10-21");
     expect(call?.headers["anthropic-beta"]).toBe("server-side-fallback-2026-07-01");
     expect(call?.body.model).toBe(ANTHROPIC_MODEL);
@@ -204,7 +205,6 @@ describe("the Anthropic provider", () => {
           records: [
             { kind: "summary", title: "Invoice retry fixed", text: "Fixed the invoice retry." },
             { kind: "insight", title: "", text: "The ledger rounds per line." },
-            { kind: "rumour", title: "", text: "Not a kind we keep." },
             { kind: "workflow", title: "", text: "   " },
           ],
         }),
@@ -226,6 +226,7 @@ describe("the Anthropic provider", () => {
     for (const { fetch } of [
       fakeFetch({ type: "error", error: { type: "overloaded_error" } }, 529),
       fakeFetch(message("not json")),
+      fakeFetch(message(JSON.stringify({ records: [{ kind: "rumour", title: "", text: "Not a kind we keep." }] }))),
       fakeFetch(message('{"records": [', "max_tokens")),
     ]) {
       expect(await anthropicProvider({ apiKey: "k", fetch, log: quiet }).draftRecords(CONTEXT)).toEqual(

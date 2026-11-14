@@ -39,7 +39,7 @@ event contract and the record shapes; the plugin carries its own summary schema 
 | `products`                                   | A product: one or more repositories, each whole or one folder; a slug id; `mergedInto`      | `repoKeys` unique per org                       |
 | `signal_daily`                               | Tool time per UTC day, product, repository, command class and fingerprint. No person        | (item, day, product) unique; day+product        |
 | `gaps`                                       | One context gap per normalized text per product: occurrences, counts, owner, resolution     | `key` unique; status+product+lastSeen; text     |
-| `team_search` (planned)                      | D5, not merged yet: one document per approved TeamRecord, for Ask Strata's search           | two Atlas Search indexes, `pnpm db:indexes`     |
+| `team_search`                                | D5: one document per approved TeamRecord, for Ask's search; the Ask route is still to do    | two Atlas Search indexes, `pnpm db:indexes`     |
 | `deviceCode`                                 | Better Auth's device-authorization codes for `/strata:login`                                | Better Auth's own                               |
 | `user`, `session`, `account`, `verification` | Better Auth                                                                                 | Better Auth's own                               |
 
@@ -99,7 +99,11 @@ Recall uses it where it's ready and the text index otherwise.
 Still to build, in the brief's order: dedupe beyond identical text, summarize, score and policy as scheduled jobs
 (`POST /api/jobs/run`), and real embeddings by default. `server/ai/provider.ts` has the stub (the default), Voyage AI
 and OpenAI embeddings, and Anthropic for the text work (summaries, drafts, answers) when `MEMORY_AI_PROVIDER=anthropic`
-and `ANTHROPIC_API_KEY` is set; without the key it stays on the stub.
+and `ANTHROPIC_API_KEY` is set; without the key it stays on the stub. The text work goes through LangChain's
+`ChatAnthropic` (`@langchain/anthropic`), with structured output (`withStructuredOutput`, zod) for drafts and answers,
+the key passed explicitly from `config().anthropicKey` and never read from anywhere else; embeddings stay plain `fetch`.
+Ask Strata's chat (D5, P4) will use the same `ChatAnthropic`, its tools bound with LangChain tool calling, instead of
+the Anthropic SDK's tool runner.
 
 ## The Claude Code client
 
@@ -225,13 +229,19 @@ isn't suspended, and a suspended person reads nothing, whatever the page already
   time) and by questions Ask Strata couldn't answer (`recordAskGap`). Counted per session and per question, never per
   person; who asked isn't kept. Anyone can take a gap on, resolve it (a note is required, a link when there is one) or
   reopen it, each in the audit log; `gapHistory` reads a gap's occurrences and those changes back.
-- **Search** (planned: `search.ts`, decision D5, on the `hub-wip-ask-graph` branch, not merged). `team_search` would hold one document per approved TeamRecord (`_id` is the
+- **Search** (`search.ts`, decision D5; only this search layer exists, Ask on D5's route and UI are still to do).
+  `team_search` holds one document per approved TeamRecord (`_id` is the
   TeamRecord's id; org, kind, productId, repo, sessionId, title, text, at), never a draft. `indexSessions` rewrites a
   session's documents from the read model wherever approved work changes, and `searchTeam` merges a vector search and a
   full-text search with `$rankFusion`, falling back to a text index where the Atlas indexes aren't there. The two
   indexes are made by `pnpm db:indexes` only, never in a test database: `team_search_semantic`, a vector index whose
   embeddings Atlas makes itself (automated embedding with Voyage's `voyage-4` on `text`, filtered by org, kind,
   productId and at), and `team_search_text`, an Atlas Search index on title and text with the same filters.
+- **Knowledge graph** (`graph.ts`, v1, untested). `relatedTo` gives the approved work a session, record, gap or product
+  shares tickets, pull requests, code areas or gaps with; `productGraph` lays out a product's areas and what's about
+  them; `mayBeStale` flags an insight when later work changes its code area. Shown as "Related" panels on the session,
+  product and gap pages and a graph on the product page (`components/graph`), each in its own Suspense boundary; a
+  failed query is logged and the panel renders nothing.
 - **Ask Strata** (`ask.ts`). A question is answered only from approved work the asker may see, every claim cited as
   [n] and linked to its record or session; an answer that cites nothing counts as unanswered, and the question becomes a
   gap. Without a model, the page shows the matching excerpts. The provider's `answerWithReason` also says why there was

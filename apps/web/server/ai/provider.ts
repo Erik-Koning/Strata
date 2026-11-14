@@ -2,15 +2,19 @@
 // default everywhere the team runs: deterministic (the same text always gives the same result) and offline, but its
 // vectors are hashed words, so its "vector search" is lexical, never semantic.
 //   voyage, openai  real embedding models (Voyage AI is the default for real use); the text work stays the stub's.
-//   anthropic       asks Claude through the Messages API (plain fetch, no SDK) for the text work and keeps the
-//                   stub's embeddings, so the vector index keeps its dimensions.
+//   anthropic       asks Claude through LangChain's ChatAnthropic (@langchain/anthropic) for the text work, with
+//                   structured output for drafts and answers, and keeps the stub's embeddings, so the vector index
+//                   keeps its dimensions. The embedding providers stay plain fetch (http.ts).
 // Keys stay in the operator's environment and are read by name only.
 //
 // No text method throws. A model call that fails, refuses or runs out of time gives way to the stub's result
 // (summaries and drafts) or to null (answers), and the caller shows its own fallback; answerWithReason also says why
 // there was no answer. A real embeddings provider without its key throws when chosen: vectors from the wrong model
 // would be worse than none.
+import { ChatAnthropic } from "@langchain/anthropic";
+import { type BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { type DraftRecord, RECORD_KINDS, type RecordKind, type Ref } from "@strata/contracts";
+import { z } from "zod";
 import { config } from "../config.ts";
 import { batches, postEmbeddings } from "./http.ts";
 
@@ -433,7 +437,10 @@ export function openaiProvider(options: RealOptions): Provider {
 
 // The current Sonnet: MEMORY_AI_MODEL overrides it.
 export const ANTHROPIC_MODEL = "claude-sonnet-5-5";
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+// Set here, never read from the environment: ANTHROPIC_BASE_URL or LANGSMITH_GATEWAY must not send the key elsewhere.
+const ANTHROPIC_BASE_URL = "https://api.anthropic.com";
+// The API version the calls were written for. The SDK under @langchain/anthropic would send 2023-06-01; nothing these
+// calls send or read differs between the two.
 const ANTHROPIC_VERSION = "2026-10-21";
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
@@ -454,6 +461,7 @@ const takesFallback = (model: string) => /^claude-(?:opus-5|sonnet-5-5|fable-5|m
 export interface AnthropicOptions {
   apiKey: string;
   model?: string;
+  // The fetch the Anthropic client under ChatAnthropic uses: tests pass a fake, so nothing reaches the network.
   fetch?: typeof fetch;
   timeouts?: Partial<typeof TIMEOUTS>;
   log?: (message: string, detail: Record<string, unknown>) => void;
@@ -465,77 +473,102 @@ interface Ask {
   maxTokens: number;
   effort: "low" | "medium";
   timeoutMs: number;
-  schema?: Record<string, unknown>;
 }
 
-interface MessagesReply {
-  stop_reason?: string | null;
-  content?: { type: string; text?: unknown }[];
-  error?: { type?: string };
-}
+type Settings = Required<Pick<AnthropicOptions, "apiKey" | "model" | "log">> & Pick<AnthropicOptions, "fetch">;
 
-type Settings = Required<Pick<AnthropicOptions, "apiKey" | "model" | "fetch" | "log">>;
+type Outcome<T> = { value: T; failure: null } | { value: null; failure: "failed" | "timeout" };
 
-// One Messages API call: the text it answered, or why there is none (a timeout, or a failure: an HTTP error, a refusal,
-// a cut-off, an empty reply).
-async function call(
-  options: Settings,
-  request: Ask,
-): Promise<{ text: string; failure: null } | { text: null; failure: "failed" | "timeout" }> {
-  const failed = { text: null, failure: "failed" } as const;
-  const timedOut = { text: null, failure: "timeout" } as const;
-  const signal = AbortSignal.timeout(request.timeoutMs);
-  const { apiKey, model } = options;
-  const outputConfig: Record<string, unknown> = {};
-  if (takesEffort(model)) outputConfig.effort = request.effort;
-  if (request.schema) outputConfig.format = { type: "json_schema", schema: request.schema };
-  const body: Record<string, unknown> = {
+// One ChatAnthropic per call, since the token limit and the effort differ by call. The key is only ever the one given
+// (config().anthropicKey): never ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN from the environment, never a profile. No
+// retries, as before: the time limit is the caller's, and the fallback is the stub's.
+function chatModel(settings: Settings, request: Ask): ChatAnthropic {
+  const { apiKey, model } = settings;
+  return new ChatAnthropic({
     model,
-    max_tokens: request.maxTokens,
-    system: request.system,
-    messages: [{ role: "user", content: request.user }],
-    ...(Object.keys(outputConfig).length ? { output_config: outputConfig } : {}),
-    ...(takesFallback(model) ? { fallbacks: "default" } : {}),
-  };
+    apiKey,
+    anthropicApiUrl: ANTHROPIC_BASE_URL,
+    maxTokens: request.maxTokens,
+    maxRetries: 0,
+    // Thinking is left unset: the fifth-generation models think adaptively by default, and effort sets how much.
+    ...(takesEffort(model) ? { outputConfig: { effort: request.effort } } : {}),
+    // A declined request is retried on another model on the server: the beta header, and fallbacks in the body.
+    ...(takesFallback(model) ? { betas: [FALLBACK_BETA], invocationKwargs: { fallbacks: "default" } } : {}),
+    clientOptions: {
+      authToken: null,
+      defaultHeaders: { "anthropic-version": ANTHROPIC_VERSION },
+      ...(settings.fetch ? { fetch: settings.fetch } : {}),
+    },
+  });
+}
+
+const errorStatus = (error: unknown): number | null => {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === "number" ? status : null;
+};
+
+// One model call: what it gave, or why there is none (a timeout, or a failure: an HTTP error, a refusal, a cut-off, an
+// empty reply, output that doesn't fit the schema). `read` makes the call and returns the raw message with its value.
+async function run<T>(
+  settings: Settings,
+  request: Ask,
+  read: (
+    model: ChatAnthropic,
+    messages: BaseMessage[],
+    signal: AbortSignal,
+  ) => Promise<{ raw: BaseMessage; value: T | null }>,
+): Promise<Outcome<T>> {
+  const failed = { value: null, failure: "failed" } as const;
+  const signal = AbortSignal.timeout(request.timeoutMs);
   try {
-    const res = await options.fetch(ANTHROPIC_URL, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        ...(takesFallback(model) ? { "anthropic-beta": FALLBACK_BETA } : {}),
-      },
-      body: JSON.stringify(body),
+    const { raw, value } = await read(
+      chatModel(settings, request),
+      [new SystemMessage(request.system), new HumanMessage(request.user)],
       signal,
-    });
-    const reply = (await res.json().catch(() => null)) as MessagesReply | null;
-    if (!res.ok || !reply) {
-      options.log("anthropic request failed", {
-        status: res.status,
-        type: reply?.error?.type ?? null,
-        ...(signal.aborted ? { error: "TimeoutError" } : {}),
-      });
-      return signal.aborted ? timedOut : failed;
-    }
-    if (reply.stop_reason === "refusal" || reply.stop_reason === "max_tokens") {
-      options.log("anthropic gave no usable answer", { stop: reply.stop_reason });
+    );
+    const stop = (raw.response_metadata as { stop_reason?: unknown } | undefined)?.stop_reason;
+    if (stop === "refusal" || stop === "max_tokens") {
+      settings.log("anthropic gave no usable answer", { stop });
       return failed;
     }
-    const text = (reply.content ?? [])
-      .flatMap((block) => (block.type === "text" && typeof block.text === "string" ? [block.text] : []))
-      .join("")
-      .trim();
-    return text ? { text, failure: null } : failed;
+    if (value === null) {
+      settings.log("anthropic gave no usable answer", { stop: "unparsed" });
+      return failed;
+    }
+    return { value, failure: null };
   } catch (error) {
-    const name = error instanceof Error ? error.name : "unknown";
-    options.log("anthropic request failed", { error: name });
-    return name === "TimeoutError" || signal.aborted ? timedOut : failed;
+    if (signal.aborted) {
+      settings.log("anthropic request failed", { error: "TimeoutError" });
+      return { value: null, failure: "timeout" };
+    }
+    const status = errorStatus(error);
+    settings.log("anthropic request failed", {
+      ...(status !== null ? { status } : {}),
+      error: error instanceof Error ? error.name : "unknown",
+    });
+    return failed;
   }
 }
 
-// The text alone, for the calls whose fallback doesn't care why there was none.
-const ask = async (options: Settings, request: Ask): Promise<string | null> => (await call(options, request)).text;
+// Plain text: the text blocks of the reply, joined.
+const call = (settings: Settings, request: Ask): Promise<Outcome<string>> =>
+  run(settings, request, async (model, messages, signal) => {
+    const raw = await model.invoke(messages, { signal });
+    return { raw, value: raw.text.trim() || null };
+  });
+
+// Structured output: the reply constrained to the schema on the server (output_config.format) and checked against it
+// here. Output that doesn't fit counts as a failure.
+const callStructured = <T extends Record<string, unknown>>(
+  settings: Settings,
+  request: Ask,
+  schema: z.ZodType<T>,
+): Promise<Outcome<T>> =>
+  run(settings, request, async (model, messages, signal) => {
+    const structured = model.withStructuredOutput(schema, { method: "jsonSchema", includeRaw: true });
+    const { raw, parsed } = await structured.invoke(messages, { signal });
+    return { raw, value: (parsed as T | null | undefined) ?? null };
+  });
 
 // The newest lines that fit the budget, oldest first, with a note of how many were left out.
 function newest(lines: string[], budget: number): string {
@@ -571,26 +604,15 @@ Only write records the session supports; leave a kind out when there is nothing 
 two plain sentences that make sense on their own. Never include secrets, credentials or personal details. Titles are for
 summaries; give other kinds an empty title.`;
 
-const DRAFT_SCHEMA = {
-  type: "object",
-  properties: {
-    records: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          kind: { type: "string", enum: [...RECORD_KINDS] },
-          title: { type: "string" },
-          text: { type: "string" },
-        },
-        required: ["kind", "title", "text"],
-        additionalProperties: false,
-      },
-    },
-  },
-  required: ["records"],
-  additionalProperties: false,
-};
+const DRAFT_SCHEMA = z.object({
+  records: z.array(
+    z.object({
+      kind: z.enum(RECORD_KINDS),
+      title: z.string(),
+      text: z.string(),
+    }),
+  ),
+});
 
 // How long an answer should be: a few sentences for a question, or up to maxSentences.
 function answerLength(maxSentences: number | null): string {
@@ -608,21 +630,7 @@ states something with the number of the source it came from, in square brackets,
 ${answerLength(maxSentences)}
 If the sources don't answer the question, set answered to false and leave answer empty.`;
 
-const ANSWER_SCHEMA = {
-  type: "object",
-  properties: { answered: { type: "boolean" }, answer: { type: "string" } },
-  required: ["answered", "answer"],
-  additionalProperties: false,
-};
-
-function parseJson(text: string | null): unknown {
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
+const ANSWER_SCHEMA = z.object({ answered: z.boolean(), answer: z.string() });
 
 function draftInput(context: DraftContext): string {
   // Prompts and replies arrive as two lists; interleaving them by position keeps the turns roughly in order.
@@ -678,10 +686,10 @@ function answerInput(question: string, sources: AnswerSource[]): string {
 }
 
 export function anthropicProvider(options: AnthropicOptions): Provider {
-  const settings = {
+  const settings: Settings = {
     apiKey: options.apiKey,
     model: options.model || ANTHROPIC_MODEL,
-    fetch: options.fetch ?? globalThis.fetch,
+    fetch: options.fetch,
     log: options.log ?? ((message: string, detail: Record<string, unknown>) => console.warn(`ai: ${message}`, detail)),
   };
   const timeouts = { ...TIMEOUTS, ...options.timeouts };
@@ -695,23 +703,22 @@ export function anthropicProvider(options: AnthropicOptions): Provider {
       if (!sources.length) return { answer: null, reason: "no_sources" };
       if (!question.trim()) return { answer: null, reason: "nothing_relevant" };
       const limit = sentenceLimit(answerOptions);
-      const reply = await call(settings, {
-        system: answerSystem(limit),
-        user: answerInput(question, sources),
-        // A long walk-through needs more room than the few sentences a question does.
-        maxTokens: limit !== null && limit > DEFAULT_ANSWER_SENTENCES * 2 ? 8_000 : 4_000,
-        effort: "medium",
-        timeoutMs: timeouts.answer,
-        schema: ANSWER_SCHEMA,
-      });
+      const reply = await callStructured(
+        settings,
+        {
+          system: answerSystem(limit),
+          user: answerInput(question, sources),
+          // A long walk-through needs more room than the few sentences a question does.
+          maxTokens: limit !== null && limit > DEFAULT_ANSWER_SENTENCES * 2 ? 8_000 : 4_000,
+          effort: "medium",
+          timeoutMs: timeouts.answer,
+        },
+        ANSWER_SCHEMA,
+      );
       if (reply.failure) return { answer: null, reason: reply.failure };
-      const parsed = parseJson(reply.text) as { answered?: unknown; answer?: unknown } | null;
-      if (!parsed || typeof parsed !== "object" || typeof parsed.answered !== "boolean") {
-        settings.log("anthropic gave no usable answer", { stop: "unparsed" });
-        return { answer: null, reason: "failed" };
-      }
-      if (!parsed.answered || typeof parsed.answer !== "string") return { answer: null, reason: "nothing_relevant" };
-      const answer = citedAnswer(parsed.answer, sources);
+      const { answered, answer: said } = reply.value;
+      if (!answered) return { answer: null, reason: "nothing_relevant" };
+      const answer = citedAnswer(said, sources);
       return answer ? { answer, reason: "answered" } : { answer: null, reason: "nothing_relevant" };
     } catch {
       return { answer: null, reason: "failed" };
@@ -731,7 +738,7 @@ export function anthropicProvider(options: AnthropicOptions): Provider {
       try {
         const lines = messages.filter((m) => m.text.trim()).map((m) => `${m.role}: ${m.text.trim()}`);
         if (!lines.length) return null;
-        const text = await ask(settings, {
+        const { value: text } = await call(settings, {
           system: SUMMARIZE_SYSTEM,
           user: `<transcript>\n${fence(newest(lines, SESSION_CHARS))}\n</transcript>`,
           maxTokens: 4_000,
@@ -747,15 +754,18 @@ export function anthropicProvider(options: AnthropicOptions): Provider {
     draftRecords: async (context) => {
       try {
         if (!context.prompts.some((p) => p.trim()) && !context.replies.some((r) => r.trim())) return stubDraft(context);
-        const text = await ask(settings, {
-          system: DRAFT_SYSTEM,
-          user: draftInput(context),
-          maxTokens: 8_000,
-          effort: "low",
-          timeoutMs: timeouts.draft,
-          schema: DRAFT_SCHEMA,
-        });
-        return draftsFrom(parseJson(text), context.refs) ?? stubDraft(context);
+        const { value } = await callStructured(
+          settings,
+          {
+            system: DRAFT_SYSTEM,
+            user: draftInput(context),
+            maxTokens: 8_000,
+            effort: "low",
+            timeoutMs: timeouts.draft,
+          },
+          DRAFT_SCHEMA,
+        );
+        return draftsFrom(value, context.refs) ?? stubDraft(context);
       } catch {
         return stubDraft(context);
       }

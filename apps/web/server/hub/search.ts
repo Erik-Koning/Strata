@@ -432,9 +432,7 @@ async function stillApproved(docs: TeamSearchDoc[]): Promise<Set<string>> {
   const words = new Map(approved.map((r) => [r._id.toHexString(), r.text]));
   return new Set(
     docs
-      .filter((d) =>
-        d.source === "record" ? words.get(d._id) === d.text : liveRevisions.has(revisionOf(d._id) ?? ""),
-      )
+      .filter((d) => (d.source === "record" ? words.get(d._id) === d.text : liveRevisions.has(revisionOf(d._id) ?? "")))
       .map((d) => d._id),
   );
 }

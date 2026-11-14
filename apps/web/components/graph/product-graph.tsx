@@ -43,43 +43,37 @@ function GraphSkeleton() {
 }
 
 async function GraphCard({ productId, viewerId }: { productId: string; viewerId: string }) {
-  let graph: ProductGraph | null = null;
-  let failed = false;
+  // v1 and untested: a failure here is only logged, and the panel stays away, so it never breaks the page around it.
+  let graph: ProductGraph | null;
   try {
     graph = await productGraph(productId, viewerId);
   } catch (error) {
-    failed = true;
     console.error("graph: the product's graph couldn't be read", error);
+    return null;
   }
-  if (!graph && !failed) return null;
-  const drawable = Boolean(graph && graph.nodes.length > 1);
+  if (!graph) return null;
+  const drawable = graph.nodes.length > 1;
   return (
     <section className="card" aria-labelledby="graph-title">
       <Header />
-      {failed || !graph ? (
-        <p className="px-5 py-4 text-[13px] text-ink-3">The graph couldn't be loaded just now. Try again shortly.</p>
-      ) : (
+      {drawable ? (
         <>
-          {drawable ? (
-            <>
-              <p className="px-5 pt-3.5 text-[13px] text-ink-3">
-                Its code areas, and the insights, tickets, pull requests and gaps about each. Every box opens what it
-                stands for.
-              </p>
-              <GraphLegend graph={graph} />
-              <div className="px-2 pb-3 sm:px-4">
-                <GraphSvg graph={graph} titleId="graph-title" />
-              </div>
-            </>
-          ) : (
-            <p className="px-5 py-4 text-[13px] text-ink-3">
-              Nothing to draw yet. Once approved session summaries name the code areas they touched, link tickets and
-              pull requests, or share insights, they're drawn here around the product.
-            </p>
-          )}
-          <Findings graph={graph} />
+          <p className="px-5 pt-3.5 text-[13px] text-ink-3">
+            Its code areas, and the insights, tickets, pull requests and gaps about each. Every box opens what it stands
+            for.
+          </p>
+          <GraphLegend graph={graph} />
+          <div className="px-2 pb-3 sm:px-4">
+            <GraphSvg graph={graph} titleId="graph-title" />
+          </div>
         </>
+      ) : (
+        <p className="px-5 py-4 text-[13px] text-ink-3">
+          Nothing to draw yet. Once approved session summaries name the code areas they touched, link tickets and pull
+          requests, or share insights, they're drawn here around the product.
+        </p>
       )}
+      <Findings graph={graph} />
     </section>
   );
 }

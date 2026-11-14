@@ -70,39 +70,34 @@ function RelatedSkeleton() {
 
 async function RelatedCard({ subject, viewerId }: { subject: RelatedSubject; viewerId: string }) {
   const kind = subjectOf(subject);
-  let related: Related | null = null;
+  // v1 and untested: a failure here is only logged, and the panel stays away, so it never breaks the page around it.
+  let related: Related;
   try {
     related = await relatedTo(subject, viewerId);
   } catch (error) {
     console.error("graph: related work couldn't be read", error);
+    return null;
   }
   return (
     <section className="card" aria-labelledby="related-title">
       <Header />
-      {related === null ? (
-        <p className="px-5 py-4 text-[13px] text-ink-3">Related work couldn't be loaded just now. Try again shortly.</p>
-      ) : (
+      {related.stale.length ? <StaleList stale={related.stale} /> : null}
+      {related.items.length ? (
         <>
-          {related.stale.length ? <StaleList stale={related.stale} /> : null}
-          {related.items.length ? (
-            <>
-              <p className="px-5 pt-3.5 text-[13px] text-ink-3">{LEDE[kind]} The closest first.</p>
-              <ul className="divide-y divide-line">
-                {related.items.map((item) => (
-                  <Item key={item.key} item={item} />
-                ))}
-              </ul>
-              {related.more ? (
-                <p className="border-line border-t px-5 py-3 text-[12.5px] text-ink-3">
-                  And{" "}
-                  {related.more === 1 ? "one more, less closely linked" : `${related.more} more, less closely linked`}.
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="px-5 py-4 text-[13px] text-ink-3">{EMPTY[kind]}</p>
-          )}
+          <p className="px-5 pt-3.5 text-[13px] text-ink-3">{LEDE[kind]} The closest first.</p>
+          <ul className="divide-y divide-line">
+            {related.items.map((item) => (
+              <Item key={item.key} item={item} />
+            ))}
+          </ul>
+          {related.more ? (
+            <p className="border-line border-t px-5 py-3 text-[12.5px] text-ink-3">
+              And {related.more === 1 ? "one more, less closely linked" : `${related.more} more, less closely linked`}.
+            </p>
+          ) : null}
         </>
+      ) : (
+        <p className="px-5 py-4 text-[13px] text-ink-3">{EMPTY[kind]}</p>
       )}
     </section>
   );
