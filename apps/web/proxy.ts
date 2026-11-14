@@ -4,7 +4,8 @@ import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
 // /v1 is the plugin's API (rewritten to /api/v1 in next.config.ts): bearer tokens, never a cookie.
-const OPEN = [/^\/sign-in$/, /^\/sign-up$/, /^\/api\//, /^\/v1\//];
+// The two password-reset pages are for people who can't sign in, so they're open too.
+const OPEN = [/^\/sign-in$/, /^\/sign-up$/, /^\/forgot-password$/, /^\/reset-password$/, /^\/api\//, /^\/v1\//];
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname, search } = request.nextUrl;
