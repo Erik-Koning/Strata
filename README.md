@@ -269,7 +269,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **Shipping**
 
-- [ ] Dockerfile for `apps/web` (standalone, not root, health check)
+- [x] Dockerfile for `apps/web` (standalone, not root, health check), and `pnpm deploy:web` to AWS Lightsail at
+      https://strata.anythingfactory.dev
 - [ ] GitHub Actions running the gate and the end-to-end suite against an Atlas-local service container
 - [ ] `docs/architecture.md`: backups and restore (`mongodump`), HTTPS, logs, Dependabot
 - [ ] Rate limits on the API, and a size limit on event batches
@@ -315,6 +316,23 @@ STRATA_URL=http://localhost:9316 STRATA_HOME=~/.strata-dev claude --plugin-dir c
 
 `STRATA_HOME` is where the plugin keeps its sign-in, settings and local drafts (`~/.strata` by default). The API the
 plugin talks to is described in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
+
+## Deploy
+
+The web app runs on AWS Lightsail at https://strata.anythingfactory.dev, built from the `Dockerfile` (Next.js's
+standalone server, not root, on port 3000). One command builds the image for `linux/amd64`, pushes it to ECR, and
+deploys it; the first time it also makes the Lightsail service (micro, about $10 a month), the app's settings in SSM,
+and the domain's certificate and DNS records:
+
+```sh
+AWS_PROFILE=<the account's profile> pnpm deploy:web --check   # read-only: what exists, what a deploy would do
+AWS_PROFILE=<the account's profile> pnpm deploy:web           # build, push, deploy; --skip-build reuses this commit's image
+```
+
+The settings live in `/strata/production/web-env` (an SSM SecureString): `MONGODB_URI`, taken from `.env.local` on the
+first run, a session secret made then, and `BETTER_AUTH_URL`. The mail settings come from `/strata/production/mail-env`
+(`sst.config.ts`). Neither ever goes in the image or the output. The cluster's Network Access list has to let Lightsail
+in; its addresses aren't fixed.
 
 ## The API
 
