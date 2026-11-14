@@ -1,14 +1,17 @@
-import { ArrowRight, Cable, CircleDashed, MessagesSquare, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Cable } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KindChip, StatusChip } from "../../components/chips.tsx";
 import { FrozenPreview } from "../../components/frozen.tsx";
+import { StatusText } from "../../components/relay/status.tsx";
 import { Ago } from "../../components/time.tsx";
 import { DEFAULT_ORG } from "../../server/api-auth.ts";
+import { listHandoffs } from "../../server/handoffs/service.ts";
 import { frozen } from "../../server/memory/frozen.ts";
 import { overview, recentMemories, recentSessions } from "../../server/stats.ts";
 import { requireViewer } from "../../server/viewer.ts";
 import { PageHeader } from "./page-header.tsx";
+import { requireCaller } from "./relay/caller.ts";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -16,27 +19,29 @@ const LIVE_MS = 5 * 60 * 1000;
 
 export default async function OverviewPage() {
   const viewer = await requireViewer();
-  const [stats, memories, sessions] = await Promise.all([
+  const caller = await requireCaller();
+  const [stats, memories, sessions, inbox, sent] = await Promise.all([
     overview(viewer.userId),
     recentMemories(viewer.userId),
     recentSessions(viewer.userId),
+    listHandoffs(caller, "inbox"),
+    listHandoffs(caller, "outbox"),
   ]);
+  // Handed to me first, then mine, newest first within each: the four that most want a look.
+  const handoffs = [
+    ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
+    ...sent.map((h) => ({ ...h, box: "sent" as const })),
+  ].slice(0, 4);
   const project = stats.projects[0] ?? null;
   const block = project ? await frozen({ org: DEFAULT_ORG, user: viewer.userId, project }) : [];
   const live = stats.lastSeen ? Date.now() - stats.lastSeen.at.getTime() < LIVE_MS : false;
   const first = viewer.name.split(/\s+/)[0] ?? viewer.name;
 
   const tiles = [
-    { label: "Active memories", value: stats.active, icon: Sparkles, hint: "given to new sessions" },
-    {
-      label: "Candidates",
-      value: stats.candidates,
-      icon: CircleDashed,
-      hint: "waiting for a yes",
-      href: "/memories?status=candidate",
-    },
-    { label: "Events today", value: stats.events24h, icon: Zap, hint: "captured in 24 h" },
-    { label: "Sessions this week", value: stats.sessions7d, icon: MessagesSquare, hint: "across your projects" },
+    { label: "Active memories", value: stats.active, hint: "given to new sessions" },
+    { label: "Candidates", value: stats.candidates, hint: "waiting for a yes", href: "/memories?status=candidate" },
+    { label: "Events today", value: stats.events24h, hint: "captured in 24 h" },
+    { label: "Sessions this week", value: stats.sessions7d, hint: "across your projects" },
   ];
 
   return (
@@ -65,26 +70,27 @@ export default async function OverviewPage() {
         </Link>
       ) : null}
 
-      <section aria-label="At a glance" className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tiles.map(({ label, value, icon: Icon, hint, href }) => {
+      <section
+        aria-label="At a glance"
+        className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius)] border border-line bg-line lg:grid-cols-4"
+      >
+        {tiles.map(({ label, value, hint, href }) => {
           const body = (
             <>
-              <span className="flex items-center justify-between text-ink-3">
-                <span className="font-medium text-[13px] text-ink-2">{label}</span>
-                <Icon size={16} aria-hidden />
-              </span>
-              <span className="mt-3 block font-semibold text-[32px] tabular-nums leading-none tracking-[-0.03em]">
+              <span className="block text-[12.5px] text-ink-3">{label}</span>
+              <span className="mt-1.5 block font-semibold text-[26px] tabular-nums leading-none tracking-[-0.03em]">
                 {value.toLocaleString()}
               </span>
-              <span className="mt-2 block text-[12.5px] text-ink-3">{hint}</span>
+              <span className="mt-1.5 block text-[12px] text-ink-3">{hint}</span>
             </>
           );
+          const cls = "block bg-surface px-4 py-3.5";
           return href ? (
-            <Link key={label} href={href} className="card p-4 transition-colors hover:border-line-strong">
+            <Link key={label} href={href} className={`${cls} transition-colors hover:bg-surface-2`}>
               {body}
             </Link>
           ) : (
-            <div key={label} className="card p-4">
+            <div key={label} className={cls}>
               {body}
             </div>
           );
@@ -137,6 +143,43 @@ export default async function OverviewPage() {
         </div>
 
         <div className="flex min-w-0 flex-col gap-6">
+          <section className="card" aria-labelledby="relay-title">
+            <header className="flex items-center justify-between border-line border-b px-5 py-3.5">
+              <h2 id="relay-title" className="font-semibold text-[15px]">
+                Handoffs
+              </h2>
+              <Link href="/relay" className="btn btn-quiet btn-sm">
+                Relay <ArrowRight size={14} aria-hidden />
+              </Link>
+            </header>
+            {handoffs.length ? (
+              <ul className="divide-y divide-line">
+                {handoffs.map((h) => (
+                  <li key={h._id}>
+                    <Link href={`/relay?id=${h._id}`} className="block px-5 py-3 transition-colors hover:bg-surface-2">
+                      <span className="block truncate font-medium text-[14px]">{h.title}</span>
+                      <span className="mt-1 flex items-center gap-2 text-[12px] text-ink-3">
+                        <StatusText status={h.status} />
+                        <span className="min-w-0 truncate">
+                          {h.box === "inbox"
+                            ? `from ${h.sender.name}`
+                            : h.recipient
+                              ? `to ${h.recipient.name}`
+                              : "not sent"}
+                        </span>
+                        <Ago at={h.updatedAt} className="ml-auto flex-none" />
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-5 py-6 text-[14px] text-ink-3">
+                Nothing handed on yet. <code className="kbd">/strata:handoff</code> drafts one from a session.
+              </p>
+            )}
+          </section>
+
           <section className="card p-5" aria-labelledby="conn-title">
             <div className="flex items-center justify-between">
               <h2 id="conn-title" className="font-semibold text-[15px]">

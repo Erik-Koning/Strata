@@ -64,8 +64,8 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         eyebrow="Memories"
         title="What's remembered"
         lede="Active memories are given to new sessions. Candidates came from somewhere other than your own words, and wait for you to keep them."
+        actions={<AddMemory projects={stats.projects} />}
       />
-      <AddMemory projects={stats.projects} />
 
       <form
         action="/memories"
@@ -110,18 +110,24 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         </button>
       </form>
 
-      <nav aria-label="Status" className="mb-5 flex flex-wrap gap-1.5">
-        {STATUSES.map((s) => (
-          <Link
-            key={s.value}
-            href={href({ status: s.value, page: 1 })}
-            aria-current={status === s.value ? "page" : undefined}
-            className={`chip min-h-9 px-3 text-[13px] ${status === s.value ? "bg-ink text-bg" : "hover:bg-sunk"}`}
-          >
-            {s.label}
-          </Link>
-        ))}
-        <span className="ml-auto self-center text-[13px] text-ink-3">{total.toLocaleString()} found</span>
+      <nav aria-label="Status" className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="inline-flex flex-wrap gap-0.5 rounded-[9px] border border-line bg-sunk p-0.5">
+          {STATUSES.map((s) => (
+            <Link
+              key={s.value}
+              href={href({ status: s.value, page: 1 })}
+              aria-current={status === s.value ? "page" : undefined}
+              className={`inline-flex min-h-8 items-center rounded-[7px] px-3 font-medium text-[13px] transition-colors max-sm:min-h-11 ${
+                status === s.value
+                  ? "bg-surface-3 text-ink shadow-[inset_0_0_0_1px_var(--line-strong)]"
+                  : "text-ink-3 hover:text-ink"
+              }`}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </span>
+        <span className="ml-auto text-[12.5px] text-ink-3 tabular-nums">{total.toLocaleString()} found</span>
       </nav>
 
       {memoryRows.length ? (

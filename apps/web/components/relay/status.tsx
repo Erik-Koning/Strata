@@ -17,6 +17,24 @@ export function StatusPill({ status }: { status: HandoffStatus }) {
   );
 }
 
+// The same status as a quiet legend, for dense lists: a pip and a word in the status colour, no fill.
+const STATUS_TEXT: Record<HandoffStatus, string> = {
+  draft: "text-ink-3",
+  approved: "text-[var(--relay-blue)]",
+  claimed: "text-amber",
+  completed: "text-accent-text",
+  revoked: "text-danger",
+};
+
+export function StatusText({ status }: { status: HandoffStatus }) {
+  return (
+    <span className={`inline-flex flex-none items-center gap-1.5 font-medium ${STATUS_TEXT[status]}`}>
+      <span className={`dot ${status === "draft" || status === "revoked" ? "dot-hollow" : ""}`} aria-hidden />
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
 // Evidence vs claim: verified only when Strata's own client ran the command and captured its exit code.
 export function EvidenceBadge({ verified }: { verified: boolean }) {
   return (

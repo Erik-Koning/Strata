@@ -458,6 +458,14 @@ h3 {
     color: var(--danger);
     box-shadow: inset 0 0 0 1.5px var(--danger);
   }
+  .flow-node[data-state="warn"] {
+    background: var(--amber-soft);
+    color: var(--amber);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--amber) 70%, transparent);
+  }
+  .flow-node[data-state="pending"] {
+    background: var(--bg);
+  }
   .flow-rail {
     position: absolute;
     height: 1px;

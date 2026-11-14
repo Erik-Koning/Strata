@@ -2,26 +2,23 @@
 import type { HandoffListItem } from "@strata/contracts";
 import Link from "next/link";
 import { Ago } from "../time.tsx";
-import { StatusPill } from "./status.tsx";
+import { StatusText } from "./status.tsx";
 
 function Row({ item, selected, box }: { item: HandoffListItem; selected: boolean; box: "inbox" | "sent" }) {
   const counterpart =
-    box === "inbox" ? `from ${item.sender.name}` : item.recipient ? `to ${item.recipient.name}` : "only you";
+    box === "inbox" ? `from ${item.sender.name}` : item.recipient ? `to ${item.recipient.name}` : "not sent";
   return (
     <li>
       <Link
         href={`/relay?id=${item._id}`}
         aria-current={selected ? "page" : undefined}
+        title={item.project}
         className="relay-row relative block min-h-11 rounded-[8px] px-3 py-2.5 transition-colors hover:bg-surface-2/60"
       >
-        <span className="flex items-start justify-between gap-2">
-          <span className="line-clamp-2 min-w-0 font-medium text-[13.5px] leading-snug">{item.title}</span>
-          <StatusPill status={item.status} />
-        </span>
-        <span className="mt-1.5 flex items-center gap-1.5 text-[11.5px] text-ink-3">
-          <span className="min-w-0 truncate font-mono text-[11px]">{item.project}</span>
-          <span aria-hidden>·</span>
-          <span className="truncate">{counterpart}</span>
+        <span className="line-clamp-2 font-medium text-[13.5px] text-ink leading-snug">{item.title}</span>
+        <span className="mt-1.5 flex items-center gap-2 text-[11.5px] text-ink-3">
+          <StatusText status={item.status} />
+          <span className="min-w-0 truncate">{counterpart}</span>
           <Ago at={item.updatedAt} className="ml-auto flex-none" />
         </span>
       </Link>

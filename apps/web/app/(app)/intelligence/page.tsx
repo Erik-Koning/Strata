@@ -11,6 +11,15 @@ import { AskStrata } from "./ask-strata.tsx";
 import { EvidenceProvider, RecordButton } from "./evidence.tsx";
 import { CategoryTag, shortRef } from "./labels.tsx";
 
+// One hue, steps far enough apart in lightness to tell four kinds apart on the dark ground.
+const SHADES = [
+  "var(--accent-text)",
+  "var(--accent)",
+  "color-mix(in srgb, var(--accent) 55%, var(--surface-2))",
+  "color-mix(in srgb, var(--accent) 30%, var(--surface-2))",
+];
+const shade = (i: number) => SHADES[i % SHADES.length];
+
 export const metadata: Metadata = { title: "Intelligence" };
 export const dynamic = "force-dynamic";
 
@@ -141,14 +150,14 @@ export default async function IntelligencePage() {
           </div>
           {totalKinds ? (
             <>
-              <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+              <div className="mt-4 flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
                 {p.kinds.map((k, i) => (
                   <div
                     key={k.kind}
                     className="h-full"
                     style={{
                       width: `${(k.count / totalKinds) * 100}%`,
-                      background: `color-mix(in srgb, var(--accent) ${100 - i * 17}%, var(--surface-2))`,
+                      background: shade(i),
                     }}
                   />
                 ))}
@@ -156,11 +165,7 @@ export default async function IntelligencePage() {
               <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
                 {p.kinds.map((k, i) => (
                   <li key={k.kind} className="flex items-center gap-2">
-                    <span
-                      className="size-2 rounded-[2px]"
-                      style={{ background: `color-mix(in srgb, var(--accent) ${100 - i * 17}%, var(--surface-2))` }}
-                      aria-hidden
-                    />
+                    <span className="size-2 rounded-[2px]" style={{ background: shade(i) }} aria-hidden />
                     <span className="capitalize text-ink-2">{k.kind}</span>
                     <span className="ml-auto font-mono text-[12px] tabular-nums">{k.count}</span>
                   </li>
