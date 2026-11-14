@@ -2,6 +2,7 @@ import { CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KindChip } from "../../../components/chips.tsx";
+import { sessionHref } from "../../../components/sessions/format.ts";
 import { Ago } from "../../../components/time.tsx";
 import type { RecordDoc } from "../../../server/collections.ts";
 import { ownApprovedSince, ownDrafts, recordLabel } from "../../../server/records/routes.ts";
@@ -55,10 +56,16 @@ export default async function MyDayPage() {
             {sessions.map((s) => (
               <li key={s.sessionID} className="card">
                 <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-line border-b px-5 py-3">
-                  <span className="font-medium text-[14px]">Session</span>
-                  <span className="chip chip-mono" title={s.sessionID}>
-                    {s.sessionID.slice(0, 8)}
-                  </span>
+                  <Link
+                    href={sessionHref(s.sessionID)}
+                    className="group inline-flex min-h-11 items-center gap-2 sm:min-h-0"
+                    title={`Open session ${s.sessionID}`}
+                  >
+                    <span className="font-medium text-[14px] text-accent-text underline-offset-4 group-hover:underline">
+                      Session
+                    </span>
+                    <span className="chip chip-mono">{s.sessionID.slice(0, 8)}</span>
+                  </Link>
                   {s.project ? <span className="chip chip-mono">{s.project}</span> : null}
                   {s.refs.map((r) => (
                     <span key={`${r.type}:${r.id}`} className="chip chip-mono" title={r.type}>

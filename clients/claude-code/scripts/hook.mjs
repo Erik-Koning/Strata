@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 // Hook entrypoint. Fail-open by design: whatever goes wrong, exit 0 with valid (or no)
-// output, so the hub can never block or break an engineer's session. claude-mem learned
-// this the hard way: exiting 2 from UserPromptSubmit dropped prompts, from Stop re-woke
-// the agent in a loop.
+// output, so the hub can never block or break an engineer's session. Exiting 2 from
+// UserPromptSubmit would drop prompts; from Stop it would re-wake the agent in a loop.
 //
 // What the hooks do: remember the prompt (UserPromptSubmit), and after each turn (Stop) queue the
 // redacted turn text for a background worker that writes the session summary. Nothing here
@@ -29,7 +28,9 @@ import {
   p,
   pruneDir,
   readJson,
+  serverUrl,
   setSession,
+  signedInElsewhere,
   writeJson,
 } from "./lib/store.mjs";
 import { summarizeSession } from "./lib/summarize.mjs";
@@ -157,7 +158,6 @@ function reviewNotices() {
   const lines = [];
   if (held.needsReview)
     lines.push(`${held.needsReview} session summar${held.needsReview === 1 ? "y waits" : "ies wait"} for your review`);
-  if (held.needsLink) lines.push(`${held.needsLink} need${held.needsLink === 1 ? "s" : ""} a Jira ticket or PR link`);
   return lines.length ? `Strata: ${lines.join("; ")}. Nothing is sent until you approve. Run /strata:dashboard.` : null;
 }
 
@@ -199,9 +199,12 @@ const handlers = {
     const messages = [];
 
     if (!auth?.token) {
+      const elsewhere = signedInElsewhere();
       if (noticeDue("login")) {
         guidance.push(
-          "Strata is installed but the user is not signed in. Session summaries are written and kept locally, and nothing is sent until they sign in and approve. Mention once that they can run /strata:login (or /strata:dashboard to manage everything).",
+          elsewhere
+            ? `Strata is signed in to ${elsewhere}, but now points at ${serverUrl()}, so nothing is sent: a sign-in only ever goes to the server that issued it. Session summaries are still written and kept locally. Mention once that they can run /strata:login to sign in to ${serverUrl()}.`
+            : "Strata is installed but the user is not signed in. Session summaries are written and kept locally, and nothing is sent until they sign in and approve. Mention once that they can run /strata:login (or /strata:dashboard to manage everything).",
         );
       }
     } else if (health.authExpired) {

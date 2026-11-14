@@ -203,7 +203,6 @@ export function describeSession(sid) {
   else if (!sum) status = queued ? "summarizing" : "empty";
   else if (up.state === "rejected" && up.rejectedRevision === sum.revision) status = "rejected";
   else if (up.syncedRevision === sum.revision) status = "synced";
-  else if (!linked) status = "needs-link";
   else if (!approved) status = up.syncedRevision > 0 ? "updated" : "draft";
   else status = "ready";
 
@@ -244,7 +243,6 @@ export function countByStatus() {
   const totals = {
     sessions: 0,
     summarizing: 0,
-    "needs-link": 0,
     draft: 0,
     updated: 0,
     ready: 0,

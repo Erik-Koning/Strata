@@ -132,7 +132,7 @@ describe("approved summaries", () => {
     expect(await summaryRevisions().countDocuments({ sessionId: "s1" })).toBe(1);
   });
 
-  it("refuses raw content, unknown projects, empty summaries and unlinked work", async () => {
+  it("refuses raw content, unknown projects and empty summaries, but not a missing link", async () => {
     const raw = await call(postSummaryEvent, { token: key, body: { ...summaryEvent(), prompt: "secret" } });
     expect(raw.status).toBe(422);
     expect((await raw.json()).error).toBe("raw_content_not_accepted");
@@ -154,8 +154,8 @@ describe("approved summaries", () => {
       token: key,
       body: summaryEvent({ links: { jira: [], pr: null, noTicket: false } }),
     });
-    expect(unlinked.status).toBe(422);
-    expect((await unlinked.json()).error).toBe("unlinked");
+    expect(unlinked.status).toBe(201);
+    expect(await unlinked.json()).toEqual({ ok: true });
   });
 
   it("keeps another person out of a project they do not belong to", async () => {

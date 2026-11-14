@@ -39,7 +39,7 @@ before(async () => {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   process.env.STRATA_URL = `http://127.0.0.1:${server.address().port}`;
   const store = await import(path.join(ROOT, "scripts/lib/store.mjs"));
-  store.setAuth({ token: "test-token" });
+  store.setAuth({ token: "test-token", serverUrl: process.env.STRATA_URL });
   lib = {
     events: await import(path.join(ROOT, "scripts/lib/events.mjs")),
     git: await import(path.join(ROOT, "scripts/lib/git.mjs")),
