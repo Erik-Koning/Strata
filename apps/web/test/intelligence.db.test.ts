@@ -1,12 +1,10 @@
 // Strata Intelligence against the real engine, on a database of its own: answers come only from the asker's records,
 // another person's records are never retrieved or opened, evidence never carries session content, and the pulse is
 // counted from what's stored.
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `am_test_intel_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("am_test_intel");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 
@@ -129,7 +127,7 @@ beforeAll(async () => {
   );
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 

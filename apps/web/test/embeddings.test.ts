@@ -157,6 +157,7 @@ describe("choosing a provider", () => {
     process.env = { ...saved, MONGODB_URI: "mongodb://localhost/x", ...env };
     delete process.env.VOYAGE_API_KEY;
     delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
     Object.assign(process.env, env);
     resetConfig();
   };

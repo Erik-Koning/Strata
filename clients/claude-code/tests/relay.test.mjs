@@ -8,7 +8,16 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { appOrigin, callRelayTool, checkRepo, RELAY_TOOLS, repoState, runCommand } from "../scripts/lib/relay.mjs";
+import { gitContext, projectOf } from "../scripts/lib/git.mjs";
+import {
+  appOrigin,
+  callRelayTool,
+  checkRepo,
+  RELAY_TOOLS,
+  relayDeps,
+  repoState,
+  runCommand,
+} from "../scripts/lib/relay.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MCP = join(here, "..", "scripts", "mcp.mjs");
@@ -51,6 +60,7 @@ async function fake(handoff) {
         method: req.method,
         url: req.url,
         auth: req.headers.authorization,
+        session: req.headers["x-strata-session"] ?? null,
         body: raw ? JSON.parse(raw) : null,
       });
       res.setHeader("content-type", "application/json");
@@ -80,6 +90,26 @@ describe("repoState", () => {
     const local = repoState(a);
     assert.equal(local.pushed, false);
     assert.deepEqual(local.uncommitted, ["wip.txt"]);
+  });
+});
+
+describe("the project", () => {
+  it("is one name for the hooks, strata_record and Relay, and STRATA_PROJECT overrides it for all of them", () => {
+    const { a } = repos();
+    const saved = process.env.STRATA_PROJECT;
+    try {
+      delete process.env.STRATA_PROJECT;
+      const own = projectOf(a);
+      assert.equal(gitContext(a).project, own);
+      assert.equal(relayDeps(a).project, own);
+      process.env.STRATA_PROJECT = " relay-demo/durations ";
+      assert.equal(projectOf(a), "relay-demo/durations");
+      assert.equal(gitContext(a).project, "relay-demo/durations");
+      assert.equal(relayDeps(a).project, "relay-demo/durations");
+    } finally {
+      if (saved === undefined) delete process.env.STRATA_PROJECT;
+      else process.env.STRATA_PROJECT = saved;
+    }
   });
 });
 
@@ -157,6 +187,23 @@ describe("the Relay tools", () => {
     const answer = await callRelayTool("strata_handoff_claim", { handoffId: "b".repeat(24) }, deps(api.url, a));
     assert.equal(answer.isError, true);
     assert.ok(!api.seen.some((s) => s.url.endsWith("/claim")));
+  });
+
+  it("name the reading session when they fetch a handoff to resume, and nothing when there's none", async () => {
+    const { a } = repos();
+    const api = await fake({ _id: "a".repeat(24), testCommands: [], repo: repoState(a) });
+    const path = `/api/handoffs/${"a".repeat(24)}/resume`;
+    await callRelayTool(
+      "strata_handoff_get",
+      { handoffId: "a".repeat(24) },
+      { ...deps(api.url, a), sessionID: "sess-9" },
+    );
+    await callRelayTool("strata_handoff_get", { handoffId: "a".repeat(24) }, deps(api.url, a));
+    const gets = api.seen.filter((s) => s.url === path);
+    assert.deepEqual(
+      gets.map((g) => g.session),
+      ["sess-9", null],
+    );
   });
 
   it("say how to sign in when it isn't", async () => {

@@ -64,8 +64,14 @@ function takeLock() {
   return null;
 }
 
+// A 404 means the server was not serving the route (restarting, deploying), not that the events are malformed: keep them.
 const retryable = (error) =>
-  !error.status || error.status >= 500 || error.status === 408 || error.status === 425 || error.status === 429;
+  !error.status ||
+  error.status >= 500 ||
+  error.status === 404 ||
+  error.status === 408 ||
+  error.status === 425 ||
+  error.status === 429;
 
 // An event the server can't take is kept under events/dead/ (never resent, never lost without a trace).
 function setAside(name) {

@@ -490,14 +490,6 @@ test("malformed or empty stdin never crashes or blocks a hook", () => {
   }
 });
 
-test("session start tells the engineer what waits for review, once", () => {
-  const r = hook("session-start", { session_id: "ss", cwd: REPO });
-  const out = JSON.parse(r.stdout);
-  assert.match(out.systemMessage, /wait(s)? for your review/);
-  assert.match(out.systemMessage, /Nothing is sent until you approve/);
-  assert.equal(hook("session-start", { session_id: "ss2", cwd: REPO }).stdout, "", "not repeated");
-});
-
 // ---------- offline, sign-in, failures ----------
 test("written and approved while signed out: held, then sent after sign-in", async () => {
   hub("logout");

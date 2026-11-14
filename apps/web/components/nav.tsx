@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   Forward,
   MessageCircleQuestionMark,
+  Newspaper,
   Puzzle,
   Radar,
   ScrollText,
@@ -30,6 +31,7 @@ const PRIMARY: Item[] = [
 // The team hub: what the team builds, where its time goes, what context is missing, and a question to ask of it all.
 const TEAM: Item[] = [
   { href: "/products", label: "Products", icon: Boxes },
+  { href: "/digest", label: "Digest", icon: Newspaper },
   { href: "/time", label: "Time", icon: Timer },
   { href: "/gaps", label: "Gaps", icon: Puzzle },
   { href: "/ask", label: "Team questions", icon: MessageCircleQuestionMark },

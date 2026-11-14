@@ -10,7 +10,7 @@ export async function saveMemory(input: {
   text: string;
   kind: MemoryKind;
   sessionID: string | null;
-  source: "tool" | "manual";
+  source: "tool" | "manual" | "seed";
 }): Promise<MemoryDoc> {
   const { memory, created } = await addMemory({
     scope: input.scope,

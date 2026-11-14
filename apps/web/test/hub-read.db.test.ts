@@ -241,7 +241,6 @@ describe("the team read model", () => {
     const texts = all.map((r) => r.text);
     expect(texts).toEqual(
       expect.arrayContaining([
-        "Payments retry with backoff.",
         "The ledger rounds per line.",
         "No docs for the retry budget.",
         "Payments retry with backoff, capped at three.",
@@ -255,6 +254,11 @@ describe("the team read model", () => {
     // Drafts and discarded records are nobody's but their author's, and the older revision is gone.
     for (const hidden of ["A draft only Ada sees.", "Ada's other draft.", "A discarded line.", "An old draft."])
       expect(texts).not.toContain(hidden);
+    // s1 has a summary in both stores, worded differently: one summary, the plugin's reviewed one.
+    expect(all.filter((r) => r.sessionId === "s1" && r.kind === "summary").map((r) => [r.source, r.text])).toEqual([
+      ["summary", "Payments retry with backoff, capped at three."],
+    ]);
+    expect(texts).not.toContain("Payments retry with backoff.");
     // The summary's copy of the record's insight, in the same session, is dropped; the record's stays.
     const ledger = all.filter((r) => r.text.toLowerCase().startsWith("the ledger rounds"));
     expect(ledger).toHaveLength(1);
@@ -305,7 +309,10 @@ describe("the team read model", () => {
     }
     for (let i = 1; i < weeks.length; i++) expect(weeks[i - 1]!.weekStart > weeks[i]!.weekStart).toBe(true);
     const summaries = weeks.flatMap((w) => w.summaries.map((r) => r.text));
-    expect(summaries).toEqual(expect.arrayContaining(["Checkout shows tax per line.", "Payments retry with backoff."]));
+    expect(summaries).toEqual(
+      expect.arrayContaining(["Checkout shows tax per line.", "Payments retry with backoff, capped at three."]),
+    );
+    expect(summaries).not.toContain("Payments retry with backoff.");
     const shop = await whatsNew({ productId: "shop", since: ago(30) }, bo);
     expect(shop.flatMap((w) => [...w.summaries, ...w.findings]).map((r) => r.text)).toEqual([
       "Checkout shows tax per line.",
@@ -343,6 +350,80 @@ describe("the team read model", () => {
     // Who, never how much: nothing per person but their id and name.
     for (const person of [...result.people, ...result.areas.flatMap((a) => a.people)])
       expect(Object.keys(person).sort()).toEqual(["id", "name"]);
+  });
+});
+
+describe("a session with a summary in both stores", () => {
+  const PR = { type: "pr", id: "42", url: "https://github.com/acme/billing/pull/42" };
+
+  it("gives one summary, the plugin's reviewed one, and keeps the distinct findings of both", async () => {
+    await records().insertMany([
+      record(bo, "s-both", BILLING, "summary", "Exported the ledger as CSV for finance.", {
+        title: "Ledger export",
+        refs: [{ type: "ticket", id: "PAY-7" }, PR],
+      }),
+      record(bo, "s-both", BILLING, "insight", "Finance wants the export by noon."),
+      record(bo, "s-both", BILLING, "workflow", "Run the export with pnpm export."),
+      record(bo, "s-both", BILLING, "summary", "Bo's own draft of a summary.", { status: "draft", approvedAt: null }),
+      record(bo, "s-server-only", BILLING, "summary", "Only the server drafted this session's summary."),
+    ]);
+    await summaryRevisions().insertOne(
+      summary(
+        bo,
+        "s-both",
+        1,
+        BILLING,
+        ago(1),
+        {
+          built: "The ledger exports to CSV, one row per line.",
+          insights: ["CSV columns follow the ledger's order."],
+          workflow: ["run the export with pnpm export"],
+        },
+        { jira: ["PAY-7"] },
+      ),
+    );
+
+    const session = (await recordsFor({}, ada)).filter((r) => r.sessionId === "s-both");
+    const summaries = session.filter((r) => r.kind === "summary");
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      source: "summary",
+      text: "The ledger exports to CSV, one row per line.",
+      // The plugin's summary had no title: the drafted one's is kept, and so are its links.
+      title: "Ledger export",
+      refs: [{ type: "ticket", id: "PAY-7", system: "jira" }, PR],
+    });
+    expect(session.filter((r) => r.kind !== "summary").map((r) => [r.kind, r.source, r.text])).toEqual(
+      expect.arrayContaining([
+        ["insight", "record", "Finance wants the export by noon."],
+        ["insight", "summary", "CSV columns follow the ledger's order."],
+        ["workflow", "record", "Run the export with pnpm export."],
+      ]),
+    );
+    expect(session).toHaveLength(4);
+    expect(JSON.stringify(session)).not.toContain("Exported the ledger as CSV");
+
+    // A session whose only summary is the server's keeps it.
+    const serverOnly = (await recordsFor({ kind: "summary" }, ada)).filter((r) => r.sessionId === "s-server-only");
+    expect(serverOnly.map((r) => r.text)).toEqual(["Only the server drafted this session's summary."]);
+
+    const week = (await whatsNew({ since: ago(30) }, ada)).flatMap((w) => w.summaries);
+    expect(week.filter((r) => r.sessionId === "s-both")).toHaveLength(1);
+    const work = (await inProgress({ since: ago(14) }, ada)).work.find((w) => w.key === "PAY-7");
+    expect(work).toMatchObject({ sessionIds: ["s-both"], pr: { id: "42", url: PR.url } });
+  });
+
+  it("shows the same on the session's page, and its author's own draft still waits for them there", async () => {
+    const theirs = await sessionDetail("s-both", ada);
+    expect(theirs?.records.filter((r) => r.kind === "summary").map((r) => r.text)).toEqual([
+      "The ledger exports to CSV, one row per line.",
+    ]);
+    expect(theirs?.pr).toMatchObject({ id: "42", url: PR.url });
+    const mine = await sessionDetail("s-both", bo);
+    expect(mine?.records.filter((r) => r.kind === "summary").map((r) => [r.status, r.text])).toEqual([
+      ["approved", "The ledger exports to CSV, one row per line."],
+      ["draft", "Bo's own draft of a summary."],
+    ]);
   });
 });
 
