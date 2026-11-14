@@ -38,7 +38,7 @@ export interface EventDoc {
   client: string | null;
   // Set once a job has read it (extract), so it's read once.
   processedAt?: Date | null;
-  // Set once the session has been drafted; the text is cleared then.
+  // Set once the session has been drafted. The raw text stays until the memory_events TTL.
   draftedAt?: Date | null;
   // Set once a tool event's timing is counted in signal_daily (hub/signals.ts), so it's counted once.
   signaledAt?: Date | null;

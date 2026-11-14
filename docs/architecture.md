@@ -173,10 +173,11 @@ later, against the projects an organisation actually has.
 
 Decided on 14 November 2026: **session records are drafted on the server**, from the redacted text the plugin sends,
 and a draft is visible to its author alone until they approve it. `server/records/draft.ts` runs when a session's end
-event arrives: it builds the records, dedupes them by text, and clears the text of that session's prompt, reply and
-transcript events. The promise to the people whose sessions these are is "nothing is shared without your review",
-not "nothing leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees
-anything until its author approves it. The provider is the deterministic stub today; the Anthropic drafter is next.
+event arrives: it builds the records and dedupes them by text. The raw prompt, reply and transcript events stay in
+`memory_events` until the 30-day TTL, matching my-day; deleting them at drafting is a later policy decision. The
+promise to the people whose sessions these are is "nothing is shared without your review", not "nothing leaves your
+machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until its author
+approves it. The provider is the deterministic stub today; the Anthropic drafter is next.
 
 ## The OpenCode adapter
 

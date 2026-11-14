@@ -1,6 +1,6 @@
 // Drafting: turn one session's redacted events into reviewed records. The server does this when a session ends;
-// the records belong to the author alone until they approve or discard them, and the raw text (prompts, replies,
-// findings, transcripts' messages, compaction summaries) is cleared once the draft exists.
+// the records belong to the author alone until they approve or discard them. The raw text (prompts, replies, findings,
+// transcripts' messages, compaction summaries) stays in memory_events until the 30-day TTL, as my-day keeps it.
 import { createHash } from "node:crypto";
 import { type DraftRecord, type Ref, redact, type Scope } from "@strata/contracts";
 import { MongoServerError, ObjectId } from "mongodb";
@@ -115,29 +115,36 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
   if (!sessionEvents.length) return { created: 0 };
 
   // Replaying a session end is a no-op, and so is an end with nothing new written since the last draft (the events are
-  // only marked): the model drafts from text, never from nothing.
-  const hasNewText = sessionEvents.some(
+  // only marked): the model drafts from text, never from nothing. The text stays after a draft, so only events not yet
+  // drafted count as new.
+  const undrafted = sessionEvents.filter((event) => !event.draftedAt);
+  const hasNewText = undrafted.some(
     (event) =>
       (holdsText(event) && typeof event.payload.text === "string" && event.payload.text.trim().length > 0) ||
       (event.kind === "transcript" && Array.isArray(event.payload.messages) && event.payload.messages.length > 0),
   );
-  const undrafted = sessionEvents.filter((event) => !event.draftedAt).map((event) => event._id!);
   if (!hasNewText) {
-    if (undrafted.length) await events().updateMany({ _id: { $in: undrafted } }, { $set: { draftedAt: new Date() } });
+    if (undrafted.length)
+      await events().updateMany(
+        { _id: { $in: undrafted.map((event) => event._id!) } },
+        { $set: { draftedAt: new Date() } },
+      );
     return { created: 0 };
   }
 
   const textOf = (event: (typeof sessionEvents)[number]): string =>
     typeof event.payload.text === "string" ? event.payload.text : "";
-  const prompts = sessionEvents
+  // The model reads only what's new since the last draft (the old text stays for the TTL, but it's drafted already);
+  // tools and refs come from the whole session.
+  const prompts = undrafted
     .filter((event) => event.known && event.kind === "prompt")
     .map(textOf)
     .filter(Boolean);
-  const replies = sessionEvents
+  const replies = undrafted
     .filter((event) => event.known && event.kind === "assistant")
     .map(textOf)
     .filter(Boolean);
-  const compact = sessionEvents.find(
+  const compact = undrafted.find(
     (event) => event.known && event.kind === "event" && event.payload.type === "compact_summary",
   );
   const tools = sessionEvents
@@ -158,7 +165,7 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
   );
 
   // A finding the agent or engineer logged live is already a record: carry it through with the drafted ones.
-  const findings: DraftRecord[] = sessionEvents
+  const findings: DraftRecord[] = undrafted
     .filter((event) => event.known && event.kind === "finding")
     .flatMap((event) => {
       const type = typeof event.payload.type === "string" ? event.payload.type : "";
@@ -222,14 +229,9 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
     });
   }
 
-  // The draft is the durable thing. The text that produced it goes, on the same events, now.
+  // The draft is the durable thing. The raw events stay until the memory_events TTL.
   const ids = sessionEvents.map((event) => event._id!);
   await events().updateMany({ _id: { $in: ids } }, { $set: { draftedAt: now } });
-  const textIds = sessionEvents.filter(holdsText).map((event) => event._id!);
-  if (textIds.length) await events().updateMany({ _id: { $in: textIds } }, { $set: { "payload.text": "" } });
-  const transcriptIds = sessionEvents.filter((event) => event.kind === "transcript").map((event) => event._id!);
-  if (transcriptIds.length)
-    await events().updateMany({ _id: { $in: transcriptIds } }, { $set: { "payload.messages": [] } });
 
   return { created };
 }
