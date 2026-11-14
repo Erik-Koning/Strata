@@ -697,7 +697,16 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
   assert.equal(init.result.serverInfo.name, "strata");
   assert.deepEqual(
     list.result.tools.map((t) => t.name),
-    ["strata_record", "strata_search"],
+    [
+      "strata_record",
+      "strata_search",
+      // Relay (lib/relay.mjs; tested in relay.test.mjs)
+      "strata_handoff_create",
+      "strata_handoff_get",
+      "strata_handoff_claim",
+      "strata_handoff_verify",
+      "strata_handoff_complete",
+    ],
   );
   assert.match(rec.result.content[0].text, /Recorded/);
   assert.equal(dup.result.content[0].text, "Already recorded.");

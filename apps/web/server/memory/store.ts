@@ -2,7 +2,7 @@
 import { createHash } from "node:crypto";
 import { type MemoryKind, type MemoryStatus, redact, type Scope, type TrustLevel } from "@strata/contracts";
 import { ObjectId } from "mongodb";
-import { provider } from "../ai/provider.ts";
+import { embeddingModelId, provider } from "../ai/provider.ts";
 import { type MemoryDoc, memories } from "../collections.ts";
 import { normalize } from "./extract.ts";
 
@@ -37,7 +37,8 @@ export async function addMemory(input: NewMemory): Promise<{ memory: MemoryDoc; 
     }
     return { memory: existing, created: false };
   }
-  const [embedding = []] = await provider().embed([text]);
+  const ai = provider();
+  const [embedding = []] = await ai.embed([text], { purpose: "document" });
   const now = new Date();
   const memory: MemoryDoc = {
     _id: new ObjectId(),
@@ -46,6 +47,7 @@ export async function addMemory(input: NewMemory): Promise<{ memory: MemoryDoc; 
     text,
     textKey: key,
     embedding,
+    embeddingModel: embeddingModelId(ai),
     provenance: input.provenance,
     trust: input.trust,
     confidence: input.confidence,
@@ -60,6 +62,11 @@ export async function addMemory(input: NewMemory): Promise<{ memory: MemoryDoc; 
 }
 
 export const textKey = (text: string): string => createHash("sha1").update(normalize(text)).digest("hex");
+
+// Retrieval's view of a scope: active, and not past its expiry. Recall and frozen both start here.
+export function liveFilter(now = new Date()): Record<string, unknown> {
+  return { status: "active", $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] };
+}
 
 export const hit = (m: Pick<MemoryDoc, "_id" | "kind" | "text">) => ({
   _id: m._id.toHexString(),
