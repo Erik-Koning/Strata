@@ -1,0 +1,18 @@
+# Never in the image: secrets, and anything built or installed on the machine that builds it.
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/.next
+**/coverage
+**/test-results
+**/playwright-report
+**/*.tsbuildinfo
+.git
+.a6g/run
+.sst
+.cache
+**/.DS_Store
