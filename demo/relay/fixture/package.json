@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Parse human durations like 90s, 5m or 1h30m into milliseconds.",
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test"
   }
 }
