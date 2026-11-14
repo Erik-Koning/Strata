@@ -10,12 +10,55 @@ The diagram's source is [`docs/how-strata-works.excalidraw.json`](docs/how-strat
 excalidraw.com or with the VS Code Excalidraw extension, and export it again as `docs/how-strata-works.svg` after a
 change.
 
+## Strata Relay: hand unfinished work to another engineer
+
+Relay lets Engineer A hand a task in progress to Engineer B, whose **fresh** Claude Code session picks it up from a
+verified checkpoint, not a raw conversation.
+
+```mermaid
+sequenceDiagram
+  participant A as Alice's Claude Code
+  participant S as Strata API + MongoDB
+  participant W as Relay page (web)
+  participant B as Bob's fresh Claude Code
+  A->>A: /strata:handoff: git state read, tests run (verified)
+  A->>S: POST /api/handoffs (draft: only Alice can read it)
+  W->>S: Alice reviews, picks Bob and the memories to share, approves
+  B->>S: /strata:resume <id>: GET /resume with Bob's own key
+  S-->>B: checkpoint + only the approved memories, re-checked now, framed as untrusted
+  B->>B: repository check (same repo, commit present), claim
+  B->>B: does the work, runs the handoff's test commands through Strata
+  B->>S: complete: verified only if every test command passed after the claim
+  W->>S: Alice can revoke any time before completion: Bob gets 404 from then on
+```
+
+| Status      | Who can read it           | Who can change it                                      |
+| ----------- | ------------------------- | ------------------------------------------------------ |
+| `draft`     | the sender                | the sender: edit, approve, record tests, revoke        |
+| `approved`  | the sender, the recipient | the recipient claims; the sender revokes               |
+| `claimed`   | the sender, the recipient | the recipient records tests, completes; sender revokes |
+| `completed` | the sender, the recipient | nobody                                                 |
+| `revoked`   | the sender                | nobody                                                 |
+
+Anyone else, any id that doesn't exist, and a draft or revoked handoff asked for by its recipient all get the same
+`404`. A test result is **verified** only when Strata's client ran the command and captured its exit code; anything
+typed is a claim, and is shown as one. Uncommitted changes don't travel, and a commit that isn't pushed is a blocker the
+recipient's session names rather than works around.
+
+- The contract: [`packages/contracts/src/handoff.ts`](packages/contracts/src/handoff.ts)
+- The server: [`apps/web/server/handoffs/`](apps/web/server/handoffs) (the rules are in `lifecycle.ts`)
+- Claude Code: [`clients/claude-code/src/relay.ts`](clients/claude-code/src/relay.ts), with `/strata:handoff` and
+  `/strata:resume` in [`clients/claude-code/commands/`](clients/claude-code/commands)
+- The page: `/relay` in the app
+- The demo, end to end with real Claude Code sessions: [`demo/relay/`](demo/relay) (`node demo/relay/run.mjs`)
+- Progress and what's verified: [`HACKATHON_STATUS.md`](HACKATHON_STATUS.md)
+
 ## What's built so far
 
 **The web app** (Next.js 16, `apps/web`) has invite-only accounts with roles, teams and suspension, API keys you make per
 machine, and the memory API: capture, recall, the frozen block, compaction summaries, save and forget. It also serves
 the `/v1` summary API and the records review API. Every route checks a bearer key first and validates its body against a
-shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, records, projects, teams,
+shared contract. **MongoDB** (Atlas) holds events, memories, summaries, records, projects, teams,
 invitations, an audit log and the keys, with a vector index for recall and a text index behind it.
 
 **The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API
@@ -230,10 +273,15 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **Shipping**
 
-- [ ] Dockerfile for `apps/web` (standalone, not root, health check)
+- [x] Dockerfile for `apps/web` (standalone, not root, health check), and `pnpm deploy:web` to AWS Lightsail at
+      https://strata.anythingfactory.dev
 - [ ] GitHub Actions running the gate and the end-to-end suite against an Atlas-local service container
 - [ ] `docs/architecture.md`: backups and restore (`mongodump`), HTTPS, logs, Dependabot
 - [ ] Rate limits on the API, and a size limit on event batches
+- [x] Email sending: strata.anythingfactory.dev an Amazon SES sender (DKIM, DMARC, its own MAIL FROM), a send-only
+      key per stage (`sst.config.ts`), and `sendMail` in `apps/web/server/mail.ts`; `pnpm mail:test <email>` checks it
+- [ ] The emails themselves: confirming a new account's address and resetting a password, through Better Auth and
+      `sendMail` (links use `BETTER_AUTH_URL`)
 
 ## Run it
 
@@ -253,15 +301,25 @@ cluster is production: `pnpm test:db` works in a throwaway database it removes a
 `pnpm db:seed` write to the real one.
 
 Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
-**Connect**: make an API key, install the plugin, and start a Claude Code session.
+**Connect** and follow its steps: install the plugin, point it at the app, sign in.
 
 ```
 /plugin marketplace add Erik-Koning/Strata
 /plugin install strata@strata
 ```
 
-Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
-plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+The plugin finds the app at `STRATA_URL` (set it in `~/.claude/settings.json` under `env`, or in your shell). Then run
+`/strata:login` in Claude Code: it opens the app's `/activate` page, you approve the sign-in there, and the plugin keeps
+its token in `~/.strata/auth.json`. It needs no API key; the keys on **Connect** are for scripts and other clients.
+
+To run the plugin from this checkout against the dev server, with a sign-in kept apart from your everyday one:
+
+```sh
+STRATA_URL=http://localhost:9316 STRATA_HOME=~/.strata-dev claude --plugin-dir clients/claude-code
+```
+
+`STRATA_HOME` is where the plugin keeps its sign-in, settings and local drafts (`~/.strata` by default). The API the
+plugin talks to is described in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
 For **OpenCode**, point `opencode.jsonc` at the plugin directory and sign in once:
 
@@ -279,6 +337,23 @@ node clients/claude-code/scripts/strata.mjs login
 A key is not tied to a client, so the same `am_…` key works for either. Set `summarizerBackend` to `"opencode"` in
 `~/.strata/config.json` to write local summaries with `opencode run` instead of `claude -p`. More in
 [`clients/opencode/README.md`](clients/opencode/README.md).
+
+## Deploy
+
+The web app runs on AWS Lightsail at https://strata.anythingfactory.dev, built from the `Dockerfile` (Next.js's
+standalone server, not root, on port 3000). One command builds the image for `linux/amd64`, pushes it to ECR, and
+deploys it; the first time it also makes the Lightsail service (micro, about $10 a month), the app's settings in SSM,
+and the domain's certificate and DNS records:
+
+```sh
+AWS_PROFILE=<the account's profile> pnpm deploy:web --check   # read-only: what exists, what a deploy would do
+AWS_PROFILE=<the account's profile> pnpm deploy:web           # build, push, deploy; --skip-build reuses this commit's image
+```
+
+The settings live in `/strata/production/web-env` (an SSM SecureString): `MONGODB_URI`, taken from `.env.local` on the
+first run, a session secret made then, and `BETTER_AUTH_URL`. The mail settings come from `/strata/production/mail-env`
+(`sst.config.ts`). Neither ever goes in the image or the output. The cluster's Network Access list has to let Lightsail
+in; its addresses aren't fixed.
 
 ## The API
 

@@ -1,10 +1,8 @@
 // The /v1 summary API end to end, through its route handlers, on a database of its own.
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `v1_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("v1_test");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
@@ -91,7 +89,7 @@ beforeAll(async () => {
   projectId = projects.projects[0].id;
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 
@@ -134,7 +132,7 @@ describe("approved summaries", () => {
     expect(await summaryRevisions().countDocuments({ sessionId: "s1" })).toBe(1);
   });
 
-  it("refuses raw content, unknown projects, empty summaries and unlinked work", async () => {
+  it("refuses raw content, unknown projects and empty summaries, but not a missing link", async () => {
     const raw = await call(postSummaryEvent, { token: key, body: { ...summaryEvent(), prompt: "secret" } });
     expect(raw.status).toBe(422);
     expect((await raw.json()).error).toBe("raw_content_not_accepted");
@@ -156,8 +154,8 @@ describe("approved summaries", () => {
       token: key,
       body: summaryEvent({ links: { jira: [], pr: null, noTicket: false } }),
     });
-    expect(unlinked.status).toBe(422);
-    expect((await unlinked.json()).error).toBe("unlinked");
+    expect(unlinked.status).toBe(201);
+    expect(await unlinked.json()).toEqual({ ok: true });
   });
 
   it("keeps another person out of a project they do not belong to", async () => {

@@ -156,7 +156,6 @@ function reviewNotices() {
   const lines = [];
   if (held.needsReview)
     lines.push(`${held.needsReview} session summar${held.needsReview === 1 ? "y waits" : "ies wait"} for your review`);
-  if (held.needsLink) lines.push(`${held.needsLink} need${held.needsLink === 1 ? "s" : ""} a Jira ticket or PR link`);
   return lines.length ? `Strata: ${lines.join("; ")}. Nothing is sent until you approve. Run /strata:dashboard.` : null;
 }
 

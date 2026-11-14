@@ -42,7 +42,6 @@ export function buildEvent(s, projectId) {
 export function heldBreakdown() {
   const held = {
     summarizing: 0,
-    needsLink: 0,
     needsReview: 0,
     noProject: 0,
     signedOut: 0,
@@ -55,7 +54,6 @@ export function heldBreakdown() {
     const s = describeSession(sid);
     if (!s) continue;
     if (s.status === "summarizing") held.summarizing += 1;
-    else if (s.status === "needs-link") held.needsLink += 1;
     else if (s.status === "draft" || s.status === "updated") held.needsReview += 1;
     else if (s.status === "rejected") held.rejected += 1;
     else if (s.status === "local") held.local += 1;

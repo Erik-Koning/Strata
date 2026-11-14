@@ -32,26 +32,32 @@ const view = (doc: RecordDoc): RecordView => ({
 });
 
 // The service token may read everything. A person sees their own drafts, and every approved record: approval is what
-// shares a record, and a suspended person sees nothing.
-async function visibleTo(principal: Principal): Promise<Filter<RecordDoc>> {
-  if (principal.kind === "service") return {};
-  const access = await accessFor(principal.userId);
+// shares a record, and a suspended person sees nothing. Every read of a record goes through this one filter, the list
+// and a single record alike, whether the caller has a key or is signed in, so the rule can't drift between them.
+async function visibleTo(caller: Caller): Promise<Filter<RecordDoc>> {
+  if (caller.kind === "service") return {};
+  const access = await accessFor(caller.userId);
   if (!can.seeApproved(access)) throw new ApiError(403, "forbidden", "This account cannot read records.");
-  return { $or: [{ "scope.user": principal.userId }, { status: "approved" }] };
+  return { $or: [{ "scope.user": caller.userId }, { status: "approved" }] };
 }
 
-async function requireRecord(principal: Principal, id: string): Promise<RecordDoc> {
+// Who's deciding: a client with a key (or the service token), through /api/records, or a signed-in person on My Day.
+// Both go through the same rules below.
+export type Caller = Principal | { kind: "user"; userId: string; label: string };
+
+const auditActor = (caller: Caller) =>
+  caller.kind === "user" ? { kind: "user" as const, id: caller.userId, label: caller.label } : actorOf(caller);
+
+async function requireRecord(caller: Caller, id: string): Promise<RecordDoc> {
   if (!ObjectId.isValid(id)) throw new ApiError(404, "not_found", "No such record.");
-  const access: Filter<RecordDoc> =
-    principal.kind === "service" ? {} : { $or: [{ "scope.user": principal.userId }, { status: "approved" }] };
-  const doc = await records().findOne({ _id: new ObjectId(id), ...access });
+  const doc = await records().findOne({ _id: new ObjectId(id), ...(await visibleTo(caller)) });
   if (!doc) throw new ApiError(404, "not_found", "No such record.");
   return doc;
 }
 
-async function requireOwnRecord(principal: Principal, id: string): Promise<RecordDoc> {
-  const doc = await requireRecord(principal, id);
-  if (principal.kind !== "service" && doc.scope.user !== principal.userId)
+async function requireOwnRecord(caller: Caller, id: string): Promise<RecordDoc> {
+  const doc = await requireRecord(caller, id);
+  if (caller.kind !== "service" && doc.scope.user !== caller.userId)
     throw new ApiError(404, "not_found", "No such record.");
   return doc;
 }
@@ -74,11 +80,14 @@ export const getRecord = route(async (request, id: string) => {
   return json({ record: view(await requireRecord(principal, id)) });
 });
 
-export const patchRecord = route(async (request, id: string) => {
-  const principal = await authenticate(request);
-  const doc = await requireOwnRecord(principal, id);
+// Changes a record's title or text. An approved record goes back to draft: what was approved is no longer what's there.
+export async function editRecord(
+  caller: Caller,
+  id: string,
+  body: { title?: string; text?: string },
+): Promise<RecordDoc> {
+  const doc = await requireOwnRecord(caller, id);
   if (doc.status === "discarded") throw new ApiError(409, "discarded", "A discarded record cannot be edited.");
-  const body = await parseBody(request, RecordUpdate);
   const now = new Date();
   const patch: Partial<RecordDoc> = { updatedAt: now, edited: true };
   if (body.title !== undefined) patch.title = clean(body.title, 200) || null;
@@ -96,20 +105,27 @@ export const patchRecord = route(async (request, id: string) => {
   const updated = await records().findOneAndUpdate({ _id: doc._id }, { $set: patch }, { returnDocument: "after" });
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
   await audit({
-    actor: actorOf(principal),
+    actor: auditActor(caller),
     action: "record.edit",
     targetIds: [id],
     scope: doc.scope,
     detail: { fields: Object.keys(body) },
   });
-  return json({ record: view(updated) });
+  return updated;
+}
+
+export const patchRecord = route(async (request, id: string) => {
+  const principal = await authenticate(request);
+  const body = await parseBody(request, RecordUpdate);
+  return json({ record: view(await editRecord(principal, id, body)) });
 });
 
-export const approveRecord = route(async (request, id: string) => {
-  const principal = await authenticate(request);
-  const doc = await requireOwnRecord(principal, id);
+// Shares a draft with everyone who has access. An approved insight or workflow finding is also kept as a memory, so the
+// next session can recall it.
+export async function approve(caller: Caller, id: string): Promise<RecordDoc> {
+  const doc = await requireOwnRecord(caller, id);
   if (doc.status === "discarded") throw new ApiError(409, "discarded", "A discarded record cannot be approved.");
-  if (doc.status === "approved") return json({ record: view(doc) });
+  if (doc.status === "approved") return doc;
 
   let memoryId: ObjectId | null = doc.memoryId;
   const memoryKind = doc.kind === "insight" ? "fact" : doc.kind === "workflow" ? "convention" : null;
@@ -138,19 +154,24 @@ export const approveRecord = route(async (request, id: string) => {
   );
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
   await audit({
-    actor: actorOf(principal),
+    actor: auditActor(caller),
     action: "record.approve",
     targetIds: [id],
     scope: doc.scope,
     detail: { kind: doc.kind, memoryId: memoryId?.toHexString() ?? null },
   });
-  return json({ record: view(updated) });
+  return updated;
+}
+
+export const approveRecord = route(async (request, id: string) => {
+  const principal = await authenticate(request);
+  return json({ record: view(await approve(principal, id)) });
 });
 
-export const discardRecord = route(async (request, id: string) => {
-  const principal = await authenticate(request);
-  const doc = await requireOwnRecord(principal, id);
-  if (doc.status === "discarded") return json({ record: view(doc) });
+// Keeps a draft out of anything shared. It stays, marked discarded, and nobody else ever sees it.
+export async function discard(caller: Caller, id: string): Promise<RecordDoc> {
+  const doc = await requireOwnRecord(caller, id);
+  if (doc.status === "discarded") return doc;
   const now = new Date();
   const updated = await records().findOneAndUpdate(
     { _id: doc._id },
@@ -159,11 +180,36 @@ export const discardRecord = route(async (request, id: string) => {
   );
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
   await audit({
-    actor: actorOf(principal),
+    actor: auditActor(caller),
     action: "record.discard",
     targetIds: [id],
     scope: doc.scope,
     detail: { kind: doc.kind },
   });
-  return json({ record: view(updated) });
+  return updated;
+}
+
+export const discardRecord = route(async (request, id: string) => {
+  const principal = await authenticate(request);
+  return json({ record: view(await discard(principal, id)) });
 });
+
+// My Day: a person's own drafts, and what they shared lately. Never anyone else's.
+export const RECORD_LABELS: Record<string, string> = {
+  summary: "Session summary",
+  insight: "Insight",
+  workflow: "Workflow finding",
+  pain_point: "Pain point",
+  context_gap: "Context gap",
+};
+export const recordLabel = (kind: string): string => RECORD_LABELS[kind] ?? kind.replace(/_/g, " ");
+
+export const ownDrafts = (userId: string): Promise<RecordDoc[]> =>
+  records().find({ "scope.user": userId, status: "draft" }).sort({ createdAt: -1 }).limit(200).toArray();
+
+export const ownApprovedSince = (userId: string, since: Date): Promise<RecordDoc[]> =>
+  records()
+    .find({ "scope.user": userId, status: "approved", approvedAt: { $gte: since } })
+    .sort({ approvedAt: -1 })
+    .limit(50)
+    .toArray();

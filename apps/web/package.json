@@ -13,10 +13,17 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "db:indexes": "node scripts/db-indexes.ts",
     "db:seed": "node scripts/db-seed.ts",
-    "invite": "node scripts/invite.ts"
+    "invite": "node scripts/invite.ts",
+    "hub:backfill": "node scripts/hub-backfill.ts",
+    "mail:test": "node scripts/mail-test.ts",
+    "atlas:check": "node scripts/atlas-check.ts",
+    "db:reembed": "node scripts/re-embed.ts",
+    "relay:demo-accounts": "node scripts/relay-demo-accounts.ts",
+    "intelligence:demo": "node scripts/intelligence-demo.ts"
   },
   "dependencies": {
     "@strata/contracts": "workspace:*",
+    "@aws-sdk/client-sesv2": "3.1152.0",
     "@better-auth/mongo-adapter": "1.7.23",
     "better-auth": "1.7.23",
     "lucide-react": "1.73.0",

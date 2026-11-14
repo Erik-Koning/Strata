@@ -3,7 +3,7 @@ import Link from "next/link";
 import { KindChip } from "../../../components/chips.tsx";
 import { Ago } from "../../../components/time.tsx";
 import type { RecordDoc } from "../../../server/collections.ts";
-import { listApprovedSince, listDrafts, recordLabel } from "../../../server/records.ts";
+import { ownApprovedSince, ownDrafts, recordLabel } from "../../../server/records/routes.ts";
 import { listCandidates } from "../../../server/stats.ts";
 import { requirePluginUser } from "../../../server/viewer.ts";
 import { PageHeader } from "../page-header.tsx";
@@ -32,9 +32,9 @@ function bySession(drafts: RecordDoc[]) {
 export default async function MyDayPage() {
   const viewer = await requirePluginUser();
   const [drafts, candidates, shared] = await Promise.all([
-    listDrafts(viewer.userId),
+    ownDrafts(viewer.userId),
     listCandidates(viewer.userId),
-    listApprovedSince(viewer.userId, new Date(Date.now() - DAY)),
+    ownApprovedSince(viewer.userId, new Date(Date.now() - DAY)),
   ]);
   const sessions = bySession(drafts);
 
@@ -43,7 +43,7 @@ export default async function MyDayPage() {
       <PageHeader
         eyebrow="My Day"
         title={drafts.length || candidates.length ? "What's waiting for you" : "You're all caught up"}
-        lede="What your sessions drafted. Nobody else can see a draft: approving one shares it with everyone in your organisation, and discarding it sets it aside in your audit log."
+        lede="What your sessions drafted. Nobody else can see a draft. Approving one shares it with everyone in your organisation, and an approved insight or workflow finding also goes to your agents. Discarding keeps it out of anything shared."
       />
 
       <section aria-labelledby="drafts-title" className="mb-8">
@@ -76,6 +76,7 @@ export default async function MyDayPage() {
                         </span>
                         {d.edited ? <span className="text-[12.5px] text-ink-3">edited by you</span> : null}
                       </div>
+                      {d.title ? <p className="mb-1 font-medium text-[15px]">{d.title}</p> : null}
                       <Draft id={d._id.toHexString()} text={d.text} label={recordLabel(d.kind)} />
                     </li>
                   ))}

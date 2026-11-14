@@ -289,7 +289,6 @@ const routes = [
       const session = requireSession(id);
       const body = await readBody(req);
       if (!session.summary?.built) throw fail(409, "there is no summary to approve yet: describe what was built first");
-      if (!session.linked) throw fail(409, "link a Jira ticket or PR first, or mark that no ticket exists");
       approve(id);
       return body.send === true ? flush({ only: id, maxEntries: 1, budgetMs: 30_000 }) : { ok: true };
     },
@@ -367,7 +366,7 @@ const routes = [
           pending: 0,
         };
         entry.sessions += 1;
-        if (["draft", "updated", "needs-link", "ready"].includes(session.status)) entry.pending += 1;
+        if (["draft", "updated", "ready"].includes(session.status)) entry.pending += 1;
         repos.set(session.repoKey, entry);
       }
       for (const key of Object.keys(bindings))

@@ -1,9 +1,16 @@
 "use server";
-// My Day's actions: a person deciding about their own drafts and suggested memories. Each one acts only on the
-// caller's own, whatever id it's given.
+import { ObjectIdHex } from "@strata/contracts";
+// My Day's actions: a person deciding about their own drafts and suggested memories. The record rules are the same ones
+// /api/records uses (server/records/routes.ts): only the author can edit, approve or discard, whatever id is given.
 import { revalidatePath } from "next/cache";
-import { approveRecord, discardRecord, saveDraft } from "../../../server/records.ts";
-import { Refusal } from "../../../server/refusal.ts";
+import { ApiError } from "../../../server/http.ts";
+import { input } from "../../../server/inputs.ts";
+import {
+  approve as approveRecord,
+  type Caller,
+  discard as discardRecord,
+  editRecord,
+} from "../../../server/records/routes.ts";
 import { setStatus } from "../../../server/stats.ts";
 import { requireViewer } from "../../../server/viewer.ts";
 
@@ -11,11 +18,13 @@ export interface Result {
   error: string | null;
 }
 
-async function attempt(work: () => Promise<unknown>): Promise<Result> {
+async function attempt(work: (me: Caller) => Promise<unknown>): Promise<Result> {
+  const viewer = await requireViewer();
   try {
-    await work();
+    await work({ kind: "user", userId: viewer.userId, label: viewer.name });
   } catch (error) {
-    if (error instanceof Refusal) return { error: error.message };
+    if (error instanceof ApiError && error.status < 500)
+      return { error: error.message === "No such record." ? "That draft isn't there any more." : error.message };
     throw error;
   }
   revalidatePath("/my-day");
@@ -23,31 +32,32 @@ async function attempt(work: () => Promise<unknown>): Promise<Result> {
   return { error: null };
 }
 
-const me = async () => {
-  const viewer = await requireViewer();
-  return { id: viewer.userId, label: viewer.name };
-};
+const text = (value: unknown): string => String(value ?? "").slice(0, 8000);
 
-export async function approve(id: string, text?: string): Promise<Result> {
-  const actor = await me();
-  return attempt(() => approveRecord(actor, id, typeof text === "string" ? text.slice(0, 8000) : undefined));
+// Shares it. Given text is the author's last edit, saved first so what's approved is what they read.
+export async function approve(rawId: string, edited?: string): Promise<Result> {
+  const id = input(ObjectIdHex, rawId);
+  return attempt(async (me) => {
+    if (edited !== undefined) await editRecord(me, id, { text: text(edited) });
+    await approveRecord(me, id);
+  });
 }
 
-export async function discard(id: string): Promise<Result> {
-  const actor = await me();
-  return attempt(() => discardRecord(actor, id));
+export async function save(rawId: string, edited: string): Promise<Result> {
+  const id = input(ObjectIdHex, rawId);
+  return attempt((me) => editRecord(me, id, { text: text(edited) }));
 }
 
-export async function save(id: string, text: string): Promise<Result> {
-  const actor = await me();
-  return attempt(() => saveDraft(actor.id, id, String(text).slice(0, 8000)));
+export async function discard(rawId: string): Promise<Result> {
+  const id = input(ObjectIdHex, rawId);
+  return attempt((me) => discardRecord(me, id));
 }
 
 // A memory a session suggested: kept (active, so agents get it) or set aside (archived; nothing is deleted).
-export async function decideCandidate(id: string, keep: boolean): Promise<Result> {
-  const actor = await me();
-  return attempt(async () => {
-    if (!(await setStatus(actor.id, id, keep ? "active" : "archived")))
-      throw new Refusal("That memory isn't waiting any more.");
+export async function decideCandidate(rawId: string, keep: boolean): Promise<Result> {
+  const id = input(ObjectIdHex, rawId);
+  return attempt(async (me) => {
+    if (me.kind !== "user" || !(await setStatus(me.userId, id, keep ? "active" : "archived")))
+      throw new ApiError(404, "not_found", "That memory isn't waiting any more.");
   });
 }

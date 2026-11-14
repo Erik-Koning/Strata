@@ -22,6 +22,7 @@ const env = {
   STRATA_INLINE_WORKER: "1",
   STRATA_CLAUDE_BIN: path.join(ROOT, "tests/fake-claude.mjs"),
   FAKE_CLAUDE_LOG: CLAUDE_LOG,
+  STRATA_NO_BROWSER: "1",
 };
 delete env.STRATA_INTERNAL;
 let server;
@@ -141,7 +142,7 @@ after(() => {
 test("redaction: vendor keys, URL credentials, keyed values; keeps ordinary code", async () => {
   const { redact } = await import(path.join(ROOT, "scripts/lib/redact.mjs"));
   const cases = [
-    ["sk_live_" + "a".repeat(24), /\[redacted\]/],
+    [`sk_live_${"a".repeat(24)}`, /\[redacted\]/],
     ["postgres://admin:hunter2pass@db.internal/app", /admin:\[redacted\]@db/],
     ['DB_PASSWORD="correcthorse99"', /DB_PASSWORD="\[redacted\]/],
     ["Authorization: Bearer abcdefghijklmnop1234", /Bearer \[redacted\]/],
@@ -152,7 +153,7 @@ test("redaction: vendor keys, URL credentials, keyed values; keeps ordinary code
   for (const keep of ["max_tokens=4096", "const token = getToken();", "token: TokenType;", "password = input()"])
     assert.equal(redact(keep), keep, `should keep: ${keep}`);
   const started = Date.now();
-  redact("a ".repeat(2_000_000) + "sk-" + "x".repeat(30), 8000);
+  redact(`${"a ".repeat(2_000_000)}sk-${"x".repeat(30)}`, 8000);
   assert.ok(Date.now() - started < 3000, "oversize input must not stall");
 });
 
@@ -217,7 +218,7 @@ test("schema: code, secrets and tags are stripped from whatever the model or an 
   const { sanitizeSummary } = await import(path.join(ROOT, "scripts/lib/schema.mjs"));
   const out = sanitizeSummary({
     title: "T".repeat(300),
-    built: "Did ```rm -rf /``` and <private>x</private> key sk-" + "q".repeat(30),
+    built: `Did \`\`\`rm -rf /\`\`\` and <private>x</private> key sk-${"q".repeat(30)}`,
     decisions: "a\nb\nc\nd\ne\nf\ng",
     areas: "x",
   });
@@ -228,7 +229,7 @@ test("schema: code, secrets and tags are stripped from whatever the model or an 
 
 // ---------- the automatic summary ----------
 test("a turn is summarized automatically; raw text is deleted; nothing is sent before approval", async () => {
-  turn("s1", "add tax rounding, key sk-" + "q".repeat(30), "Rounded line totals to cents.");
+  turn("s1", `add tax rounding, key sk-${"q".repeat(30)}`, "Rounded line totals to cents.");
   const summary = read("s1", "summary.json");
   assert.equal(summary.revision, 1);
   assert.match(summary.summary.built, /Rounded line totals/);
@@ -297,7 +298,7 @@ test("more work rolls into the same summary and asks for review again", async ()
 test("an engineer can edit after sending: new revision, re-approve, hub gets the latest", async () => {
   const res = await dashFetch("/api/sessions/s1/summary", {
     method: "PUT",
-    body: { title: "Tax rounding", built: "Rounding now happens per line. ```code``` sk-" + "z".repeat(30) },
+    body: { title: "Tax rounding", built: `Rounding now happens per line. \`\`\`code\`\`\` sk-${"z".repeat(30)}` },
   });
   assert.equal((await res.json()).revision, 3);
   const built = read("s1", "summary.json").summary.built;
@@ -325,17 +326,11 @@ test("retract removes it from the hub; the local copy stays and needs approval a
 });
 
 // ---------- links ----------
-test("work with no ticket or PR is held until it is linked or marked as having none", async () => {
+test("links are optional: a summary can be approved and sent without a ticket or PR", async () => {
   turn("nolink", "tidy the readme", "Rewrote the readme intro.", PLAIN);
-  assert.equal(await status("nolink"), "needs-link");
-  assert.equal((await approve("nolink")).status, 409);
+  assert.equal(await status("nolink"), "draft");
   assert.equal((await patch("nolink", { links: { jira: ["not a key"] } })).status, 400);
   assert.equal((await patch("nolink", { links: { prUrl: "javascript:alert(1)" } })).status, 400);
-  assert.equal(
-    (await patch("nolink", { links: { jira: ["PAY-7"], prUrl: "https://github.com/acme/plain/pull/9" } })).status,
-    200,
-  );
-  assert.equal(await status("nolink"), "draft");
   assert.equal((await approve("nolink")).status, 200);
   assert.equal(await status("nolink"), "ready", "approved, but this repo has no project yet");
   assert.equal((await dashFetch("/api/sessions/nolink/sync", { method: "POST" })).status, 200);
@@ -345,6 +340,20 @@ test("work with no ticket or PR is held until it is linked or marked as having n
   assert.equal((await dashFetch("/api/sessions/nolink/sync", { method: "POST" })).status, 200);
   const event = (await stored()).find((e) => e.sessionId === "nolink");
   assert.equal(event.projectId, "p_search");
+  assert.deepEqual(event.links.jira, []);
+  assert.equal(event.links.pr, null);
+  assert.equal(event.links.noTicket, false);
+});
+
+test("links, when the work has them, ride along untouched", async () => {
+  turn("linked", "x", "Fixed the export rounding.", PLAIN);
+  assert.equal(
+    (await patch("linked", { links: { jira: ["PAY-7"], prUrl: "https://github.com/acme/plain/pull/9" } })).status,
+    200,
+  );
+  assert.equal((await patch("linked", { projectId: "p_search" })).status, 200);
+  assert.equal((await approve("linked", true)).status, 200);
+  const event = (await stored()).find((e) => e.sessionId === "linked");
   assert.deepEqual(event.links.jira, ["PAY-7"]);
   assert.equal(event.links.pr.url, "https://github.com/acme/plain/pull/9");
 });
@@ -659,7 +668,7 @@ test("dashboard: signing in from the page sends what was approved while signed o
 const MCP = path.join(ROOT, "scripts/mcp.mjs");
 const mcp = (requests, cwd = REPO) => {
   const res = spawnSync(process.execPath, [MCP], {
-    input: requests.map((r) => JSON.stringify({ jsonrpc: "2.0", ...r })).join("\n") + "\n",
+    input: `${requests.map((r) => JSON.stringify({ jsonrpc: "2.0", ...r })).join("\n")}\n`,
     env: { ...env, CLAUDE_PROJECT_DIR: cwd },
     encoding: "utf8",
     cwd,
@@ -680,7 +689,7 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
       method: "tools/call",
       params: {
         name: "strata_record",
-        arguments: { kind: "gap", text: "No record of why the queue delivers at least once. key sk-" + "z".repeat(30) },
+        arguments: { kind: "gap", text: `No record of why the queue delivers at least once. key sk-${"z".repeat(30)}` },
       },
     },
     {
@@ -688,7 +697,7 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
       method: "tools/call",
       params: {
         name: "strata_record",
-        arguments: { kind: "gap", text: "No record of why the queue delivers at least once. key sk-" + "z".repeat(30) },
+        arguments: { kind: "gap", text: `No record of why the queue delivers at least once. key sk-${"z".repeat(30)}` },
       },
     },
     { id: 5, method: "tools/call", params: { name: "strata_record", arguments: { kind: "rant", text: "nope" } } },
@@ -696,7 +705,16 @@ test("findings: the MCP tool logs a redacted finding into the session draft as a
   assert.equal(init.result.serverInfo.name, "strata");
   assert.deepEqual(
     list.result.tools.map((t) => t.name),
-    ["strata_record", "strata_search"],
+    [
+      "strata_record",
+      "strata_search",
+      // Relay (lib/relay.mjs; tested in relay.test.mjs)
+      "strata_handoff_create",
+      "strata_handoff_get",
+      "strata_handoff_claim",
+      "strata_handoff_verify",
+      "strata_handoff_complete",
+    ],
   );
   assert.match(rec.result.content[0].text, /Recorded/);
   assert.equal(dup.result.content[0].text, "Already recorded.");

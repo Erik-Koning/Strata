@@ -13,7 +13,9 @@ describe("the sign-in gate", () => {
 
   it("sends a signed-out person to sign in, remembering where they were going", () => {
     const response = visit("/records?status=draft");
-    expect(new URL(response.headers.get("location")).pathname).toBe("/sign-in");
-    expect(new URL(response.headers.get("location")).searchParams.get("next")).toBe("/records?status=draft");
+    const location = response.headers.get("location");
+    expect(location).not.toBeNull();
+    expect(new URL(location!).pathname).toBe("/sign-in");
+    expect(new URL(location!).searchParams.get("next")).toBe("/records?status=draft");
   });
 });

@@ -28,7 +28,7 @@ Pain points and context gaps describe code and process, never a person.
 1. **Capture**: hooks capture prompts, replies, tool timings and the session's branch and commit as you work.
 2. **Redact**: secrets are stripped on the engineer's machine, and again on the server.
 3. **Draft**: at session end, Claude drafts a summary and findings on the server. Only the author sees the draft, and
-   the session's prompt and reply text is deleted once it's drafted.
+   the session's prompt and reply text stays in `memory_events` until the 30-day TTL removes it.
 4. **Review**: the engineer approves, edits or discards each record (`/strata:review`).
 5. **Share**: approved records join the product's pages and are indexed for vector search.
 
@@ -55,22 +55,20 @@ Planned MCP tools: `strata_search`, `strata_record`.
 
 ## Decided
 
-| Area    | Choice                                                                                                     |
-| ------- | ---------------------------------------------------------------------------------------------------------- |
-| Name    | Strata                                                                                                     |
-| Form    | Claude Code plugin; opencode v2 adapter optional, sharing one capture core                                 |
-| Storage | MongoDB Atlas for documents, plus vector stores for semantic search                                        |
-| Model   | Claude                                                                                                     |
-| Viewer  | Delivery Context Hub web app (separate, in progress)                                                       |
-| Drafts  | Written on the server from redacted text; the author's alone until approved; raw text deleted once drafted |
-| Wire    | Versioned events (`v`), typed payloads, open lists; see `docs/architecture.md`                             |
+| Area    | Choice                                                                                                 |
+| ------- | ------------------------------------------------------------------------------------------------------ |
+| Name    | Strata                                                                                                 |
+| Form    | Claude Code plugin; opencode v2 adapter optional, sharing one capture core                             |
+| Storage | MongoDB Atlas for documents, plus vector stores for semantic search                                    |
+| Model   | Claude                                                                                                 |
+| Viewer  | Delivery Context Hub web app (separate, in progress)                                                   |
+| Drafts  | Written on the server from redacted text; the author's alone until approved; raw text kept for 30 days |
+| Wire    | Versioned events (`v`), typed payloads, open lists; see `docs/architecture.md`                         |
 
 ## Open questions
 
 - What is the record schema, and how much editing does a typical draft need?
 - How many response notes per session help before they turn into noise?
-- Which opencode v2 events map onto `Stop`, `PreCompact` and `SessionEnd`? **Answered:** `experimental.idle` →
-  `Stop`, `session.hook("compaction")` → `PreCompact`, `session.compaction.ended` → `PostCompact`, and
-  `session.deleted` → `SessionEnd`. See [`docs/architecture.md`](architecture.md#the-opencode-client).
+- Which opencode v2 events map onto `Stop`, `PreCompact` and `SessionEnd`?
 - Which embeddings model backs vector search? Voyage AI (owned by MongoDB) is the natural fit.
 - Does the hub read Atlas directly, or go through a Strata API?

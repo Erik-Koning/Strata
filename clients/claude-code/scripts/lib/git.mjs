@@ -93,7 +93,7 @@ export function extractJiraKeys(...texts) {
     for (const key of text.match(JIRA_KEY) ?? []) {
       const prefix = key.slice(0, key.indexOf("-"));
       if (NOT_JIRA.has(prefix)) continue;
-      if (allow && allow.size && !allow.has(prefix)) continue;
+      if (allow?.size && !allow.has(prefix)) continue;
       if (!keys.includes(key)) keys.push(key);
     }
   }
@@ -118,6 +118,10 @@ export function parseStatusZ(raw) {
   return files;
 }
 
+// The contract takes a commit id or nothing: `head` and `path` are left out, not sent empty, when there is no commit
+// (a new repository) or no repository at all.
+const COMMIT = /^[0-9a-f]{7,64}$/;
+
 export function gitContext(cwd) {
   const root = run(cwd, "git", ["rev-parse", "--show-toplevel"]);
   if (!root)
@@ -127,8 +131,6 @@ export function gitContext(cwd) {
       remote: "",
       project: basename(cwd) || "default",
       branch: "",
-      head: "",
-      path: "",
       files: [],
       jira: [],
       isGit: false,
@@ -138,7 +140,9 @@ export function gitContext(cwd) {
   const repoKey = run(root, "git", ["rev-parse", "--path-format=absolute", "--git-common-dir"]) || root;
   // `branch --show-current` also works on an unborn branch (no commits yet) and is empty when detached.
   const branch = run(root, "git", ["branch", "--show-current"]);
-  const head = run(root, "git", ["rev-parse", "HEAD"]);
+  // `--verify` prints nothing on an unborn branch, where a bare `rev-parse HEAD` echoes "HEAD" back.
+  const commit = run(root, "git", ["rev-parse", "--verify", "--quiet", "HEAD"]);
+  const head = COMMIT.test(commit) ? commit : undefined;
   const remote = cleanRemote(run(root, "git", ["remote", "get-url", "origin"]));
   const path = run(root, "git", ["rev-parse", "--show-prefix"]).replace(/\/$/, "");
   const subjects = run(root, "git", ["log", "-10", "--format=%s"]);
@@ -155,8 +159,7 @@ export function gitContext(cwd) {
     remote,
     project: normalizeRemote(remote) ?? basename(root) ?? "default",
     branch,
-    head,
-    path,
+    ...(head ? { head, path } : {}),
     files,
     jira: extractJiraKeys(branch, subjects),
     isGit: true,

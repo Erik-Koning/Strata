@@ -3,11 +3,13 @@
 //   strata_record  log an insight, workflow finding, pain point or context gap into this session's draft summary
 //   strata_search  search teammates' approved summaries (when signed in) and the ones on this machine
 // Nothing here sends anything: a record joins the draft summary and still needs the engineer's approval.
+// Plus Relay's five strata_handoff_* tools (lib/relay.mjs), used by /strata:handoff and /strata:resume.
 import readline from "node:readline";
 import { sessionForNote } from "./lib/active.mjs";
 import { enqueueEvent, flushEvents } from "./lib/events.mjs";
 import { projectOf } from "./lib/git.mjs";
 import { addFinding, listSessions } from "./lib/records.mjs";
+import { callRelayTool, RELAY_TOOL_NAMES, RELAY_TOOLS, relayDeps } from "./lib/relay.mjs";
 import { FINDING_KINDS } from "./lib/schema.mjs";
 import { describeTeamResult, searchTeam } from "./lib/team.mjs";
 
@@ -33,6 +35,7 @@ const TOOLS = [
       "Search approved session summaries from teammates (when signed in) and the ones kept on this machine: insights, workflow findings, pain points, gaps, what was built. Use it before re-deriving something a teammate may already have found.",
     inputSchema: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
   },
+  ...RELAY_TOOLS,
 ];
 
 function search(query) {
@@ -120,6 +123,20 @@ readline.createInterface({ input: process.stdin }).on("line", async (line) => {
   if (method === "ping") return send({ id, result: {} });
   if (method === "tools/list") return send({ id, result: { tools: TOOLS } });
   if (method === "tools/call") {
+    if (RELAY_TOOL_NAMES.has(params?.name)) {
+      try {
+        const out = await callRelayTool(params.name, params?.arguments ?? {}, relayDeps(cwd()));
+        return send({
+          id,
+          result: { content: [{ type: "text", text: out.text }], ...(out.isError ? { isError: true } : {}) },
+        });
+      } catch (err) {
+        return send({
+          id,
+          result: { isError: true, content: [{ type: "text", text: `Strata Relay: ${err.message}` }] },
+        });
+      }
+    }
     try {
       return send({ id, result: { content: [{ type: "text", text: await call(params?.name, params?.arguments) }] } });
     } catch (err) {

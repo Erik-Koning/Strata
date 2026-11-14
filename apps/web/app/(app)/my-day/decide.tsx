@@ -57,7 +57,7 @@ export function Draft({ id, text, label }: { id: string; text: string; label: st
           type="button"
           className="btn btn-primary btn-sm min-h-11 sm:min-h-9"
           disabled={pending}
-          onClick={() => run(() => approve(id, editing ? value : undefined))}
+          onClick={() => run(() => approve(id, editing && value !== text ? value : undefined))}
         >
           {pending ? <LoaderCircle size={14} className="animate-spin" aria-hidden /> : <Check size={14} aria-hidden />}
           Approve and share
