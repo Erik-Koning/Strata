@@ -1,6 +1,6 @@
 // Drafting off the request, once per session: the events answer at once while a slow model drafts, a retried or
 // repeated end event never drafts the same session twice, and the raw text (transcripts and compaction summaries too)
-// is cleared afterwards. The provider here is slow and never says the same thing twice, as a real model would.
+// stays until the TTL, drafted once. The provider here is slow and never says the same thing twice, as a real model would.
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
@@ -80,12 +80,13 @@ describe("drafting after the answer", () => {
     expect(model.calls).toBe(1);
   });
 
-  it("clears the transcript's messages and the compaction summary with the rest of the text", async () => {
+  it("keeps the transcript's messages, the compaction summary and the rest of the text, marked drafted", async () => {
     const stored = await events().find({ sessionID: "s-fast" }).toArray();
     const transcript = stored.find((e) => e.kind === "transcript");
-    expect(transcript?.payload.messages).toEqual([]);
-    expect(stored.find((e) => e.kind === "event")?.payload.text).toBe("");
-    for (const kind of ["prompt", "assistant"]) expect(stored.find((e) => e.kind === kind)?.payload.text).toBe("");
+    expect((transcript?.payload.messages as unknown[] | undefined)?.length).toBeGreaterThan(0);
+    expect(String(stored.find((e) => e.kind === "event")?.payload.text ?? "")).not.toBe("");
+    for (const kind of ["prompt", "assistant"])
+      expect(String(stored.find((e) => e.kind === kind)?.payload.text ?? "")).not.toBe("");
     expect(stored.every((e) => e.draftedAt)).toBe(true);
   });
 });
@@ -147,7 +148,7 @@ describe("a session is drafted once", () => {
     expect(model.calls).toBe(2);
     expect(await records().countDocuments({ sessionID: "s-resumed" })).toBe(2);
     const left = await events().find({ sessionID: "s-resumed", kind: "prompt" }).toArray();
-    expect(left.every((e) => e.payload.text === "" && e.draftedAt)).toBe(true);
+    expect(left.every((e) => String(e.payload.text).length > 0 && e.draftedAt)).toBe(true);
   });
 
   it("does nothing for an end event replayed after drafting finished", async () => {
