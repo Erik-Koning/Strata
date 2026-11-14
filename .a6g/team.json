@@ -1,0 +1,111 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Erik-Koning/Anything-Factory/main/schema/team.schema.json",
+  "name": "agentic-memory",
+  "title": "Agentic Memory",
+  "factory": "0.8.2",
+  "owner": "erik@ridenet.ca",
+  "operator": {
+    "technical": true,
+    "designCheckIn": true
+  },
+  "branch": "a6g/next",
+  "base": "main",
+  "push": null,
+  "board": "tasks",
+  "tasks": {
+    "store": "mongo"
+  },
+  "mode": "finish",
+  "roles": {
+    "planner": {},
+    "builder": {
+      "limit": 2
+    },
+    "reviewer": {
+      "limit": 1
+    },
+    "approver": {
+      "limit": 1
+    },
+    "scaffolder": {
+      "limit": 1
+    },
+    "ux-specialist": {
+      "limit": 1
+    },
+    "security-reviewer": {
+      "limit": 1
+    }
+  },
+  "approval": {
+    "mode": "thresholds",
+    "maxSize": "M",
+    "findings": "planner"
+  },
+  "gate": {
+    "full": ".a6g/adapters/gate.sh",
+    "quick": ".a6g/adapters/gate.sh --quick",
+    "concurrency": 2
+  },
+  "environment": {
+    "script": ".a6g/adapters/env.sh",
+    "health": ["http://localhost:9316/api/health"],
+    "needsDocker": true
+  },
+  "afterMerge": ".a6g/adapters/after-merge.sh",
+  "finish": ".a6g/adapters/finish.sh done",
+  "progress": ".a6g/adapters/finish.sh status",
+  "context": [
+    {
+      "title": "Where the work stands",
+      "command": ".a6g/adapters/finish.sh status"
+    }
+  ],
+  "pages": {
+    "appUrl": "http://localhost:9316",
+    "minTarget": 44
+  },
+  "policies": {},
+  "never": [
+    {
+      "rule": "(~|\\$HOME|/Users/[^/\\s]+)/\\.(local/share|config)/opencode\\b",
+      "reason": "that's the operator's own OpenCode: their sessions, their provider keys (auth.json) and their global config. The team's OpenCode data lives under .a6g/run/opencode/ in the team's checkout (notes.md).",
+      "example": "cat ~/.local/share/opencode/auth.json"
+    },
+    {
+      "rule": "\\bopencode(-ai(@\\S+)?)?(\\s+--?[\\w-]+(=\\S+)?)*\\s+(run|serve|web|acp|attach|auth|github)\\b",
+      "reason": "a bare opencode runs the operator's own OpenCode, with their provider keys and their session store. Run it through the team's sandbox, scripts/oc-sandbox.sh (XDG dirs under .a6g/run/opencode, the stub provider), which the scaffolder sets up (notes.md).",
+      "example": "opencode run \"hello\""
+    },
+    {
+      "rule": "\\bdocker\\s+(system|volume|container|image|network|builder)\\s+prune\\b|\\bdocker\\s+(rm|stop|kill|restart)\\b(?![^;&|]*agentic-memory-a6g)",
+      "reason": "other teams' containers run on this Mac's Docker engines. The team touches only its own (agentic-memory-a6g-*), and normally only through a6g env.",
+      "example": "docker system prune -af"
+    },
+    {
+      "rule": "\\b(OPENAI|ANTHROPIC|VOYAGE|GEMINI|GOOGLE|MISTRAL|COHERE|OPENROUTER)_API_KEY\\s*=\\s*[\"']?[A-Za-z0-9_-]{8,}",
+      "reason": "the team's environment runs the stub AI provider (MEMORY_AI_PROVIDER=stub): no real model or embedding key. A real key is the operator's to set, in their own environment, never in the team's or in a file.",
+      "example": "OPENAI_API_KEY=sk-proj-abc123456789 pnpm dev"
+    }
+  ],
+  "critical": [
+    "(^|/)plugins/memory/(freeze|render|outbox|redact|api)\\.[jt]s$",
+    "(^|/)api/memory/",
+    "(^|/)(forget|governance)/",
+    "(^|/)(db|data|mongo)/(schema|schemas|indexes|collections|migrations?)(/|\\.[jt]s$)",
+    "(^|/)(workers?|jobs)/",
+    "(^|/)(auth|session|token)[^/]*\\.[jt]sx?$",
+    "(^|/)Dockerfile",
+    "^\\.github/workflows/"
+  ],
+  "security": {
+    "paths": [
+      "(^|/)app/api/",
+      "(^|/)plugins/memory/(api|redact)\\.[jt]s$",
+      "(^|/)redact[^/]*\\.[jt]s$",
+      "(^|/)scripts/oc-sandbox\\.sh$"
+    ]
+  },
+  "docs": [".a6g/brief.md", ".a6g/notes.md", ".a6g/rubric.md"],
+  "worktreeSetup": ".a6g/adapters/worktree-setup.sh"
+}
