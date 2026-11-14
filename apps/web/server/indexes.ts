@@ -6,12 +6,15 @@ import { provider } from "./ai/provider.ts";
 import {
   apiKeys,
   audits,
+  draftClaims,
   events,
+  gaps,
   invites,
   memories,
+  products,
   projectMembers,
-  projects,
   records,
+  signalDaily,
   summaries,
   summaryRevisions,
   teams,
@@ -40,6 +43,10 @@ export async function ensureIndexes({
     "summary_revisions",
     "records",
     "deviceCode",
+    "products",
+    "signal_daily",
+    "gaps",
+    "draft_claims",
   ])
     if (!existing.has(name))
       await db()
@@ -93,6 +100,44 @@ export async function ensureIndexes({
     ),
     records().createIndex({ "scope.user": 1, status: 1, updatedAt: -1 }, { name: "by_author_status" }),
     records().createIndex({ "scope.user": 1, sessionID: 1 }, { name: "by_session" }),
+    draftClaims().createIndex({ doneAt: 1 }, { expireAfterSeconds: EVENT_TTL_SECONDS, name: "done_ttl" }),
+    // The hub reads approved work team-wide (server/hub/team-records.ts): everything, one product's, one session's.
+    records().createIndex({ status: 1, "scope.org": 1, approvedAt: -1 }, { name: "team_approved" }),
+    records().createIndex(
+      { status: 1, "scope.org": 1, "scope.project": 1, approvedAt: -1 },
+      { name: "team_approved_by_project" },
+    ),
+    records().createIndex({ sessionID: 1, status: 1 }, { name: "by_session_status" }),
+    records().createIndex({ title: "text", text: "text" }, { name: "text" }),
+    summaryRevisions().createIndex({ "review.approvedAt": -1 }, { name: "by_approved" }),
+    summaryRevisions().createIndex({ sessionId: 1, revision: -1 }, { name: "by_session" }),
+    summaryRevisions().createIndex(
+      {
+        "summary.title": "text",
+        "summary.built": "text",
+        "summary.why": "text",
+        "summary.decisions": "text",
+        "summary.areas": "text",
+        "summary.open": "text",
+        "summary.insights": "text",
+        "summary.workflow": "text",
+        "summary.painPoints": "text",
+        "summary.gaps": "text",
+      },
+      { name: "text" },
+    ),
+    // A repository (or a folder of one) belongs to one product; a merged product keeps none.
+    products().createIndex(
+      { org: 1, repoKeys: 1 },
+      { unique: true, name: "repo_unique", partialFilterExpression: { "repoKeys.0": { $exists: true } } },
+    ),
+    products().createIndex({ repoKeys: 1 }, { name: "by_repo" }),
+    signalDaily().createIndex({ item: 1, day: 1, productId: 1 }, { unique: true, name: "row_unique" }),
+    signalDaily().createIndex({ day: 1, productId: 1 }, { name: "by_day" }),
+    gaps().createIndex({ key: 1 }, { unique: true, name: "key_unique" }),
+    gaps().createIndex({ status: 1, productId: 1, lastSeen: -1 }, { name: "by_status" }),
+    gaps().createIndex({ sourceIds: 1 }, { name: "by_source" }),
+    gaps().createIndex({ text: "text" }, { name: "text" }),
     // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };

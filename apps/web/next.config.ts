@@ -23,6 +23,10 @@ const config: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
+  // The plugin and its contract (clients/claude-code/docs/api-contract.md) call /v1/*; the routes live under /api/v1.
+  async rewrites() {
+    return [{ source: "/v1/:path*", destination: "/api/v1/:path*" }];
+  },
 };
 
 export default config;

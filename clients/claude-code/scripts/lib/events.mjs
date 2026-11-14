@@ -67,7 +67,25 @@ function takeLock() {
 const retryable = (error) =>
   !error.status || error.status >= 500 || error.status === 408 || error.status === 425 || error.status === 429;
 
-/** Send pending events. Keeps everything on a retryable failure; on anything else, sets the event aside as dead. */
+// An event the server can't take is kept under events/dead/ (never resent, never lost without a trace).
+function setAside(name) {
+  fs.mkdirSync(p("events", "dead"), { recursive: true, mode: 0o700 });
+  fs.renameSync(p("events", name), p("events", "dead", name));
+}
+
+// The 202 lists each event it refused by its place in the batch; the rest were stored (or were already).
+function refusedIn(answer, count) {
+  const refused = new Map();
+  for (const entry of Array.isArray(answer?.rejected) ? answer.rejected : []) {
+    if (Number.isInteger(entry?.index) && entry.index >= 0 && entry.index < count) refused.set(entry.index, entry);
+  }
+  return refused;
+}
+
+/**
+ * Send pending events. Keeps everything on a retryable failure. A batch the server refuses whole, and each event its
+ * 202 lists in `rejected[]`, is set aside as dead and logged with the reason.
+ */
 export async function flushEvents({ force = false, budgetMs = 20_000 } = {}) {
   const auth = getAuth();
   if (!auth?.token) return { sent: 0, dead: 0, left: pendingEvents() };
@@ -104,24 +122,41 @@ export async function flushEvents({ force = false, budgetMs = 20_000 } = {}) {
         }
       }
       if (!events.length) continue;
+      let answer;
       try {
-        await apiEvents(
+        answer = await apiEvents(
           events.map((entry) => entry.event),
           auth.token,
           SEND_MS,
         );
-        for (const entry of events) fs.rmSync(p("events", entry.name), { force: true });
-        sent += events.length;
       } catch (error) {
         if (retryable(error)) throw error;
         // The server refused this batch as malformed: keep it aside so it cannot block the rest.
-        fs.mkdirSync(p("events", "dead"), { recursive: true, mode: 0o700 });
         for (const entry of events) {
-          fs.renameSync(p("events", entry.name), p("events", "dead", entry.name));
+          setAside(entry.name);
           dead += 1;
         }
         log("error", "events rejected", { status: error.status, error: error.message });
+        continue;
       }
+      const refused = refusedIn(answer, events.length);
+      events.forEach((entry, index) => {
+        const why = refused.get(index);
+        if (!why) {
+          fs.rmSync(p("events", entry.name), { force: true });
+          sent += 1;
+          return;
+        }
+        setAside(entry.name);
+        dead += 1;
+        // Why, never what: the code and message describe the shape, not the content.
+        log("error", "event rejected", {
+          id: entry.event.id,
+          kind: entry.event.kind,
+          code: why.code,
+          reason: String(why.message ?? "").slice(0, 300),
+        });
+      });
     }
     fs.rmSync(backoffFile(), { force: true });
     return { sent, dead, left: pendingEvents() };
