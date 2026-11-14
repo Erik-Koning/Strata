@@ -11,7 +11,21 @@ const Settings = z.object({
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().positive().default(9316),
+  // Email through Amazon SES: all four or none (sst.config.ts makes the send-only key).
+  SES_REGION: z.string().min(1).optional(),
+  SES_ACCESS_KEY_ID: z.string().min(1).optional(),
+  SES_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  MAIL_FROM: z.string().min(1).optional(),
 });
+
+const MAIL_SETTINGS = ["SES_REGION", "SES_ACCESS_KEY_ID", "SES_SECRET_ACCESS_KEY", "MAIL_FROM"] as const;
+
+export interface MailConfig {
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  from: string;
+}
 
 export interface Config {
   mongoUri: string;
@@ -19,6 +33,9 @@ export interface Config {
   aiProvider: "stub" | "openai" | "anthropic";
   authSecret: string;
   baseURL: string;
+  // The email settings, or which of the four are missing (all four when email isn't set up). Checked when mail is
+  // sent, not here: nothing else should stop working over a half-set optional feature.
+  mail: MailConfig | { missing: string[] };
 }
 
 let cached: Config | null = null;
@@ -34,12 +51,22 @@ export function config(): Config {
   const authSecret =
     env.BETTER_AUTH_SECRET ??
     (env.MEMORY_API_TOKEN ? `derived:${env.MEMORY_API_TOKEN}` : "strata-development-secret-only!!");
+  const mail =
+    env.SES_REGION && env.SES_ACCESS_KEY_ID && env.SES_SECRET_ACCESS_KEY && env.MAIL_FROM
+      ? {
+          region: env.SES_REGION,
+          accessKeyId: env.SES_ACCESS_KEY_ID,
+          secretAccessKey: env.SES_SECRET_ACCESS_KEY,
+          from: env.MAIL_FROM,
+        }
+      : { missing: MAIL_SETTINGS.filter((name) => !env[name]) };
   cached = {
     mongoUri: env.MONGODB_URI,
     serviceToken: env.MEMORY_API_TOKEN ?? null,
     aiProvider: env.MEMORY_AI_PROVIDER,
     authSecret,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
+    mail,
   };
   return cached;
 }
