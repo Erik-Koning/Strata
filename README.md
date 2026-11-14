@@ -4,25 +4,150 @@ Long-term memory for coding agents. Strata captures what happens in your Claude 
 remembering, and gives it back to the next session without breaking the prompt cache. Compacted summaries sit on top,
 so a long history stays small.
 
-- **The web app** (`apps/web`): the API every client talks to, the only thing that touches MongoDB, and the place you
-  see what's remembered, keep or forget it, and connect your clients. Next.js 16, Better Auth, MongoDB.
-- **The Claude Code plugin** (`clients/claude-code`): hooks that capture each session into a durable outbox, give
-  Claude a frozen block of memory when a session starts, recall what matches each prompt, and three tools
-  (`memory_search`, `memory_save`, `memory_forget`).
-- **The contracts** (`packages/contracts`): every wire shape (zod), and the two pure functions both sides must agree
-  on, redaction and rendering.
-- **The OpenCode plugin** (`.opencode/plugins/memory`): next, on the same API. See `.a6g/brief.md`.
+## What's built so far
 
-## The rule everything follows
+On 14 November 2026 Strata went from an empty repository to a working loop, end to end. **The web app** (Next.js 16,
+`apps/web`) has accounts with email and password, API keys you make per machine, and the whole memory API: capture,
+recall, the frozen block, compaction summaries, save and forget. Every route checks a bearer key first and validates its
+body against a shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, an audit log and
+the keys, with a vector index for recall and a text index behind it. **The Claude Code plugin** (`clients/claude-code`)
+gives each session a frozen block of memory it never changes, recalls what matches each prompt within 800 ms or not at
+all, queues every capture in a durable outbox, removes secrets before anything leaves the machine, and gives Claude
+`memory_search`, `memory_save` and `memory_forget`. **The pages** show what's remembered and where it came from, let you
+keep a candidate or forget a memory after seeing exactly what goes with it, connect a client step by step, and list
+every change in an audit log, in light and dark and on a phone. It's covered by unit tests, database tests against the
+real engine, and acceptance tests that run the plugin's hooks as real processes, and it was checked in a real Claude
+Code session: the second session answered from what the first one saved. The rest is in the to-do below, which an
+[Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is now working through.
 
-**Bytes already sent in a session never change.** The frozen block is fetched once when a session starts, rendered
-sorted by id with no timestamps, and kept byte for byte until the session compacts. Each prompt's recall is added to
-that prompt only. Nothing already sent is edited. So the provider's prompt cache holds, turn after turn.
+## Architecture
 
-The other rules: a prompt never waits more than 800 ms for memory, and goes ahead without it. Every capture goes
-through an outbox, keyed so a retry never stores anything twice. Secrets are redacted before anything is queued, and
-again on the server. Only what you said in your own turn becomes an active memory on its own. Anything else is a
-candidate until you keep it.
+```mermaid
+flowchart LR
+  subgraph machine["Your machine"]
+    CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>PostToolUse, PreCompact, Stop" --> PL["Strata plugin<br/>clients/claude-code"]
+    CC -- "MCP: memory_search / save / forget" --> PL
+    PL --- OB[("outbox and frozen blocks<br/>plugin data folder")]
+    OC["OpenCode"] -.-> OP["OpenCode plugin<br/>(to do)"]
+  end
+  subgraph server["Strata web app: apps/web"]
+    API["/api/memory/*<br/>bearer key, zod, one error shape"]
+    UI["Pages: Overview, Memories,<br/>Connect, Audit log"]
+    AUTH["Better Auth<br/>accounts, sessions"]
+    JOBS["Extract (inline today)<br/>dedupe, embed, summarize, score: to do"]
+  end
+  DB[("MongoDB<br/>memory_events, memories, memory_summaries,<br/>memory_audit, api_keys, auth")]
+  PL -- "HTTPS + API key" --> API
+  OP -.-> API
+  UI --- AUTH
+  API --> JOBS
+  API --> DB
+  JOBS --> DB
+  UI --> DB
+  CT["packages/contracts<br/>schemas, redact, render"] -.- PL
+  CT -.- API
+```
+
+Only the API touches the database. Both sides share `packages/contracts`: every wire shape as a zod schema, and the two
+pure functions they must agree on, redaction and rendering.
+
+**One session, as the plugin sees it:**
+
+```mermaid
+sequenceDiagram
+  participant C as Claude Code
+  participant P as Strata plugin
+  participant A as Strata API
+  C->>P: SessionStart (startup)
+  P->>A: GET /frozen (800 ms)
+  A-->>P: active memories, chosen the same way every time
+  P-->>C: the frozen block, kept byte for byte all session
+  loop every prompt
+    C->>P: UserPromptSubmit
+    P->>P: redact, queue the prompt in the outbox
+    P->>A: POST /recall (800 ms, else nothing)
+    P-->>C: matching memories, added to this prompt only
+  end
+  C->>P: PostToolUse (tool name and ok/error only)
+  C->>P: PreCompact
+  P->>A: POST /compress (5 s): a summary on top
+  C->>P: SessionStart (compact): the only time the block is fetched again
+  C->>P: Stop / SessionEnd
+  P->>A: background flush: POST /events, deduped on each event's id
+```
+
+**The rule everything follows:** bytes already sent in a session never change. The frozen block is rendered sorted by
+id with no timestamps and fetched again only when the session compacts, which rebuilds the cache anyway. Each prompt's
+recall is added to that prompt only, so the provider's prompt cache holds turn after turn. The other rules:
+
+- a prompt never waits more than 800 ms for memory;
+- every capture goes through an outbox, keyed so a retry never stores anything twice;
+- secrets are redacted before anything is queued, and again on the server;
+- only what you said in your own turn becomes an active memory by itself; anything else is a candidate until you keep
+  it.
+
+The data model, who can do what, and how each hook maps to the cache rules are in
+[`docs/architecture.md`](docs/architecture.md).
+
+| Part                     | Where                    | What it is                                                            |
+| ------------------------ | ------------------------ | --------------------------------------------------------------------- |
+| Web app and API          | `apps/web`               | Next.js 16, App Router, Better Auth, the MongoDB driver, Tailwind     |
+| Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save               |
+| AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet    |
+| Claude Code plugin       | `clients/claude-code`    | hooks, outbox, frozen blocks, MCP server; `dist/` is the built plugin |
+| Contracts                | `packages/contracts`     | zod schemas, `redact`, `renderFrozen`, `renderRecall`                 |
+| Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository              |
+| The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to               |
+
+## To-do
+
+What's left, in the order the team is working through it. Each group is one journey in the team's task graph.
+
+**Done: the foundation**
+
+- [x] Workspace: pnpm, TypeScript, Biome, Vitest; the gate the team's merge queue runs
+- [x] Accounts, sessions and per-person API keys
+- [x] MongoDB collections, indexes and the vector index, created by `pnpm db:indexes`
+- [x] The memory API: events, recall, frozen, compress, forget (with a preview), save
+- [x] Extraction: what the user says to remember becomes an active memory; anything else is a candidate
+- [x] The Claude Code plugin: frozen block, recall, outbox, redaction, MCP tools, marketplace
+- [x] The pages: Overview, Memories, Connect, Audit log
+
+**Test harness**
+
+- [ ] Playwright suite and page checks (axe, overflow, touch targets) at desktop, laptop and phone, light and dark
+- [ ] End-to-end journeys: sign up, make a key, a session's memory shown, keep a candidate, forget with its cascade
+
+**OpenCode plugin**
+
+- [ ] Verify the real `@opencode-ai/plugin` API against the brief's sketch: hook names, event fields, timeouts,
+      storage, whether a prompt edit shows in the TUI
+- [ ] `.opencode/plugins/memory`: `index.ts`, `api.ts`, `outbox.ts`, `freeze.ts`, `render.ts`, `redact.ts`, `tools.ts`
+- [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
+- [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
+      prompts go on and the outbox drains with no duplicates
+
+**Memory pipeline**
+
+- [ ] Jobs on a schedule (`POST /api/jobs/run`): extract > dedupe > embed > summarize > score > policy
+- [ ] Dedupe beyond identical text: near-duplicates, and `supersedes` when a memory replaces another
+- [ ] Real providers behind `server/ai/provider.ts`: OpenAI embeddings, Anthropic for compress and extract
+- [ ] Scoring and expiry: confidence that changes with use, `expiresAt`, archiving what goes stale
+- [ ] `scripts/check-cache.ts`: proof with a real key that cache-read tokens don't drop after turn 2
+
+**Governance**
+
+- [ ] Summaries shown and forgettable, with what they were made from
+- [ ] Provenance one click away: the session, the message and the event behind a memory
+- [ ] Memories for every project (`*`) set from the page; editing a memory as a superseding one
+- [ ] Bulk keep and archive for candidates; pagination tested at scale
+
+**Shipping**
+
+- [ ] Dockerfile for `apps/web` (standalone, not root, health check)
+- [ ] GitHub Actions running the gate and the end-to-end suite against an Atlas-local service container
+- [ ] `docs/architecture.md`: backups and restore (`mongodump`), HTTPS, logs, Dependabot
+- [ ] Rate limits on the API, and a size limit on event batches
 
 ## Run it
 
@@ -75,7 +200,7 @@ is `{ project }`; the organisation and the person come from the key.
 | `pnpm db:seed`         | Made-up memories for the pages                                       |
 
 Embeddings and summaries go through one interface (`apps/web/server/ai/provider.ts`). The default, `stub`, is
-deterministic and offline, so every test runs without a key. How it fits together: [`docs/architecture.md`](docs/architecture.md).
+deterministic and offline, so every test runs without a key.
 
 Built by an [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team; its rules and brief are in
 `.a6g/`.
