@@ -21,10 +21,10 @@ type Item = { href: string; label: string; icon: typeof Activity };
 
 // The product, in the order of its story: what's happening, work handed on, what's remembered, what it adds up to.
 const PRIMARY: Item[] = [
-  { href: "/", label: "Overview", icon: Activity },
-  { href: "/relay", label: "Relay", icon: Forward },
-  { href: "/memories", label: "Memory", icon: Brain },
-  { href: "/intelligence", label: "Intelligence", icon: Radar },
+  { href: "/", label: "Home", icon: Activity },
+  { href: "/relay", label: "Handoffs", icon: Forward },
+  { href: "/memories", label: "Knowledge", icon: Brain },
+  { href: "/intelligence", label: "Ask Strata", icon: Radar },
 ];
 
 // The team hub: what the team builds, where its time goes, what context is missing, and a question to ask of it all.
@@ -32,7 +32,7 @@ const TEAM: Item[] = [
   { href: "/products", label: "Products", icon: Boxes },
   { href: "/time", label: "Time", icon: Timer },
   { href: "/gaps", label: "Gaps", icon: Puzzle },
-  { href: "/ask", label: "Ask", icon: MessageCircleQuestionMark },
+  { href: "/ask", label: "Team questions", icon: MessageCircleQuestionMark },
 ];
 
 const WORKSPACE: Item[] = [
@@ -56,7 +56,7 @@ function NavLink({ item, current, waiting = 0 }: { item: Item; current: boolean;
       aria-current={current ? "page" : undefined}
       title={label}
       className={`relative flex min-h-11 min-w-11 flex-none items-center gap-2.5 rounded-[7px] px-2.5 font-medium text-[13.5px] transition-colors max-md:justify-center md:min-h-8 ${
-        current ? "bg-surface-2 text-ink" : "text-ink-2 hover:bg-surface-2/60 hover:text-ink"
+        current ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
       }`}
     >
       <Icon size={16} strokeWidth={1.75} aria-hidden className={current ? "text-accent-text" : "text-ink-3"} />

@@ -13,7 +13,7 @@ function Row({ item, selected, box }: { item: HandoffListItem; selected: boolean
         href={`/relay?id=${item._id}`}
         aria-current={selected ? "page" : undefined}
         title={item.project}
-        className="relay-row relative block min-h-11 rounded-[8px] px-3 py-2.5 transition-colors hover:bg-surface-2/60"
+        className="relay-row relative block min-h-11 rounded-[10px] px-3 py-2.5 transition-colors hover:bg-surface/70"
       >
         <span className="line-clamp-2 font-medium text-[13.5px] text-ink leading-snug">{item.title}</span>
         <span className="mt-1.5 flex items-center gap-2 text-[11.5px] text-ink-3">
@@ -42,7 +42,7 @@ function Group({
   const id = `box-${box}`;
   return (
     <section aria-labelledby={id}>
-      <h2 id={id} className="eyebrow flex items-center justify-between px-3 pb-1">
+      <h2 id={id} className="flex items-center justify-between px-3 pb-1 font-medium text-[12.5px] text-ink-3">
         {label}
         <span className="count">{items.length}</span>
       </h2>
@@ -71,14 +71,14 @@ export function Inbox({
   return (
     <div className="grid gap-6">
       <Group
-        label="Inbox"
+        label="Handed to you"
         box="inbox"
         items={inbox}
         selected={selected}
         empty="Nothing handed to you. When someone approves a handoff for you, it appears here."
       />
       <Group
-        label="Sent"
+        label="Sent by you"
         box="sent"
         items={sent}
         selected={selected}

@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const myDay = viewer.usesPlugin ? await waitingOn(viewer.userId) : null;
   return (
     <div className="md:grid md:min-h-dvh md:grid-cols-[232px_minmax(0,1fr)]">
-      <aside className="sticky top-0 z-20 flex items-center justify-between gap-3 border-line border-b bg-bg/95 px-3 py-2 backdrop-blur md:h-dvh md:flex-col md:items-stretch md:justify-start md:gap-7 md:overflow-y-auto md:border-r md:border-b-0 md:bg-bg md:px-3 md:py-5">
+      <aside className="chrome sticky top-0 z-20 flex items-center justify-between gap-3 border-line border-b bg-bg/95 px-3 py-2 backdrop-blur md:h-dvh md:flex-col md:items-stretch md:justify-start md:gap-7 md:overflow-y-auto md:border-r md:border-b-0 md:px-3 md:py-5">
         <div className="flex-none px-1 max-md:[&_span.text-\[15px\]]:hidden">
           <Wordmark />
         </div>

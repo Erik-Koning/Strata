@@ -13,7 +13,7 @@ import { requireViewer } from "../../server/viewer.ts";
 import { PageHeader } from "./page-header.tsx";
 import { requireCaller } from "./relay/caller.ts";
 
-export const metadata: Metadata = { title: "Overview" };
+export const metadata: Metadata = { title: "Home" };
 
 const LIVE_MS = 5 * 60 * 1000;
 
@@ -37,19 +37,27 @@ export default async function OverviewPage() {
   const live = stats.lastSeen ? Date.now() - stats.lastSeen.at.getTime() < LIVE_MS : false;
   const first = viewer.name.split(/\s+/)[0] ?? viewer.name;
 
+  const all = [...inbox, ...sent];
+  const moving = all.filter((h) => h.status === "approved" || h.status === "claimed").length;
+  const finished = all.filter((h) => h.status === "completed").length;
+  // The product's story in four plain numbers, each a door to where you act on it.
   const tiles = [
-    { label: "Active memories", value: stats.active, hint: "given to new sessions" },
-    { label: "Candidates", value: stats.candidates, hint: "waiting for a yes", href: "/memories?status=candidate" },
-    { label: "Events today", value: stats.events24h, hint: "captured in 24 h" },
-    { label: "Sessions this week", value: stats.sessions7d, hint: "across your projects" },
+    { label: "Handoffs in motion", value: moving, hint: "handed on, not finished yet", href: "/relay" },
+    {
+      label: "Waiting for your review",
+      value: stats.candidates,
+      hint: "things your agent learned",
+      href: "/memories?status=candidate",
+    },
+    { label: "Finished handoffs", value: finished, hint: "picked up and completed", href: "/relay" },
+    { label: "Remembered", value: stats.active, hint: "given to every new session", href: "/memories" },
   ];
 
   return (
     <>
       <PageHeader
-        eyebrow="Overview"
-        title={`${first}'s memory`}
-        lede="What your agents have learned, and what they're given back at the start of every session."
+        title={`${first}'s work, remembered`}
+        lede="What's being handed on, what your agents learned, and what they'll know next session."
       />
 
       {stats.keys === 0 ? (
@@ -70,23 +78,20 @@ export default async function OverviewPage() {
         </Link>
       ) : null}
 
-      <section
-        aria-label="At a glance"
-        className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius)] border border-line bg-line lg:grid-cols-4"
-      >
+      <section aria-label="At a glance" className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {tiles.map(({ label, value, hint, href }) => {
           const body = (
             <>
-              <span className="block text-[12.5px] text-ink-3">{label}</span>
-              <span className="mt-1.5 block font-semibold text-[26px] tabular-nums leading-none tracking-[-0.03em]">
+              <span className="block font-semibold text-[34px] text-ink tabular-nums leading-none tracking-[-0.04em]">
                 {value.toLocaleString()}
               </span>
-              <span className="mt-1.5 block text-[12px] text-ink-3">{hint}</span>
+              <span className="mt-3 block font-medium text-[14px] text-ink">{label}</span>
+              <span className="mt-0.5 block text-[12.5px] text-ink-3">{hint}</span>
             </>
           );
-          const cls = "block bg-surface px-4 py-3.5";
+          const cls = "block rounded-[14px] bg-surface px-5 py-5 shadow-[var(--shadow)]";
           return href ? (
-            <Link key={label} href={href} className={`${cls} transition-colors hover:bg-surface-2`}>
+            <Link key={label} href={href} className={`${cls} transition-shadow hover:shadow-[var(--shadow-lift)]`}>
               {body}
             </Link>
           ) : (
@@ -114,7 +119,7 @@ export default async function OverviewPage() {
           <section className="card" aria-labelledby="recent-title">
             <header className="flex items-center justify-between border-line border-b px-5 py-3.5">
               <h2 id="recent-title" className="font-semibold text-[15px]">
-                Recently remembered
+                Recently learned
               </h2>
               <Link href="/memories" className="btn btn-quiet btn-sm">
                 All memories <ArrowRight size={14} aria-hidden />

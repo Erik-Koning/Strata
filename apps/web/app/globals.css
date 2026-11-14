@@ -8,67 +8,83 @@
    Saira wide caps kept for legends that want them. Every class name and token name is the one the pages already use. */
 
 :root {
-  --bg: #0c0b10;
-  --surface: #121118;
-  --surface-2: #18171f;
-  --surface-3: #201e28;
-  --sunk: #0e0d13;
-  --ink: #ecebf2;
-  --ink-2: #aeabbe;
-  --ink-3: #807c92;
-  --line: rgb(236 232 247 / 7.5%);
-  --line-strong: rgb(236 232 247 / 13%);
-  --rule: rgb(236 232 247 / 4.5%);
+  /* Light by default: a warm paper canvas, white working surfaces, charcoal chrome (sidebar, evidence), one violet
+     for Strata and its actions, and green kept for one thing only: an outcome the tests proved. */
+  --bg: #f3f2ee;
+  --surface: #ffffff;
+  --surface-2: #f1efea;
+  --surface-3: #e8e5de;
+  --sunk: #f6f5f1;
+  --ink: #18161f;
+  --ink-2: #48444f;
+  --ink-3: #6f6a78;
+  --line: rgb(24 22 31 / 8%);
+  --line-strong: rgb(24 22 31 / 14%);
+  --rule: rgb(24 22 31 / 5%);
 
-  /* Violet: what's live, and the one commit per view */
-  --accent: #7c3aed;
-  --accent-hover: #8b5cf6;
+  --accent: #6236d6;
+  --accent-hover: #5229c2;
   --accent-ink: #ffffff;
-  --accent-soft: rgb(139 92 246 / 14%);
-  --accent-text: #c4b5fd;
-  --fuchsia: #e879f9;
+  --accent-soft: #eee8fc;
+  --accent-text: #5228c0;
+  --fuchsia: #b62fc9;
 
-  /* Caution and danger: legends and pips, never fills */
-  --amber: #f0b45a;
-  --amber-soft: rgb(240 180 90 / 11%);
-  --danger: #ff8a9b;
-  --danger-soft: rgb(255 122 145 / 12%);
-  --focus: #c4b5fd;
+  --verified: #2e7a57;
+  --verified-soft: #e4f1ea;
+  --verified-text: #23664a;
 
-  --shadow: 0 1px 0 rgb(0 0 0 / 35%);
-  --shadow-pop: 0 24px 64px -24px rgb(0 0 0 / 80%), 0 0 0 1px rgb(236 232 247 / 8%);
-  --radius: 10px;
-  --radius-sm: 7px;
-  color-scheme: dark;
+  --amber: #93560a;
+  --amber-soft: #f8ecd8;
+  --danger: #b3263c;
+  --danger-soft: #fbe6e9;
+  --focus: #6236d6;
+
+  --shadow: 0 1px 2px rgb(24 22 31 / 5%), 0 0 0 1px rgb(24 22 31 / 6%);
+  --shadow-lift: 0 1px 2px rgb(24 22 31 / 4%), 0 12px 32px -12px rgb(24 22 31 / 14%), 0 0 0 1px rgb(24 22 31 / 6%);
+  --shadow-pop: 0 32px 80px -24px rgb(24 22 31 / 40%), 0 0 0 1px rgb(24 22 31 / 10%);
+  --radius: 12px;
+  --radius-sm: 8px;
+  color-scheme: light;
 }
 
-/* Opt-in light theme (data-theme="light"): the explainer's lavender paper. */
-:root[data-theme="light"] {
-  --bg: #eeebf7;
-  --surface: #f8f6fd;
-  --surface-2: #ebe6f6;
-  --surface-3: #e1daf1;
-  --sunk: #e6e0f3;
-  --ink: #15121f;
-  --ink-2: #3b3750;
-  --ink-3: #5e5a76;
-  --line: rgb(36 22 84 / 11%);
-  --line-strong: rgb(36 22 84 / 20%);
-  --rule: rgb(36 22 84 / 7%);
-  --accent: #6d28d9;
-  --accent-hover: #7c3aed;
+/* Charcoal chrome: the sidebar and the evidence panels. Every token is redefined inside, so the same components
+   render light-on-charcoal without their own variants. */
+:root[data-theme="dark"],
+.chrome {
+  --bg: #17151c;
+  --surface: #1f1d26;
+  --surface-2: #27242f;
+  --surface-3: #312d3a;
+  --sunk: #141218;
+  --ink: #f1eff6;
+  --ink-2: #bdb8c9;
+  --ink-3: #8d889b;
+  --line: rgb(241 239 246 / 8%);
+  --line-strong: rgb(241 239 246 / 14%);
+  --rule: rgb(241 239 246 / 5%);
+  --accent: #8b63f0;
+  --accent-hover: #9c7af3;
   --accent-ink: #ffffff;
-  --accent-soft: #e9e0fd;
-  --accent-text: #5b21b6;
-  --fuchsia: #c026d3;
-  --amber: #8f4a04;
-  --amber-soft: #fbedd2;
-  --danger: #b4123a;
-  --danger-soft: #fde3e8;
-  --focus: #5b21b6;
-  --shadow: 0 1px 0 rgb(36 22 84 / 5%);
-  --shadow-pop: 0 24px 64px -24px rgb(36 22 84 / 35%), 0 0 0 1px rgb(36 22 84 / 8%);
-  color-scheme: light;
+  --accent-soft: rgb(139 99 240 / 18%);
+  --accent-text: #c6b3fb;
+  --verified: #5fbf8f;
+  --verified-soft: rgb(95 191 143 / 14%);
+  --verified-text: #8fd6b1;
+  --amber: #efb45d;
+  --amber-soft: rgb(239 180 93 / 13%);
+  --danger: #ff8d9c;
+  --danger-soft: rgb(255 141 156 / 13%);
+  --focus: #c6b3fb;
+  --shadow: 0 0 0 1px rgb(241 239 246 / 7%);
+  --shadow-lift: 0 0 0 1px rgb(241 239 246 / 8%);
+  --shadow-pop: 0 32px 80px -24px rgb(0 0 0 / 70%), 0 0 0 1px rgb(241 239 246 / 8%);
+  --relay-blue: #9db4f5;
+  --relay-blue-soft: rgb(157 180 245 / 14%);
+  color-scheme: dark;
+}
+.chrome {
+  background: var(--bg);
+  color: var(--ink);
 }
 
 @theme inline {
@@ -87,6 +103,9 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
   --color-fuchsia: var(--fuchsia);
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-verified-text: var(--verified-text);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
   --color-danger: var(--danger);
@@ -126,17 +145,16 @@ h3 {
 @layer components {
   /* Part labels: Martian Mono caps, `01 / RECALL`. */
   .eyebrow {
-    font-family: var(--font-part);
-    font-size: 10.5px;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -0.003em;
     color: var(--ink-3);
   }
   .card {
     background: var(--surface);
-    border: 1px solid var(--line);
     border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
   .btn {
     display: inline-flex;
@@ -322,8 +340,8 @@ h3 {
   /* A titled section inside a page: a hairline-bordered panel with a quiet header bar. */
   .panel {
     background: var(--surface);
-    border: 1px solid var(--line);
     border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
   .panel-head {
     display: flex;
@@ -367,12 +385,8 @@ h3 {
    violet (the accent) for done; muted outlines for a private draft and a revoked one. Test evidence: verified is filled violet, a
    claim is an amber outline. */
 :root {
-  --relay-blue: #8fabf5;
-  --relay-blue-soft: rgb(143 171 245 / 12%);
-}
-:root[data-theme="light"] {
-  --relay-blue: #2456b8;
-  --relay-blue-soft: #e2e9f7;
+  --relay-blue: #2f5fc4;
+  --relay-blue-soft: #e5ecfa;
 }
 @layer components {
   .pill-draft {
@@ -389,8 +403,8 @@ h3 {
     color: var(--amber);
   }
   .pill-completed {
-    background: var(--accent-soft);
-    color: var(--accent-text);
+    background: var(--verified-soft);
+    color: var(--verified-text);
   }
   .pill-revoked {
     background: transparent;
@@ -398,8 +412,8 @@ h3 {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent);
   }
   .badge-verified {
-    background: var(--accent-soft);
-    color: var(--accent-text);
+    background: var(--verified-soft);
+    color: var(--verified-text);
     font-family: var(--font-mono);
     font-size: 10.5px;
     letter-spacing: 0.06em;
@@ -413,8 +427,8 @@ h3 {
     letter-spacing: 0.06em;
   }
   .relay-row[aria-current="page"] {
-    background: var(--surface-2);
-    box-shadow: inset 0 0 0 1px var(--line-strong);
+    background: var(--surface);
+    box-shadow: var(--shadow);
   }
   .relay-row[aria-current="page"]::before {
     content: "";
@@ -486,4 +500,176 @@ h3 {
   position: static;
   width: 7px;
   height: 7px;
+}
+
+/* Relay's story: two people and what Strata carried between them, joined by links that fill as the work moves. */
+@layer components {
+  .relay-story {
+    display: grid;
+    gap: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 1100px) {
+    .relay-story {
+      grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1.12fr) 44px minmax(0, 1fr);
+      align-items: stretch;
+    }
+  }
+  .relay-mark {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .relay-link {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 28px;
+    color: var(--line-strong);
+  }
+  .relay-link-line {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1.5px dashed var(--line-strong);
+  }
+  .relay-link-head {
+    position: relative;
+    transform: rotate(90deg);
+    color: var(--ink-3);
+  }
+  .relay-link[data-live="true"] .relay-link-line {
+    border-left: 2px solid var(--accent);
+  }
+  .relay-link[data-live="true"] .relay-link-head {
+    color: var(--accent);
+  }
+  .relay-link[data-stopped="true"] .relay-link-head {
+    color: var(--danger);
+  }
+  .relay-spark {
+    display: none;
+  }
+  @media (min-width: 1100px) {
+    .relay-link {
+      height: auto;
+    }
+    .relay-link-line {
+      left: 0;
+      right: 0;
+      top: 50%;
+      bottom: auto;
+      width: auto;
+      height: 0;
+      border-left: 0;
+      border-top: 1.5px dashed var(--line-strong);
+    }
+    .relay-link[data-live="true"] .relay-link-line {
+      border-left: 0;
+      border-top: 2px solid var(--accent);
+    }
+    .relay-link-head {
+      transform: none;
+      margin-left: auto;
+      margin-right: -6px;
+    }
+    .relay-spark {
+      display: block;
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 8px;
+      height: 8px;
+      margin-top: -4px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+      opacity: 0;
+      animation: relay-travel 900ms cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0ms) 1 both;
+    }
+  }
+  @keyframes relay-travel {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    20% {
+      opacity: 1;
+    }
+    80% {
+      opacity: 1;
+    }
+    100% {
+      left: calc(100% - 8px);
+      opacity: 0;
+    }
+  }
+
+  .relay-outcome {
+    --tone: var(--ink-2);
+    --tone-soft: var(--surface-2);
+    display: flex;
+    gap: 16px;
+    padding: 20px 22px;
+    border-radius: 14px;
+    background: var(--tone-soft);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 22%, transparent);
+  }
+  .relay-outcome[data-tone="verified"] {
+    --tone: var(--verified);
+    --tone-soft: var(--verified-soft);
+  }
+  .relay-outcome[data-tone="warn"] {
+    --tone: var(--amber);
+    --tone-soft: var(--amber-soft);
+  }
+  .relay-outcome[data-tone="danger"] {
+    --tone: var(--danger);
+    --tone-soft: var(--danger-soft);
+  }
+  .relay-outcome[data-tone="accent"] {
+    --tone: var(--accent);
+    --tone-soft: var(--accent-soft);
+  }
+  .relay-outcome h3 {
+    color: color-mix(in srgb, var(--tone) 70%, var(--ink));
+  }
+  .relay-outcome-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--tone);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 25%, transparent);
+  }
+  .relay-outcome-meta {
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+
+  .relay-details {
+    background: var(--surface);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .relay-disclosure + .relay-disclosure {
+    border-top: 1px solid var(--line);
+  }
+  .relay-disclosure > summary:hover {
+    background: var(--sunk);
+  }
+  .relay-disclosure:first-child > summary {
+    border-radius: 14px 14px 0 0;
+  }
+  .relay-disclosure:last-child:not([open]) > summary {
+    border-radius: 0 0 14px 14px;
+  }
 }

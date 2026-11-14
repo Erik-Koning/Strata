@@ -8,13 +8,13 @@ import { PageHeader } from "../page-header.tsx";
 import { AddMemory } from "./add-memory.tsx";
 import { MemoryList, type MemoryRow } from "./memory-list.tsx";
 
-export const metadata: Metadata = { title: "Memories" };
+export const metadata: Metadata = { title: "Knowledge" };
 
 const STATUSES: { value: MemoryStatus | "all"; label: string }[] = [
-  { value: "all", label: "Active and candidates" },
-  { value: "active", label: "Active" },
-  { value: "candidate", label: "Candidates" },
+  { value: "candidate", label: "Needs review" },
+  { value: "active", label: "Remembered" },
   { value: "archived", label: "Archived" },
+  { value: "all", label: "Both open" },
 ];
 
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
@@ -61,9 +61,8 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
   return (
     <>
       <PageHeader
-        eyebrow="Memories"
-        title="What's remembered"
-        lede="Active memories are given to new sessions. Candidates came from somewhere other than your own words, and wait for you to keep them."
+        title="Knowledge"
+        lede="What your agents learned, reviewed by a person. Remembered items reach your next sessions; anything that needs review waits for your yes, and you can correct or archive any of it."
         actions={<AddMemory projects={stats.projects} />}
       />
 

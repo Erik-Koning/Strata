@@ -53,9 +53,8 @@ export default async function IntelligencePage() {
   return (
     <EvidenceProvider>
       <PageHeader
-        eyebrow="Intelligence"
-        title="Ask what your engineering work already knows"
-        lede="Answers are quoted from what Strata has stored, and every number below is counted from it. Each one traces back to a source."
+        title="Ask Strata"
+        lede="Ask about your own engineering work. Answers are quoted from your records, never generated, and every one links to its source."
         actions={
           <span className="chip chip-mono" title="Counted when this page loaded">
             <span className="size-1.5 flex-none rounded-full bg-accent" aria-hidden /> live from MongoDB ·{" "}

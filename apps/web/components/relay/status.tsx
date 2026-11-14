@@ -22,7 +22,7 @@ const STATUS_TEXT: Record<HandoffStatus, string> = {
   draft: "text-ink-3",
   approved: "text-[var(--relay-blue)]",
   claimed: "text-amber",
-  completed: "text-accent-text",
+  completed: "text-verified-text",
   revoked: "text-danger",
 };
 
