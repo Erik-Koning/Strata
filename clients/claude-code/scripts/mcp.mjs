@@ -5,6 +5,8 @@
 // Nothing here sends anything: a record joins the draft summary and still needs the engineer's approval.
 import readline from "node:readline";
 import { sessionForNote } from "./lib/active.mjs";
+import { enqueueEvent, flushEvents } from "./lib/events.mjs";
+import { projectOf } from "./lib/git.mjs";
 import { addFinding, listSessions } from "./lib/records.mjs";
 import { FINDING_KINDS } from "./lib/schema.mjs";
 import { describeTeamResult, searchTeam } from "./lib/team.mjs";
@@ -55,9 +57,26 @@ function search(query) {
 
 async function call(name, args = {}) {
   if (name === "strata_record") {
-    const sid = sessionForNote(cwd());
+    const root = cwd();
+    const sid = sessionForNote(root);
     if (!sid) throw new Error("no active Claude Code session found for this directory");
     const res = addFinding(sid, args.kind, args.text);
+    const findingType = {
+      insight: "insight",
+      workflow: "workflow",
+      "pain-point": "pain_point",
+      gap: "context_gap",
+    }[args.kind];
+    if (findingType) {
+      enqueueEvent({
+        sessionID: sid,
+        project: projectOf(root),
+        kind: "finding",
+        payload: { type: findingType, text: args.text },
+      });
+      // Do not hold the tool response for the network; the outbox drains on the next hook or flush.
+      flushEvents().catch(() => undefined);
+    }
     return res.added
       ? `Recorded as a ${args.kind} in the session draft. The engineer reviews it before it is shared.`
       : "Already recorded.";

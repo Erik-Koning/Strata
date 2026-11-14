@@ -12,12 +12,14 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { markActive } from "./lib/active.mjs";
+import { enqueueEvent, flushEvents } from "./lib/events.mjs";
 import { isExcluded, resolveCwd, validSessionId } from "./lib/filter.mjs";
-import { gitContext, lookupPr } from "./lib/git.mjs";
+import { gitContext, lookupPr, projectOf } from "./lib/git.mjs";
 import { log } from "./lib/log.mjs";
 import { buildOverview } from "./lib/overview.mjs";
 import { enqueueItem, ensureSession, listQueue, pruneStore, sessionIds } from "./lib/records.mjs";
 import { redact } from "./lib/redact.mjs";
+import { ticketRefs } from "./lib/signals.mjs";
 import {
   getAuth,
   getBinding,
@@ -33,7 +35,8 @@ import {
 import { summarizeSession } from "./lib/summarize.mjs";
 import { flush, heldBreakdown } from "./lib/sync.mjs";
 import { isInternalProtocolPayload, isPrivatePrompt, stripTags } from "./lib/tags.mjs";
-import { lastAssistantFromTranscript } from "./lib/transcript.mjs";
+import { toolSignal } from "./lib/tool-signal.mjs";
+import { lastAssistantFromTranscript, readTranscript } from "./lib/transcript.mjs";
 
 const STRATA_CLI = fileURLToPath(new URL("./strata.mjs", import.meta.url));
 const STDIN_TIMEOUT_MS = 8000;
@@ -95,6 +98,31 @@ const detached = (...args) => {
 const startWorker = (sid) =>
   process.env.STRATA_INLINE_WORKER === "1" ? summarizeSession(sid) : detached("summarize", sid);
 
+const flushEventsLater = () => detached("flush-events");
+
+// Where the work is, in the form the contract's session event takes.
+const gitPayload = (git) => ({
+  remote: git.project,
+  branch: git.branch,
+  head: git.head,
+  path: git.path,
+});
+
+const contextFingerprint = (git) => `${git.branch}\0${git.head}`;
+
+// Queue one versioned event for this session. The outbox never blocks the hook.
+function captureEvent(ctx, kind, payload, promptID) {
+  const git = gitContext(ctx.cwd);
+  enqueueEvent({
+    sessionID: ctx.sessionId,
+    project: projectOf(ctx.cwd),
+    kind,
+    payload,
+    promptID,
+  });
+  return git;
+}
+
 // Common gate for every capturing hook.
 function captureContext(input) {
   // The summarizer is itself a Claude session; it must never be captured and summarized in turn.
@@ -146,10 +174,27 @@ const handlers = {
     const sid = validSessionId(input.session_id);
     if (sid) markActive(sid, cwd);
 
+    const git = gitContext(cwd);
+    if (sid) {
+      enqueueEvent({
+        sessionID: sid,
+        project: git.project,
+        kind: "session",
+        payload: {
+          event: "start",
+          source: typeof input.source === "string" ? input.source : "startup",
+          git: gitPayload(git),
+          ...(ticketRefs(git.branch).length ? { refs: ticketRefs(git.branch) } : {}),
+        },
+      });
+      setSession(sid, { ...getSession(sid), context: contextFingerprint(git) });
+      flushEventsLater();
+    }
+
     const auth = getAuth();
     const health = getHealth();
     const guidance = [];
-    const overview = buildOverview(gitContext(cwd).repoKey);
+    const overview = buildOverview(git.repoKey);
     if (overview) guidance.push(overview);
     const messages = [];
 
@@ -165,7 +210,6 @@ const handlers = {
           "Strata: the sign-in has expired, so nothing can be sent. Mention once that they can run /strata:login.",
         );
     } else {
-      const git = gitContext(cwd);
       if (!getBinding(git.repoKey) && noticeDue(`project:${git.repoKey}`)) {
         guidance.push(
           "Strata: no team project is selected for this repo yet. Mention once that they can run /strata:project to pick one. Summaries stay local until then.",
@@ -209,8 +253,16 @@ const handlers = {
     const isPrivate = isPrivatePrompt(raw);
     // An empty prompt is a real image-only submission, not a missing one.
     const prompt = isPrivate ? "" : redact(stripTags(raw), 2000) || "[media prompt]";
-    setSession(ctx.sessionId, { turn: state.turn + 1, private: isPrivate });
-    if (!isPrivate) writeJson(promptFile(ctx.sessionId, state.turn + 1), { prompt });
+    const promptID =
+      typeof input.prompt_id === "string" && input.prompt_id.trim().length
+        ? input.prompt_id.slice(0, 200)
+        : crypto.randomUUID();
+    setSession(ctx.sessionId, { turn: state.turn + 1, private: isPrivate, promptID, context: state.context });
+    if (!isPrivate) {
+      writeJson(promptFile(ctx.sessionId, state.turn + 1), { prompt });
+      captureEvent(ctx, "prompt", { role: "user", text: prompt }, promptID);
+      flushEventsLater();
+    }
   },
 
   stop: async (input) => {
@@ -229,6 +281,28 @@ const handlers = {
 
     const git = gitContext(ctx.cwd);
     if (message.length < MIN_REPLY_CHARS && git.files.length === 0) return;
+
+    enqueueEvent({
+      sessionID: ctx.sessionId,
+      project: git.project,
+      kind: "assistant",
+      payload: { role: "assistant", text: message },
+      promptID: state.promptID,
+    });
+    if (state.context !== contextFingerprint(git)) {
+      enqueueEvent({
+        sessionID: ctx.sessionId,
+        project: git.project,
+        kind: "session",
+        payload: {
+          event: "context",
+          git: gitPayload(git),
+          ...(ticketRefs(git.branch).length ? { refs: ticketRefs(git.branch) } : {}),
+        },
+      });
+      setSession(ctx.sessionId, { ...state, context: contextFingerprint(git) });
+    }
+    flushEventsLater();
 
     // The same turn can Stop more than once (another Stop hook kept Claude working); the same reply is one item.
     // The key leaves the prompt out: the first Stop already consumed (and deleted) it.
@@ -249,17 +323,67 @@ const handlers = {
     if (queued) await startWorker(ctx.sessionId);
   },
 
-  // Compaction drops the conversation: summarize what is queued before it is gone.
+  // A tool call's name, outcome, duration and, for a shell command, its class and fingerprint. Never its content.
+  "post-tool": async (input) => {
+    const ctx = captureContext(input);
+    if (!ctx) return;
+    enqueueEvent({
+      sessionID: ctx.sessionId,
+      project: projectOf(ctx.cwd),
+      kind: "tool",
+      payload: toolSignal(input, input.hook_event_name === "PostToolUseFailure"),
+      promptID: getSession(ctx.sessionId).promptID,
+    });
+    flushEventsLater();
+  },
+
+  "post-compact": async (input) => {
+    const ctx = captureContext(input);
+    if (!ctx || typeof input.compact_summary !== "string" || !input.compact_summary.trim()) return;
+    enqueueEvent({
+      sessionID: ctx.sessionId,
+      project: projectOf(ctx.cwd),
+      kind: "event",
+      payload: {
+        type: "compact_summary",
+        trigger: typeof input.trigger === "string" ? input.trigger : null,
+        text: redact(stripTags(input.compact_summary), 20_000),
+      },
+    });
+    flushEventsLater();
+  },
+
+  // Compaction drops the conversation: keep its text as a transcript, and summarize what is queued before it is gone.
   "pre-compact": async (input) => {
     const ctx = captureContext(input);
-    if (ctx && listQueue(ctx.sessionId).length) await startWorker(ctx.sessionId);
+    if (!ctx) return;
+    const messages = readTranscript(input.transcript_path)
+      .map((message) => ({ role: message.role, text: redact(stripTags(message.text), 20_000) }))
+      .filter((message) => message.text.trim());
+    if (messages.length)
+      enqueueEvent({
+        sessionID: ctx.sessionId,
+        project: projectOf(ctx.cwd),
+        kind: "transcript",
+        payload: { trigger: typeof input.trigger === "string" ? input.trigger : null, messages },
+      });
+    flushEventsLater();
+    if (listQueue(ctx.sessionId).length) await startWorker(ctx.sessionId);
   },
 
   "session-end": async (input) => {
     const ctx = captureContext(input);
-    // Whatever is still queued gets summarized now; then anything already approved is sent.
-    if (ctx) for (const sid of [ctx.sessionId]) if (listQueue(sid).length) await startWorker(sid);
-    if (getAuth()?.token) await flush();
+    if (ctx) {
+      enqueueEvent({
+        sessionID: ctx.sessionId,
+        project: projectOf(ctx.cwd),
+        kind: "session",
+        payload: { event: "end", reason: typeof input.reason === "string" ? input.reason.slice(0, 200) : null },
+      });
+      // Whatever is still queued gets summarized now; the server drafts from the events it has.
+      for (const sid of [ctx.sessionId]) if (listQueue(sid).length) await startWorker(sid);
+    }
+    if (getAuth()?.token) await Promise.allSettled([flushEvents(), flush()]);
   },
 };
 

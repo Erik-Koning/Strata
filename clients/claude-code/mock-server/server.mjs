@@ -18,6 +18,7 @@ const projects = [
 const devices = new Map(); // device_code -> { userCode, createdAt }
 const tokens = new Map(); // access token -> user id
 const events = new Map(); // `${userId}:${idempotencyKey}` -> stored event
+const memoryEvents = new Map(); // `${userId}:${eventId}` -> versioned event from /api/memory/events
 // Test control: make the next `count` event posts answer with `status` (or a 200 HTML page).
 let forced = { status: 0, count: 0 };
 const posts = new Map(); // idempotency key -> how many times it was posted (to prove no double uploads)
@@ -76,8 +77,35 @@ http
       );
     }
 
+    if (route === "POST /api/memory/events") {
+      const signedIn = userOf(req);
+      if (!signedIn) return send(res, 401, { error: "invalid_token" });
+      const body = await readBody(req);
+      const batch = Array.isArray(body.batch) ? body.batch : [];
+      let accepted = 0;
+      let duplicates = 0;
+      for (const event of batch) {
+        if (!event || typeof event !== "object" || typeof event.id !== "string") continue;
+        const key = `${signedIn.id}:${event.id}`;
+        if (memoryEvents.has(key)) duplicates += 1;
+        else {
+          memoryEvents.set(key, { ...event, userId: signedIn.id, receivedAt: new Date().toISOString() });
+          accepted += 1;
+        }
+      }
+      return send(res, 202, { accepted, duplicates, rejected: [] });
+    }
+
     const user = userOf(req);
     if (url.pathname.startsWith("/v1/") && !user) return send(res, 401, { error: "invalid_token" });
+
+    if (route === "GET /api/memory/debug/events") {
+      if (!user) return send(res, 401, { error: "invalid_token" });
+      const mine = [...memoryEvents.entries()]
+        .filter(([, event]) => event.userId === user.id)
+        .map(([, event]) => event);
+      return send(res, 200, { events: mine });
+    }
 
     if (route === "GET /v1/me") return send(res, 200, { user });
     if (route === "GET /v1/projects") return send(res, 200, { projects });

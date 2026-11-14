@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { basename } from "node:path";
 import { settings } from "./store.mjs";
 
 // Not a trim(): whitespace before the final newline belongs to a path (claude-mem #2663 note).
@@ -19,6 +20,41 @@ function run(cwd, cmd, args, timeout = 3000) {
 
 // Strip credentials from a remote URL (https://user:token@host/...) before it is sent.
 const cleanRemote = (url) => url.replace(/\/\/[^@/]+@/, "//");
+
+// git@github.com:acme/app.git, https://user@github.com/acme/app.git and ssh://git@github.com/acme/app all
+// become github.com/acme/app, the project's name on the server.
+export function normalizeRemote(remote) {
+  const url = cleanRemote(String(remote ?? "").trim());
+  if (!url) return null;
+  const scp = /^[^@\s/]+@([^:\s/]+):(.+)$/.exec(url);
+  let host;
+  let path;
+  if (scp) {
+    host = scp[1] ?? "";
+    path = scp[2] ?? "";
+  } else {
+    try {
+      const parsed = new URL(url);
+      host = parsed.hostname;
+      path = parsed.pathname;
+    } catch {
+      return null;
+    }
+  }
+  path = path
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "");
+  return host && path ? `${host.toLowerCase()}/${path}` : null;
+}
+
+export function projectOf(cwd) {
+  const remote = run(cwd, "git", ["config", "--get", "remote.origin.url"]);
+  const normalized = normalizeRemote(remote);
+  if (normalized) return normalized;
+  const top = run(cwd, "git", ["rev-parse", "--show-toplevel"]);
+  return basename(top || cwd) || "default";
+}
 
 const JIRA_KEY = /\b[A-Z][A-Z0-9]{1,9}-[1-9]\d{0,6}\b/g;
 // Things shaped like a Jira key that are not: UTF-8, SHA-256, ISO-8601, CVE-2024-1234 ...
@@ -84,7 +120,19 @@ export function parseStatusZ(raw) {
 
 export function gitContext(cwd) {
   const root = run(cwd, "git", ["rev-parse", "--show-toplevel"]);
-  if (!root) return { root: cwd, repoKey: cwd, remote: "", branch: "", head: "", files: [], jira: [], isGit: false };
+  if (!root)
+    return {
+      root: cwd,
+      repoKey: cwd,
+      remote: "",
+      project: basename(cwd) || "default",
+      branch: "",
+      head: "",
+      path: "",
+      files: [],
+      jira: [],
+      isGit: false,
+    };
 
   // The shared git dir is the same for every worktree, so one repo has one identity.
   const repoKey = run(root, "git", ["rev-parse", "--path-format=absolute", "--git-common-dir"]) || root;
@@ -92,6 +140,7 @@ export function gitContext(cwd) {
   const branch = run(root, "git", ["branch", "--show-current"]);
   const head = run(root, "git", ["rev-parse", "HEAD"]);
   const remote = cleanRemote(run(root, "git", ["remote", "get-url", "origin"]));
+  const path = run(root, "git", ["rev-parse", "--show-prefix"]).replace(/\/$/, "");
   const subjects = run(root, "git", ["log", "-10", "--format=%s"]);
 
   // Repo-relative paths only: no local usernames or directories leave the machine.
@@ -100,7 +149,18 @@ export function gitContext(cwd) {
     .slice(0, 200);
 
   // Branch keys first: they say what this work is for. Commit subjects may mention other tickets.
-  return { root, repoKey, remote, branch, head, files, jira: extractJiraKeys(branch, subjects), isGit: true };
+  return {
+    root,
+    repoKey,
+    remote,
+    project: normalizeRemote(remote) ?? basename(root) ?? "default",
+    branch,
+    head,
+    path,
+    files,
+    jira: extractJiraKeys(branch, subjects),
+    isGit: true,
+  };
 }
 
 // `gh pr view` is slow and rate-limited, so callers cache the result per branch.

@@ -1,5 +1,15 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
-import type { MemoryKind, MemoryStatus, Scope, SummaryLinks, SummarySummary, TrustLevel } from "@strata/contracts";
+import type {
+  MemoryKind,
+  MemoryStatus,
+  RecordKind,
+  RecordStatus,
+  Ref,
+  Scope,
+  SummaryLinks,
+  SummarySummary,
+  TrustLevel,
+} from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
 import { db } from "./db.ts";
 
@@ -27,6 +37,8 @@ export interface EventDoc {
   client: string | null;
   // Set once a job has read it (extract), so it's read once.
   processedAt?: Date | null;
+  // Set once the session has been drafted; the text is cleared then.
+  draftedAt?: Date | null;
 }
 
 export interface MemoryDoc {
@@ -73,7 +85,11 @@ export interface AuditDoc {
     | "key.create"
     | "key.revoke"
     | "summary.receive"
-    | "summary.retract";
+    | "summary.retract"
+    | "record.draft"
+    | "record.edit"
+    | "record.approve"
+    | "record.discard";
   targetIds: string[];
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;
@@ -96,6 +112,27 @@ export interface ProjectMemberDoc {
   // The one project the app creates for a person; the index makes it one per user.
   isDefault?: boolean;
   createdAt: Date;
+}
+
+// What the server drafts from a session's events. A draft belongs to its author until approved or discarded;
+// approved insights and workflow findings are copied into memories.
+export interface RecordDoc {
+  _id: ObjectId;
+  scope: Scope;
+  sessionID: string;
+  kind: RecordKind;
+  status: RecordStatus;
+  title: string | null;
+  text: string;
+  // A normalized hash for deduping a re-draft of the same session.
+  textKey: string;
+  refs: Ref[];
+  eventIds: string[];
+  edited: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+  memoryId: ObjectId | null;
 }
 
 // One approved revision of one session. The highest revision for (userId, sessionId) is the current summary;
@@ -142,5 +179,6 @@ export const projects = (): Collection<ProjectDoc> => db().collection<ProjectDoc
 export const projectMembers = (): Collection<ProjectMemberDoc> => db().collection<ProjectMemberDoc>("project_members");
 export const summaryRevisions = (): Collection<SummaryRevisionDoc> =>
   db().collection<SummaryRevisionDoc>("summary_revisions");
+export const records = (): Collection<RecordDoc> => db().collection<RecordDoc>("records");
 
 export const VECTOR_INDEX = "memories_embedding";

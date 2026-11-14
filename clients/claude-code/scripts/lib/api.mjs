@@ -43,3 +43,7 @@ export async function api(method, route, body, { token, timeoutMs = 10_000, head
   if (json === null) throw Object.assign(new Error("response was not JSON"), { status: 502, code: "not_json" });
   return json;
 }
+
+/** POST /api/memory/events: a batch of versioned events, deduped by the server on each event's id. */
+export const apiEvents = (batch, token, timeoutMs = 10_000) =>
+  api("POST", "/api/memory/events", { batch }, { token, timeoutMs });

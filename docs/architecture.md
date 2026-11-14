@@ -18,17 +18,18 @@ memory event contract; the plugin carries its own summary schema for now.
 
 ## The data
 
-| Collection                                   | What                                                                                    | Key indexes                                     |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days   | `id` unique (the idempotency key), TTL          |
-| `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status | scope+status, text index, vector index, textKey |
-| `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                       | sessionID, sourceIds                            |
-| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what                                     | ts                                              |
-| `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                     | hash unique                                     |
-| `projects`, `project_members`                | The summary API's projects and who belongs to them; one personal default per person     | one default per user, membership unique         |
-| `summary_revisions`                          | Approved session summaries, one document per revision; the highest is current           | idempotency, (user, session, revision), project |
-| `deviceCode`                                 | Better Auth's device-authorization codes for `/strata:login`                            | Better Auth's own                               |
-| `user`, `session`, `account`, `verification` | Better Auth                                                                             | Better Auth's own                               |
+| Collection                                   | What                                                                                        | Key indexes                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days       | `id` unique (the idempotency key), TTL          |
+| `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status     | scope+status, text index, vector index, textKey |
+| `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                           | sessionID, sourceIds                            |
+| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what                                         | ts                                              |
+| `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                         | hash unique                                     |
+| `projects`, `project_members`                | The summary API's projects and who belongs to them; one personal default per person         | one default per user, membership unique         |
+| `summary_revisions`                          | Approved session summaries, one document per revision; the highest is current               | idempotency, (user, session, revision), project |
+| `records`                                    | Drafted summaries, insights, workflow findings, pain points and gaps; approved or discarded | author/status, session, dedupe key              |
+| `deviceCode`                                 | Better Auth's device-authorization codes for `/strata:login`                                | Better Auth's own                               |
+| `user`, `session`, `account`, `verification` | Better Auth                                                                                 | Better Auth's own                               |
 
 The vector index (`memories_embedding`) is an Atlas Search index filtered on `scope.org`, `scope.project`,
 `scope.user` and `status`. `pnpm db:indexes` creates everything and waits until the vector index is queryable.
@@ -61,17 +62,23 @@ scheduled jobs (`POST /api/jobs/run`), and the real AI providers behind `server/
 
 ## The Claude Code client
 
-The client is summary-first: it never uploads a prompt or a reply. It keeps a short-lived, redacted queue of turn text,
-asks the engineer's own Claude to fold that text into one session summary, deletes the raw text, and sends only the
-summary the engineer approved.
+The client has two write paths. It emits contract-v1 events to the memory API (prompt, assistant, tool, transcript,
+session and finding), from which the server drafts records for review. It also keeps the local summary path: the
+engineer's own Claude folds each turn into one summary, and only the approved summary goes to `/v1`.
 
-| Hook               | What it does                                                                   | Network              |
-| ------------------ | ------------------------------------------------------------------------------ | -------------------- |
-| `SessionStart`     | Marks the session active; builds the repo overview from local summaries        | none                 |
-| `UserPromptSubmit` | Redacts the prompt and keeps it for `Stop`; private and internal payloads skip | none                 |
-| `Stop`             | Queues the redacted turn and changed file paths; starts the summarizer         | none                 |
-| `PreCompact`       | Summarizes whatever is still queued before the conversation is dropped         | none                 |
-| `SessionEnd`       | Summarizes the last queue, then flushes approved summaries                     | upload, if signed in |
+| Hook                                | What it does                                                                      | Network              |
+| ----------------------------------- | --------------------------------------------------------------------------------- | -------------------- |
+| `SessionStart`                      | Marks the session active; queues the session start with git/refs; builds overview | none                 |
+| `UserPromptSubmit`                  | Redacts the prompt, queues it as a prompt event, keeps it for `Stop`              | none                 |
+| `PostToolUse`, `PostToolUseFailure` | Queues the tool name, status, duration and command signal; never its content      | none (async)         |
+| `Stop`                              | Queues the assistant reply and any context change; starts the local summarizer    | none                 |
+| `PreCompact`                        | Queues the transcript; summarizes whatever is still queued                        | none                 |
+| `PostCompact`                       | Queues the compaction summary                                                     | none                 |
+| `SessionEnd`                        | Queues the session end; flushes events and approved summaries                     | upload, if signed in |
+
+Events go to a durable outbox (`events/`), one file each, stamped `v: 1`; a detached flusher sends them in batches
+and deletes only what the server accepted. `events/` is separate from the local summary store, so either path can
+fail without losing the other.
 
 **How a summary is made.** `summarize.mjs` runs `claude -p` with a small model, no tools, no MCP, no slash commands,
 no session persistence, its own empty working directory and a budget cap. The new work is fenced between random
@@ -143,19 +150,21 @@ it. The promise to the people whose sessions these are is "nothing is shared wit
 leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until
 its author approves it.
 
-The current summary-first plugin still drafts locally with `claude -p` and uploads only approved summaries; this
-section is the contract-v1 target, not the current write path. Choosing when to move drafting onto the server is the
-next step.
+The plugin now emits the events this section describes, and `apps/web/server/records/draft.ts` drafts records when a
+session ends. It also keeps the local summary path with `claude -p`; the two run side by side until the summary path
+is retired. The Anthropic drafting provider is still the stub, so `draftRecords` is deterministic for now.
 
 **The approval gate.** `records.mjs` keeps `session.json`, `summary.json`, `review.json` and `upload.json` per session;
 one writer per file and short locks keep the hooks, summarizer, syncer and dashboard from overwriting each other.
 Status moves `summarizing → needs-link → draft/updated → ready → synced`, with `rejected` and `local` beside it. A
 summary needs a Jira key, a PR, or an explicit "no ticket", and an approval of the exact revision, before it is sent.
 
-**What the client needs from the backend.** The contract is in `clients/claude-code/docs/api-contract.md`: device-code
-auth, projects and membership, `POST /v1/events` for approved `session_summary` revisions, `DELETE /v1/sessions/:id`
-to retract, and `GET /v1/search` / `GET /v1/rollups` for teammates' approved summaries. `apps/web` implements it; the
-mock server is the same contract for the plugin's tests, and `apps/web/test/v1.db.test.ts` covers the server.
+**What the client needs from the backend.** The `/v1` contract is in `clients/claude-code/docs/api-contract.md`:
+device-code auth, projects and membership, `POST /v1/events` for approved `session_summary` revisions,
+`DELETE /v1/sessions/:id` to retract, and `GET /v1/search` / `GET /v1/rollups` for teammates' approved summaries.
+The event path uses `POST /api/memory/events` (contract v1) and `GET/PATCH /api/records`, `POST /api/records/:id/approve`
+and `/discard`. `apps/web` implements all of it; the mock server covers both surfaces for the plugin's tests, and the
+`*.db.test.ts` files cover the server.
 
 ## The OpenCode adapter
 

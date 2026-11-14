@@ -180,6 +180,39 @@ test("git: status -z handles spaces and renames; jira lookalikes dropped", async
   assert.deepEqual(extractJiraKeys("ABC-123-fix UTF-8 SHA-256 CVE-2024-1234 xy-9 PAY-42"), ["ABC-123", "PAY-42"]);
 });
 
+test("hooks emit versioned events for the memory API", async () => {
+  hook("session-start", { session_id: "ev-1", cwd: REPO });
+  turn("ev-1", "Note that the ledger rounds per line.", "Built it. Run the tests first.", REPO);
+  hook("post-tool", {
+    session_id: "ev-1",
+    cwd: REPO,
+    hook_event_name: "PostToolUse",
+    tool_name: "Bash",
+    tool_input: { command: "pnpm test" },
+    duration_ms: 1200,
+    tool_use_id: "tool-1",
+  });
+  hook("session-end", { session_id: "ev-1", cwd: REPO, reason: "done" });
+  hub("flush-events");
+
+  const { events } = await (await fetch(`${URL_}/api/memory/debug/events`, { headers: authHeader() })).json();
+  const mine = events.filter((event) => event.sessionID === "ev-1");
+  assert.ok(mine.length >= 4);
+  assert.ok(mine.every((event) => event.v === 1));
+  const kinds = new Set(mine.map((event) => event.kind));
+  for (const kind of ["prompt", "assistant", "tool", "session"]) assert.ok(kinds.has(kind), kind);
+
+  const prompt = mine.find((event) => event.kind === "prompt");
+  assert.match(prompt.payload.text, /ledger rounds per line/);
+  const tool = mine.find((event) => event.kind === "tool");
+  assert.equal(tool.payload.command.class, "test");
+  assert.equal(tool.payload.command.fp.length, 16);
+  assert.equal(tool.payload.status, "ok");
+  const start = mine.find((event) => event.kind === "session" && event.payload.event === "start");
+  assert.equal(start.payload.git.remote, "github.com/acme/shop");
+  assert.ok(start.payload.refs.some((ref) => ref.id === "ABC-123"));
+});
+
 test("schema: code, secrets and tags are stripped from whatever the model or an edit produced", async () => {
   const { sanitizeSummary } = await import(path.join(ROOT, "scripts/lib/schema.mjs"));
   const out = sanitizeSummary({

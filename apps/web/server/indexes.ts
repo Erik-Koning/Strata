@@ -10,6 +10,7 @@ import {
   memories,
   projectMembers,
   projects,
+  records,
   summaries,
   summaryRevisions,
   VECTOR_INDEX,
@@ -32,6 +33,7 @@ export async function ensureIndexes({
     "projects",
     "project_members",
     "summary_revisions",
+    "records",
     "deviceCode",
   ])
     if (!existing.has(name))
@@ -72,6 +74,13 @@ export async function ensureIndexes({
     summaryRevisions().createIndex({ userId: 1, updatedAt: -1 }, { name: "by_user_recent" }),
     summaryRevisions().createIndex({ "links.jira": 1 }, { name: "by_jira" }),
     summaryRevisions().createIndex({ "links.pr.url": 1 }, { name: "by_pr" }),
+    // Drafting a session twice never makes the same record twice.
+    records().createIndex(
+      { "scope.org": 1, "scope.user": 1, "scope.project": 1, sessionID: 1, kind: 1, textKey: 1 },
+      { unique: true, name: "record_unique" },
+    ),
+    records().createIndex({ "scope.user": 1, status: 1, updatedAt: -1 }, { name: "by_author_status" }),
+    records().createIndex({ "scope.user": 1, sessionID: 1 }, { name: "by_session" }),
     // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };

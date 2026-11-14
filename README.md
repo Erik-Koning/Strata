@@ -17,19 +17,20 @@ memory API: capture, recall, the frozen block, compaction summaries, save and fo
 first and validates its body against a shared contract. **MongoDB** (the Atlas-local image) holds events, memories,
 summaries, an audit log and the keys, with a vector index for recall and a text index behind it.
 
-**The Claude Code plugin** (`clients/claude-code`) is summary-first. It captures each prompt locally, queues the
-redacted turn text when Claude finishes, and asks your own `claude -p` (headless, small model, no tools, no MCP) to
-fold it into one session summary. Raw text is deleted as soon as the summary is written. You review and edit the
-summary in a local dashboard, link the Jira ticket or PR, and approve it; only then does it leave the machine, one
-`session_summary` event per revision. Claude also gets `strata_record` and `strata_search`, and each session starts
-with a local overview of what earlier sessions in the repo learned.
+**The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API:
+prompt, assistant, tool signals (duration, command class, exit, fingerprint), the transcript at compaction, session
+context and findings. The server drafts records from them, and only their author sees a draft until they approve it.
+It also keeps the local summary path: your own `claude -p` folds each turn into a session summary, you review, edit
+and link it, and only approved summaries go to `/v1`. `strata_record`, `strata_search` and the per-repo overview
+remain; raw turn text is deleted once the local summary is written.
 
 **The pages** show what's remembered and where it came from, let you keep a candidate or forget a memory after seeing
 exactly what goes with it, connect a client step by step, and list every change in an audit log, in light and dark and
 on a phone.
 
-The client is covered by 38 tests that run the hooks, CLI and dashboard as real processes against a mock server. The
-memory API and the `/v1` summary API have unit and database tests. The rest is in the to-do below, which an
+The client is covered by 39 tests that run the hooks, CLI, MCP server and dashboard as real processes against a mock
+server. The memory API, the `/v1` summary API and the records pipeline have unit and database tests. The rest is in
+the to-do below, which an
 [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is working through.
 
 ## Architecture
@@ -91,17 +92,19 @@ sequenceDiagram
   A-->>P: { ok: true }
 ```
 
-**The rule everything follows:** only an approved summary leaves the machine. The rest follows from it:
+**The rule both paths follow:** nothing is shared with a teammate without the engineer's review. The event path sends
+redacted prompt, reply, tool and finding events to the memory API, where the server drafts records; a draft is its
+author's alone until approved. The summary path sends only a summary the engineer approved. The rest:
 
-- prompts and replies are captured locally and never uploaded; the raw turn text is deleted as soon as it is
-  summarized;
-- a summary is sent only when the engineer approved it and it carries a Jira key, a PR, or an explicit "no ticket";
-- secrets and `<private>` blocks are stripped before the summarizer sees anything, code is removed from summaries,
-  and the server redacts again;
-- the summarizer runs headless with no tools, no MCP, no slash commands, its own empty working directory, a small
-  model, and a daily cap;
+- secrets and `<private>` blocks are stripped before anything is queued, and the server redacts again;
+- a tool event carries its name, outcome, duration, command class, exit code and a fingerprint, never its input or
+  output; a shell command's text never leaves the machine;
+- raw prompt, reply and transcript text is cleared once the session has been drafted, and once the local summary is
+  written on the summary path;
+- the local summarizer runs headless with no tools, no MCP, no slash commands, its own empty working directory, a
+  small model, and a daily cap;
 - the `SessionStart` overview is built from local summaries and kept for the session, so a resume gets the same bytes;
-- each approved revision is uploaded with an idempotency key, and a retry never stores it twice.
+- every event and every approved revision is uploaded with an idempotency key, and a retry never stores it twice.
 
 The memory API's data model, who can do what, and how each hook maps to the client are in
 [`docs/architecture.md`](docs/architecture.md).
@@ -181,35 +184,29 @@ backend changes.
 - [x] A contract version on every event (`v`, now 1); within a version changes only add; kinds, versions and fields
       the API doesn't know yet are kept, not refused; `upgrade_required` (426) for clients too old
 - [x] The `finding` event (what `record_finding` sends) and generic links (`Ref`: ticket, PR, commit, doc)
-- [ ] Record shapes the API answers with: kind, status, sources, the review update (with `/api/records`)
+- [x] Record shapes the API answers with: kind, status, sources, the review update (with `/api/records`)
 - [x] Example events (`@strata/contracts/examples`) that the contract's and the API's tests accept
-- [ ] A plugin test that every event its hooks queue parses as known: the summary-first client does not emit memory
-      events yet; this returns with the capture rework
+- [ ] A plugin test that every event its hooks queue parses as known with `parseEvent`: the plugin carries its own
+      outbox and copies the signals, so this needs `@strata/contracts` bundled into it first
 
 **Records and review**
 
-The current client drafts locally and uploads only approved summaries. These server-side record features are the
-contract-v1 direction, not yet implemented.
+The event path drafts records on the server when a session ends; the local summary path still runs beside it.
 
-- [ ] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
-      `approved`, `discarded`; an edited flag; the session, product and links; the events each record came from
+- [x] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
+      `approved`, `discarded`; an edited flag; the session and links; the events each record came from
 - [ ] An Anthropic provider behind `server/ai/provider.ts` that drafts a session's records when the session ends
-- [ ] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
-- [ ] MCP tool `record_finding`, so the agent logs an insight, workflow finding, pain point or context gap when it
-      runs into one (a `finding` event through the outbox), and a skill that says when to use it
-- [ ] Approved insights and workflow findings copied into memories, so the next session recalls them
-- [ ] Prompt, reply and transcript text deleted as soon as a session is drafted. Decided 14 November 2026: drafting
-      runs on the server, from redacted text, and a draft is its author's alone until they approve it
+- [x] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
+- [x] MCP tool `strata_record` logs an insight, workflow finding, pain point or context gap as a `finding` event
+- [x] Approved insights and workflow findings copied into memories, so the next session recalls them
+- [x] Prompt, reply and transcript text deleted as soon as a session is drafted
 - [ ] Choose the embeddings model: OpenAI, as the brief proposes, or Voyage AI
 
 **Capture for work records**
 
-Contract v1 implemented these in the client this branch replaced. Porting them into the summary-first plugin is part
-of the next step.
-
-- [ ] Session links from the plugin: repository, branch, HEAD commit, folder, and ticket keys parsed from the branch
+- [x] Session links from the plugin: repository, branch, HEAD commit, folder, and ticket keys parsed from the branch
       name; sent at the start and again when the branch or commit changes
-- [ ] Tool signals without content: how long each call ran; for a shell command, its kind (test, build, typecheck,
+- [x] Tool signals without content: how long each call ran; for a shell command, its kind (test, build, typecheck,
       lint, format, install, git), its exit code when it failed, and a fingerprint to count re-runs
 - [ ] The pull request for a session's branch, looked up on GitHub (read-only)
 - [ ] The session-start block also carries the product overview and open context gaps (fetched at startup only, so

@@ -91,3 +91,21 @@ export function redact(text, maxChars = 8000) {
   for (const re of KEYED) out = out.replace(re, (_match, key) => `${key}${MARK}`);
   return headTail(out, maxChars);
 }
+
+// Every string inside a JSON-like payload, redacted. Keys whose names say "secret" lose their value whatever
+// it looks like, so a command or tool input that carries a credential cannot slip through as an object field.
+const SECRET_KEY =
+  /^(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|authorization|cookie|client[_-]?secret)$/i;
+
+export function redactDeep(value) {
+  if (typeof value === "string") return redact(value);
+  if (Array.isArray(value)) return value.map((item) => redactDeep(item));
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = SECRET_KEY.test(key) && typeof item === "string" ? MARK : redactDeep(item);
+    }
+    return out;
+  }
+  return value;
+}

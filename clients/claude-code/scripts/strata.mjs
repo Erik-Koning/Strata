@@ -5,7 +5,8 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { sessionForNote } from "./lib/active.mjs";
 import { api } from "./lib/api.mjs";
-import { gitContext } from "./lib/git.mjs";
+import { enqueueEvent, flushEvents, pendingEvents } from "./lib/events.mjs";
+import { gitContext, projectOf } from "./lib/git.mjs";
 import { requestDeviceCode, waitForApproval } from "./lib/login.mjs";
 import { buildOverview, openGaps, recurring, resolveGap } from "./lib/overview.mjs";
 import { addFinding, approve, countByStatus, describeSession, listSessions } from "./lib/records.mjs";
@@ -136,6 +137,7 @@ const commands = {
     out(`user:     ${auth?.user ? `${auth.user.name} (${auth.user.email})` : "not signed in"}`);
     out(`project:  ${binding ? `${binding.teamName} / ${binding.name}` : "none selected for this repo"}`);
     out(`jira:     ${git.jira.join(", ") || "none found in branch or recent commits"}`);
+    out(`events:   ${pendingEvents()} waiting to send`);
     out(
       `local:    ${totals.sessions} sessions: ${totals.draft + totals.updated} to review, ${totals.ready} approved, ${totals.synced} sent, ${totals["needs-link"]} need a link`,
     );
@@ -149,9 +151,12 @@ const commands = {
 
   async sync() {
     requireAuth();
-    const result = await flush({ maxEntries: 500, budgetMs: 60_000 });
+    const [result, events] = await Promise.all([
+      flush({ maxEntries: 500, budgetMs: 60_000 }),
+      flushEvents({ force: true, budgetMs: 60_000 }),
+    ]);
     out(
-      `Sent ${result.sent}, rejected ${result.rejected}${result.error ? `, upload error: ${result.error}` : ""}. Only approved summaries are ever sent.`,
+      `Sent ${result.sent} summar${result.sent === 1 ? "y" : "ies"}, ${events.sent} event${events.sent === 1 ? "" : "s"}${result.error || events.error ? ` (upload error: ${result.error ?? events.error})` : ""}.`,
     );
     const held = describeHeld(heldBreakdown());
     if (held) out(`Still local: ${held}.`);
@@ -174,12 +179,28 @@ const commands = {
     out(`Approved "${s.title}". Run /strata:sync to send it.`);
   },
 
-  // Log a finding to the current session's draft. It still needs approval before it is shared.
-  note() {
+  // Log a finding to the current session's draft and send it as a finding event. It still needs approval.
+  async note() {
     const [kind, ...words] = args.filter((a) => a !== "--json");
-    const sid = sessionForNote(process.cwd());
+    const root = process.cwd();
+    const sid = sessionForNote(root);
     if (!sid) throw new Error("no active Claude Code session found for this directory");
     const res = addFinding(sid, kind, words.join(" "));
+    const findingType = {
+      insight: "insight",
+      workflow: "workflow",
+      "pain-point": "pain_point",
+      gap: "context_gap",
+    }[kind];
+    if (findingType) {
+      enqueueEvent({
+        sessionID: sid,
+        project: projectOf(root),
+        kind: "finding",
+        payload: { type: findingType, text: words.join(" ") },
+      });
+      await flushEvents().catch(() => undefined);
+    }
     out(
       res.added
         ? `Recorded as a ${kind} in the session draft (revision ${res.revision}). Review it with /strata:review before anything is shared.`
@@ -293,6 +314,11 @@ const commands = {
     }
   },
 
+  // Background event flush used by the hooks.
+  async "flush-events"() {
+    await flushEvents({ force: true });
+  },
+
   // Background flush used by the hooks.
   async flush() {
     await flush();
@@ -331,7 +357,7 @@ const commands = {
 try {
   if (!commands[command]) {
     out(
-      "Usage: strata.mjs <login|logout|whoami|projects|use|status|sync|note|gaps|overview|rollup|search|review|approve|dashboard>",
+      "Usage: strata.mjs <login|logout|whoami|projects|use|status|sync|note|gaps|overview|rollup|search|review|approve|flush-events|dashboard>",
     );
     process.exit(1);
   }
