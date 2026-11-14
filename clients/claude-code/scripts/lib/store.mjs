@@ -40,7 +40,9 @@ export const settings = () => readJson(p("config.json"), {});
 // so a local run needs no setting. STRATA_URL or `serverUrl` in config.json points elsewhere: another port, or a
 // deployed app. tests/config.test.mjs fails if this and the app's default drift apart.
 export const DEFAULT_SERVER_URL = "http://localhost:9316";
-export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || DEFAULT_SERVER_URL;
+// Routes are sent as /api/... and /v1/..., so a base that already ends in /api would double it (and 404).
+export const serverUrl = () =>
+  (process.env.STRATA_URL || settings().serverUrl || DEFAULT_SERVER_URL).replace(/\/+$/, "").replace(/\/api$/, "");
 
 // One server written two ways (a trailing slash, an upper-case host) is the same server.
 export function sameServer(a, b) {
