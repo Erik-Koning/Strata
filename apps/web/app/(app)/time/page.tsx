@@ -1,85 +1,124 @@
+import { Timer } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { listProducts } from "../../../server/hub/products.ts";
-import { timeLost } from "../../../server/hub/signals.ts";
+import { redirect } from "next/navigation";
+import { TimeFilterBar } from "../../../components/time-lost/filters.tsx";
+import { HowWeCount } from "../../../components/time-lost/how-we-count.tsx";
+import { TimeItem } from "../../../components/time-lost/time-item.tsx";
+import { formatDay, formatLost, parseTimeFilters, timeHref, timePage } from "../../../server/hub/time-page.ts";
 import { requireViewer } from "../../../server/viewer.ts";
-import { refreshHub } from "../hub-refresh.ts";
-import { duration, Empty, hours, shortRepo } from "../hub-ui.tsx";
-import { PageHeader } from "../page-header.tsx";
+import { TimeHeader } from "./header.tsx";
 
 export const metadata: Metadata = { title: "Time" };
-export const dynamic = "force-dynamic";
 
-const RANGES = [7, 30, 90];
-const DAY = 24 * 60 * 60 * 1000;
+const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 
-export default async function TimePage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
-  const { days: raw } = await searchParams;
-  const days = RANGES.includes(Number(raw)) ? Number(raw) : 30;
+// Where engineering time goes: the hours commands lost in a range, the most first, each with its trend, what
+// sessions said about it and a ticket to copy. Read through the hub's read models as the viewer (server/hub/time-page.ts).
+export default async function TimePage({ searchParams }: PageProps<"/time">) {
   const viewer = await requireViewer();
-  await refreshHub();
-  const now = new Date();
-  const [lost, products] = await Promise.all([
-    timeLost({ since: new Date(now.getTime() - days * DAY), until: now }, viewer),
-    listProducts(viewer),
-  ]);
-  const name = new Map(products.map((p) => [p.id, p.name]));
-  const max = Math.max(1, ...lost.items.map((i) => i.lost.totalMs));
+  const filters = parseTimeFilters(await searchParams);
+  const data = await timePage(viewer, filters);
+  if (data.movedTo) redirect(timeHref({ days: filters.days, productId: data.movedTo }));
+
+  const top = data.rows[0]?.lost.totalMs ?? 0;
+  const scope = data.product ? ` in ${data.product.name}` : "";
+  const filtered = Boolean(data.product) || data.filters.days !== 90;
+  const range = `${formatDay(data.since)} to ${formatDay(data.until, true)}`;
 
   return (
     <>
-      <PageHeader
-        eyebrow="Time"
-        title="Where the time goes"
-        lede="Shell commands your team's agents ran that failed, were run again, or ran slower than usual. Only the kind of command and a fingerprint are kept, never the command itself."
-      />
-      <nav className="mb-4 flex items-center gap-2" aria-label="Range">
-        {RANGES.map((r) => (
-          <Link
-            key={r}
-            href={r === 30 ? "/time" : `/time?days=${r}`}
-            className={`btn btn-sm ${days === r ? "btn-primary" : "btn-quiet"}`}
-            aria-current={days === r ? "page" : undefined}
-          >
-            {r} days
-          </Link>
-        ))}
-        <span className="ml-auto text-[13px] text-ink-3">
-          <span className="font-semibold text-ink tabular-nums">{hours(lost.totalHours)}</span> lost in {days} days
-        </span>
-      </nav>
-      {lost.items.length ? (
-        <ul className="card divide-y divide-line">
-          {lost.items.map((i) => (
-            <li key={`${i.key}:${i.productId}`}>
-              <Link href={`/time/${encodeURIComponent(i.key)}`} className="block px-5 py-4 hover:bg-surface-2">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="font-mono text-[14px]">
-                    {i.class} <span className="text-ink-3">{i.fp.slice(0, 8)}</span>
-                  </span>
-                  <span className="text-[12.5px] text-ink-3">
-                    {i.productId ? (name.get(i.productId) ?? shortRepo(i.repo)) : shortRepo(i.repo)}
-                  </span>
-                  <span className="ml-auto font-mono text-[14px] tabular-nums">{hours(i.hours)}</span>
+      <TimeHeader />
+      <TimeFilterBar filters={data.filters} products={data.products} />
+
+      {data.missingProduct ? (
+        <p role="status" className="card mb-6 px-5 py-3.5 text-[13px] text-ink-2">
+          That product isn't listed: there's no such product, or it has no approved work yet. Showing every product.
+        </p>
+      ) : null}
+
+      {data.rows.length ? (
+        <>
+          <section className="card mb-6 p-5 sm:p-6" aria-labelledby="lost-title">
+            <h2 id="lost-title" className="font-medium text-[13px] text-ink-2">
+              Time lost in the last {data.filters.days} days{scope}
+            </h2>
+            <p className="mt-2 font-semibold text-[48px] leading-none tracking-[-0.03em] tabular-nums">
+              {formatLost(data.lost.totalMs)}
+            </p>
+            <p className="mt-3 max-w-2xl text-[14px] text-ink-2">
+              Lost means time in failed runs, in successful re-runs of a command already run in the same session, and in
+              first runs beyond the command's typical (median) time.
+            </p>
+            <dl className="mt-5 grid grid-cols-3 gap-3 border-line border-t pt-4">
+              {(
+                [
+                  ["Failed runs", data.lost.failedMs],
+                  ["Re-runs", data.lost.rerunMs],
+                  ["Slow first runs", data.lost.slowMs],
+                ] as const
+              ).map(([label, ms]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="text-[12.5px] text-ink-3">{label}</dt>
+                  <dd className="mt-0.5 font-semibold text-[15px] tabular-nums">{formatLost(ms)}</dd>
                 </div>
-                <div className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
-                  <div className="bg-danger" style={{ width: `${(i.lost.failedMs / max) * 100}%` }} />
-                  <div className="bg-amber" style={{ width: `${(i.lost.rerunMs / max) * 100}%` }} />
-                  <div className="bg-accent" style={{ width: `${(i.lost.slowMs / max) * 100}%` }} />
-                </div>
-                <p className="mt-1.5 text-[12.5px] text-ink-3">
-                  {i.runs} runs · {i.failures} failed · {i.reruns} re-run · typical {duration(i.medianMs)} · failed{" "}
-                  {duration(i.lost.failedMs)}, re-run {duration(i.lost.rerunMs)}, slow {duration(i.lost.slowMs)}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+              ))}
+            </dl>
+            <p className="mt-4 text-[12.5px] text-ink-3 tabular-nums">
+              {count(data.commands, "command")} in {count(data.repos, "repository", "repositories")}, {range} (UTC
+              days).
+            </p>
+          </section>
+
+          <HowWeCount />
+
+          <section className="card" aria-labelledby="ranked-title">
+            <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-line border-b px-5 py-3.5">
+              <h2 id="ranked-title" className="font-semibold text-[15px]">
+                Commands that lost the most time
+              </h2>
+              <p className="text-[12.5px] text-ink-3">Bars to scale against the top command. Open one for more.</p>
+            </header>
+            <ol className="divide-y divide-line">
+              {data.rows.map((row) => (
+                <TimeItem key={row.id} row={row} topMs={top} />
+              ))}
+            </ol>
+            {data.commands > data.rows.length ? (
+              <p className="border-line border-t px-5 py-3 text-[12.5px] text-ink-3 tabular-nums">
+                Showing the {data.rows.length} commands that lost the most, of {data.commands}. The total above counts
+                them all.
+              </p>
+            ) : null}
+          </section>
+        </>
       ) : (
-        <Empty title="No time lost in this range">
-          Tool time is counted from captured sessions in repositories with approved work. Nothing failed, re-ran or ran
-          slow here yet.
-        </Empty>
+        <>
+          <section className="card mb-6 px-6 py-12 text-center" aria-labelledby="empty-title">
+            <span className="mx-auto grid size-11 place-items-center rounded-full bg-accent-soft text-accent-text">
+              <Timer size={17} aria-hidden />
+            </span>
+            <h2 id="empty-title" className="mt-4 font-semibold text-[16px]">
+              {filtered ? `No time lost${scope} in the last ${data.filters.days} days` : "No tool time to show yet"}
+            </h2>
+            <p className="mx-auto mt-1.5 max-w-md text-[14px] text-ink-3">
+              Time comes from the plugin's tool timings: how long each test, build, lint or other command took in a
+              connected session, and whether it failed. It shows here for repositories that have approved work, once a
+              command loses time to a failure, a re-run or a slow run.
+            </p>
+            <div className="mt-4 flex flex-wrap justify-center gap-2 max-md:[&_.btn]:min-h-11">
+              {filtered ? (
+                <Link href={timeHref({ days: 90, productId: null })} className="btn btn-sm">
+                  Every product, last 90 days
+                </Link>
+              ) : null}
+              <Link href="/connect" className="btn btn-sm">
+                Connect Claude Code
+              </Link>
+            </div>
+          </section>
+          <HowWeCount />
+        </>
       )}
     </>
   );

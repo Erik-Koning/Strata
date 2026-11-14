@@ -12,7 +12,17 @@ import { buildOverview, openGaps, recurring, resolveGap } from "./lib/overview.m
 import { publishSession } from "./lib/publish.mjs";
 import { addFinding, approve, countByStatus, describeSession, listSessions } from "./lib/records.mjs";
 import { renderRollup, rollups } from "./lib/rollups.mjs";
-import { clearAuth, getAuth, getBinding, getHealth, p, readJson, serverUrl, setBinding } from "./lib/store.mjs";
+import {
+  clearAuth,
+  getAuth,
+  getBinding,
+  getHealth,
+  p,
+  readJson,
+  serverUrl,
+  setBinding,
+  signedInElsewhere,
+} from "./lib/store.mjs";
 import { summarizeSession } from "./lib/summarize.mjs";
 import { flush, heldBreakdown } from "./lib/sync.mjs";
 import { describeTeamResult, searchTeam, teamRollups } from "./lib/team.mjs";
@@ -25,8 +35,11 @@ const DASHBOARD_SERVER = fileURLToPath(new URL("./dashboard/server.mjs", import.
 function requireAuth() {
   const auth = getAuth();
   if (!auth?.token) {
+    const elsewhere = signedInElsewhere();
     out(
-      "Not signed in. Run /strata:login first. Everything captured so far is safe on this machine and will sync after sign-in.",
+      elsewhere
+        ? `Signed in to ${elsewhere}, but Strata now points at ${serverUrl()}. Run /strata:login to sign in there. Everything captured so far is safe on this machine and will sync after sign-in.`
+        : "Not signed in. Run /strata:login first. Everything captured so far is safe on this machine and will sync after sign-in.",
     );
     process.exit(1);
   }
@@ -136,7 +149,16 @@ const commands = {
     const health = getHealth();
     const held = describeHeld(heldBreakdown());
     out(`server:   ${serverUrl()}`);
-    out(`user:     ${auth?.user ? `${auth.user.name} (${auth.user.email})` : "not signed in"}`);
+    const elsewhere = signedInElsewhere();
+    out(
+      `user:     ${
+        auth?.user
+          ? `${auth.user.name} (${auth.user.email})`
+          : elsewhere
+            ? `signed in to ${elsewhere}, not this server: run /strata:login`
+            : "not signed in"
+      }`,
+    );
     out(`project:  ${binding ? `${binding.teamName} / ${binding.name}` : "none selected for this repo"}`);
     out(`jira:     ${git.jira.join(", ") || "none found in branch or recent commits"}`);
     out(`events:   ${pendingEvents()} waiting to send`);

@@ -707,7 +707,7 @@ footer { padding-block: 28px 48px; border-top: 1px solid var(--line); font-size:
       <ol class="steps">
         <li><h3>Capture</h3><p>Hooks capture your prompts, Claude's replies and how long each tool ran. Never a command's output.</p></li>
         <li><h3>Redact</h3><p>Secrets, tokens and keys are stripped on your machine, and again on the server.</p></li>
-        <li><h3>Draft</h3><p>When the session ends, Claude drafts a summary and findings. Only you can see the draft, and the session's prompts and replies are then deleted.</p></li>
+        <li><h3>Draft</h3><p>When the session ends, Claude drafts a summary and findings. Only you can see the draft. The session's redacted prompts and replies stay private to you and expire after 30 days.</p></li>
         <li class="gate"><h3>Review</h3><p>You approve, edit or discard each record, in the hub or with <code>/strata:review</code>.</p></li>
         <li><h3>Share</h3><p>Approved records join the product's pages and are indexed for search.</p></li>
       </ol>
@@ -740,7 +740,7 @@ footer { padding-block: 28px 48px; border-top: 1px solid var(--line); font-size:
           </li>
           <li class="band b4">
             <h3>Session events</h3>
-            <span class="scope">many per session · deleted once drafted</span>
+            <span class="scope">many per session · private · kept 30 days</span>
             <p>Prompts, replies and tool timings, redacted. Raw material for the session draft, and nobody else's to read.</p>
           </li>
         </ol>
@@ -1039,11 +1039,11 @@ footer { padding-block: 28px 48px; border-top: 1px solid var(--line); font-size:
         <p>Visibility into the work, not the worker.</p>
       </div>
       <ul class="rules">
-        <li><strong>Summaries are what's kept.</strong> Prompts and replies, redacted, are held only until the session is drafted, then deleted.</li>
+        <li><strong>Raw text stays private and expires.</strong> Prompts and replies, redacted, are only ever their author's, and are deleted after 30 days. What others see is only what you approve.</li>
         <li><strong>Redaction at source.</strong> Secrets are stripped on your machine before anything leaves it, and again on the server.</li>
         <li><strong>You see what others see.</strong> Every record is yours to edit or discard first.</li>
         <li><strong>About code and process.</strong> Pain points and gaps never name or rate a person.</li>
-        <li><strong>No activity logs.</strong> No keystrokes, no idle time, and no prompt history past drafting. Friction hours come from test, build and install runs, never from a person's time.</li>
+        <li><strong>No activity logs.</strong> No keystrokes, no idle time, and no prompt history past 30 days. Friction hours come from test, build and install runs, never from a person's time.</li>
         <li><strong>Not for ratings.</strong> Records are never used in performance reviews.</li>
         <li><strong>Who, never how much.</strong> Pages show who has worked on an area recently, never counts, rankings or comparisons of people.</li>
         <li><strong>Answers show their sources.</strong> The assistant answers only from approved records, cites each one, and says when it doesn't know.</li>
