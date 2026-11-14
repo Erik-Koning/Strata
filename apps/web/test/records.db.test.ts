@@ -1,11 +1,8 @@
 // The record pipeline end to end: versioned events in, drafts out, review, approval into memories, raw text gone.
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { dropTestDatabase } from "./test-database.ts";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `records_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("records_test");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";

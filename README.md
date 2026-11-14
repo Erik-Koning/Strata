@@ -15,7 +15,7 @@ change.
 **The web app** (Next.js 16, `apps/web`) has invite-only accounts with roles, teams and suspension, API keys you make per
 machine, and the memory API: capture, recall, the frozen block, compaction summaries, save and forget. It also serves
 the `/v1` summary API and the records review API. Every route checks a bearer key first and validates its body against a
-shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, records, projects, teams,
+shared contract. **MongoDB** (Atlas) holds events, memories, summaries, records, projects, teams,
 invitations, an audit log and the keys, with a vector index for recall and a text index behind it.
 
 **The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API

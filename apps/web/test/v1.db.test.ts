@@ -1,11 +1,8 @@
 // The /v1 summary API end to end, through its route handlers, on a database of its own.
-import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { dropTestDatabase } from "./test-database.ts";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `v1_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("v1_test");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 process.env.BETTER_AUTH_SECRET = "test-better-auth-secret-0123456789abcdef";
