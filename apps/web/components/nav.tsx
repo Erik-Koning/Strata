@@ -56,10 +56,10 @@ function NavLink({ item, current, waiting = 0 }: { item: Item; current: boolean;
       aria-current={current ? "page" : undefined}
       title={label}
       className={`relative flex min-h-11 min-w-11 flex-none items-center gap-2.5 rounded-[7px] px-2.5 font-medium text-[13.5px] transition-colors max-md:justify-center md:min-h-8 ${
-        current ? "bg-surface-3 text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink"
+        current ? "bg-surface text-ink shadow-[var(--shadow)]" : "text-ink-2 hover:bg-surface/60 hover:text-ink"
       }`}
     >
-      <Icon size={16} strokeWidth={1.75} aria-hidden className={current ? "text-accent-text" : "text-ink-3"} />
+      <Icon size={16} strokeWidth={1.75} aria-hidden className={current ? "text-accent" : "text-ink-3"} />
       <span className={current ? "whitespace-nowrap" : "whitespace-nowrap max-md:sr-only"}>{label}</span>
       {waiting ? (
         <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-accent px-1.5 font-semibold text-[11px] text-accent-ink leading-5 max-md:absolute max-md:top-0.5 max-md:right-0.5 max-md:min-w-4 max-md:px-1 max-md:text-[10px] max-md:leading-4">

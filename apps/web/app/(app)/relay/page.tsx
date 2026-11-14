@@ -2,19 +2,31 @@
 // approves a draft here; the recipient copies the command that resumes it in Claude Code. Claiming, test runs and
 // completing happen in Claude Code, and show up here.
 import type { Handoff, HandoffListItem, Person, SharedMemory } from "@strata/contracts";
-import { ChevronLeft, Plus } from "lucide-react";
+import {
+  ChevronLeft,
+  FlaskConical,
+  GitCommitHorizontal,
+  History,
+  Library,
+  ListChecks,
+  PanelRight,
+  Plus,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { CheckpointBody, Continuation, NextAction } from "../../../components/relay/checkpoint.tsx";
-import { latestRuns, named } from "../../../components/relay/flow.tsx";
+import { DrawerProvider, DrawerTrigger } from "../../../components/relay/drawer.tsx";
+import { latestRuns } from "../../../components/relay/flow.tsx";
 import { Inbox } from "../../../components/relay/inbox.tsx";
 import { ChangedFiles, ExcludedMemories, SharedMemories } from "../../../components/relay/memories.tsx";
 import { RepoLine, RepoWarning } from "../../../components/relay/repo.tsx";
 import { ResumeBlock } from "../../../components/relay/resume.tsx";
 import { StatusPill } from "../../../components/relay/status.tsx";
-import { Disclosure, HandoffStory, lead, Outcome } from "../../../components/relay/story.tsx";
+import { firstName, lead, Result, TransferSequence } from "../../../components/relay/story.tsx";
 import { Tests } from "../../../components/relay/tests.tsx";
 import { Timeline } from "../../../components/relay/timeline.tsx";
+import { Ago } from "../../../components/time.tsx";
 import {
   type Caller,
   getHandoff,
@@ -93,146 +105,185 @@ function Checkpoint({ detail, viewerId }: { detail: Extract<Detail, { kind: "ok"
   const draft = handoff.status === "draft";
   const canRevoke = party === "sender" && ["draft", "approved", "claimed"].includes(handoff.status);
   const showResume = handoff.status === "approved" || handoff.status === "claimed";
-  const sender = handoff.sender.name.split(/\s+/)[0];
-  const recipient = handoff.recipient?.name.split(/\s+/)[0] ?? "the recipient";
-  const tests = latestRuns(handoff);
-  const files = new Set([...handoff.changedFiles, ...(handoff.continuation?.changedFiles ?? [])]).size;
   const explanation = handoff.summary ? lead(handoff.summary) : null;
-  const left = handoff.remaining.length;
   return (
-    <article className="grid min-w-0 gap-6" aria-labelledby="handoff-title">
-      <header className="grid gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-ink-3">
-            <StatusPill status={handoff.status} />
-            <span className="font-mono text-[12.5px]">{handoff.project}</span>
-            <span>
-              From {named(handoff.sender, viewerId)} to{" "}
-              {handoff.recipient ? named(handoff.recipient, viewerId) : "no one yet"}
-            </span>
+    <DrawerProvider title={handoff.title} panel={<Evidence detail={detail} viewerId={viewerId} />}>
+      <article className="grid min-w-0 gap-7" aria-labelledby="handoff-title">
+        <header className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
+              <StatusPill status={handoff.status} />
+              <span>{handoff.project}</span>
+              <span>
+                Updated <Ago at={handoff.updatedAt} />
+              </span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <DrawerTrigger className="btn btn-sm">
+                <PanelRight size={14} aria-hidden /> Inspect evidence
+              </DrawerTrigger>
+              {canRevoke ? (
+                <RevokeControl
+                  key={handoff._id}
+                  id={handoff._id}
+                  status={handoff.status}
+                  recipient={handoff.recipient?.name ?? null}
+                />
+              ) : null}
+            </div>
           </div>
-          {canRevoke ? (
-            <RevokeControl
-              key={handoff._id}
-              id={handoff._id}
-              status={handoff.status}
-              recipient={handoff.recipient?.name ?? null}
-            />
-          ) : null}
-        </div>
-        <h2
-          id="handoff-title"
-          className="max-w-[40ch] font-semibold text-[28px] text-ink leading-[1.12] tracking-[-0.03em] sm:text-[32px]"
-        >
-          {handoff.title}
-        </h2>
-        {explanation ? <p className="max-w-[68ch] text-[15.5px] text-ink-2 leading-relaxed">{explanation}</p> : null}
-      </header>
+          <h2
+            id="handoff-title"
+            className="max-w-[34ch] font-semibold text-[30px] text-ink leading-[1.1] tracking-[-0.035em] sm:text-[34px]"
+          >
+            {handoff.title}
+          </h2>
+          {explanation ? <p className="max-w-[64ch] text-[16px] text-ink-2 leading-relaxed">{explanation}</p> : null}
+        </header>
 
-      <HandoffStory handoff={handoff} memories={detail.memories} viewerId={viewerId} />
+        <TransferSequence handoff={handoff} memories={detail.memories} viewerId={viewerId}>
+          <Result handoff={handoff} />
+        </TransferSequence>
 
-      <Outcome handoff={handoff}>
         {showResume ? (
-          <div className="grid gap-5 rounded-[12px] bg-surface p-5 shadow-[var(--shadow)] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+          <section
+            aria-label="Pick it up"
+            className="panel grid gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+          >
             <NextAction text={handoff.nextAction} />
             <div className="min-w-0">
               <ResumeBlock handoff={handoff} forRecipient={party === "recipient"} />
             </div>
-          </div>
+          </section>
         ) : null}
-      </Outcome>
 
-      <div className="relay-details">
         {draft ? (
-          <Disclosure title="Review and approve the draft" open hint="Only you can see this">
+          <section aria-label="Review the draft" className="panel p-6">
             <DraftEditor
               key={handoff._id}
               handoff={handoff}
               recipients={detail.recipients}
               shareable={detail.shareable}
             />
-          </Disclosure>
+          </section>
         ) : null}
-        {draft ? null : (
-          <Disclosure
-            title={`What ${sender} handed over`}
-            hint={`${handoff.completed.length} done, ${left} to do${handoff.blockers.length ? `, ${handoff.blockers.length} blocked` : ""}`}
-          >
-            <CheckpointBody handoff={handoff} />
-            {handoff.nextAction && !showResume ? (
-              <NextAction text={handoff.nextAction} label="Next step, as handed over" />
-            ) : null}
-          </Disclosure>
-        )}
-        {draft || (handoff.status === "revoked" && !handoff.tests.length) ? null : (
-          <Disclosure
-            title="Test evidence"
-            hint={
-              handoff.tests.length
-                ? `${handoff.tests.length} ${handoff.tests.length === 1 ? "run" : "runs"}${tests.named ? `, ${tests.passing} of ${tests.named} passing` : ""}`
-                : "No runs yet"
-            }
-          >
-            <Tests handoff={handoff} />
-          </Disclosure>
-        )}
-        {handoff.continuation ? (
-          <Disclosure title={`${recipient}'s session`} hint="Summary and commits">
-            <Continuation handoff={handoff} />
-          </Disclosure>
-        ) : null}
-        <Disclosure
-          title="Approved memory and where it came from"
-          hint={draft ? "Chosen when you approve" : `${handoff.memoryIds.length} shared`}
-          id="evidence-memories"
-        >
-          <MemoryEvidence detail={detail} />
-        </Disclosure>
-        <Disclosure
-          title="Repository and changed files"
-          hint={files ? `${files} ${files === 1 ? "file" : "files"}` : "None listed"}
-        >
-          <div className="grid gap-1.5">
-            <p className="text-[12.5px] text-ink-3">Repository at handoff</p>
-            <RepoLine repo={handoff.repo} />
-            <RepoWarning repo={handoff.repo} past={Boolean(handoff.claimedAt)} />
-          </div>
-          <ChangedFiles files={handoff.changedFiles} />
-          {handoff.continuation?.changedFiles.length ? (
-            <ChangedFiles title={`Changed in ${recipient}'s session`} files={handoff.continuation.changedFiles} />
-          ) : null}
-        </Disclosure>
-        <Disclosure title="Activity log" hint={`${handoff.timeline.length} events`}>
-          <Timeline handoff={handoff} viewerId={viewerId} />
-        </Disclosure>
-      </div>
-    </article>
+
+        <EvidenceLinks handoff={handoff} />
+      </article>
+    </DrawerProvider>
   );
 }
 
-function MemoryEvidence({ detail }: { detail: Extract<Detail, { kind: "ok" }> }) {
-  const { handoff } = detail;
-  const shared = handoff.memoryIds.length;
-  if (handoff.status === "draft")
-    return (
-      <p className="text-[13.5px] text-ink-3">
-        None until you approve. Tick the ones to send in the draft; each is re-checked whenever it's read.
-      </p>
-    );
-  if (detail.memories)
-    return (
-      <>
-        <SharedMemories memories={detail.memories} />
-        <ExcludedMemories excluded={detail.excluded} />
-      </>
-    );
+// The way into the technical record: each link opens the inspector at its section.
+function EvidenceLinks({ handoff }: { handoff: Handoff }) {
+  const tests = latestRuns(handoff);
+  const files = new Set([...handoff.changedFiles, ...(handoff.continuation?.changedFiles ?? [])]).size;
+  const links = [
+    { target: "evidence-checkpoint", icon: ListChecks, label: "Full checkpoint", count: null },
+    {
+      target: "evidence-tests",
+      icon: FlaskConical,
+      label: "Test runs",
+      count: handoff.tests.length ? `${handoff.tests.length}` : null,
+      hide: handoff.status === "draft" || (handoff.status === "revoked" && !handoff.tests.length),
+    },
+    { target: "evidence-memories", icon: Library, label: "Memory sources", count: `${handoff.memoryIds.length}` },
+    {
+      target: "evidence-files",
+      icon: GitCommitHorizontal,
+      label: "Commits and files",
+      count: files ? `${files}` : null,
+    },
+    { target: "evidence-activity", icon: History, label: "Activity log", count: `${handoff.timeline.length}` },
+  ].filter((l) => !l.hide);
   return (
-    <SharedMemories
-      memories={[]}
-      note={
-        shared ? `${shared} shared. They're readable while the handoff is open.` : "None were shared with this handoff."
-      }
-    />
+    <nav aria-label="Evidence" className="flex flex-wrap items-center gap-x-1 gap-y-1 border-line border-t pt-4">
+      <span className="mr-2 font-medium text-[13px] text-ink">Evidence</span>
+      {links.map(({ target, icon: Icon, label, count }) => (
+        <DrawerTrigger key={target} target={target} className="evidence-link">
+          <Icon size={14} aria-hidden className="text-ink-3" />
+          {label}
+          {count ? <span className="count">{count}</span> : null}
+        </DrawerTrigger>
+      ))}
+      {tests.named ? (
+        <span className="ml-auto text-[12.5px] text-ink-3">
+          {tests.passing} of {tests.named} test commands passing in the latest runs
+        </span>
+      ) : null}
+    </nav>
+  );
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className="evidence-section grid scroll-mt-4 gap-4">
+      <h3 id={`${id}-title`} className="font-semibold text-[15px] text-ink tracking-[-0.01em]">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
+// The inspector's contents: everything the story leaves out, in full.
+function Evidence({ detail, viewerId }: { detail: Extract<Detail, { kind: "ok" }>; viewerId: string }) {
+  const { handoff } = detail;
+  const sender = firstName(handoff.sender.name);
+  const recipient = handoff.recipient ? firstName(handoff.recipient.name) : "the recipient";
+  const shared = handoff.memoryIds.length;
+  return (
+    <>
+      <Section id="evidence-checkpoint" title={`What ${sender} handed over`}>
+        <CheckpointBody handoff={handoff} />
+        {handoff.nextAction ? <NextAction text={handoff.nextAction} label="Next step, as handed over" /> : null}
+      </Section>
+      {handoff.status === "draft" || (handoff.status === "revoked" && !handoff.tests.length) ? null : (
+        <Section id="evidence-tests" title="Test runs">
+          <Tests handoff={handoff} />
+        </Section>
+      )}
+      {handoff.continuation ? (
+        <Section id="evidence-session" title={`${recipient}'s session`}>
+          <Continuation handoff={handoff} />
+        </Section>
+      ) : null}
+      <Section id="evidence-memories" title="Where the shared memory came from">
+        {handoff.status === "draft" ? (
+          <p className="text-[13.5px] text-ink-3">
+            None until you approve. Tick the ones to send in the draft; each is re-checked whenever it's read.
+          </p>
+        ) : detail.memories ? (
+          <>
+            <SharedMemories memories={detail.memories} />
+            <ExcludedMemories excluded={detail.excluded} />
+          </>
+        ) : (
+          <SharedMemories
+            memories={[]}
+            note={
+              shared
+                ? `${shared} shared. They're readable while the handoff is open.`
+                : "None were shared with this handoff."
+            }
+          />
+        )}
+      </Section>
+      <Section id="evidence-files" title="Commits and files">
+        <div className="grid gap-1.5">
+          <p className="text-[12.5px] text-ink-3">Repository at handoff</p>
+          <RepoLine repo={handoff.repo} />
+          <RepoWarning repo={handoff.repo} past={Boolean(handoff.claimedAt)} />
+        </div>
+        <ChangedFiles files={handoff.changedFiles} />
+        {handoff.continuation?.changedFiles.length ? (
+          <ChangedFiles title={`Changed in ${recipient}'s session`} files={handoff.continuation.changedFiles} />
+        ) : null}
+      </Section>
+      <Section id="evidence-activity" title="Activity log">
+        <Timeline handoff={handoff} viewerId={viewerId} />
+      </Section>
+    </>
   );
 }
 

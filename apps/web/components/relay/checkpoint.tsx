@@ -97,12 +97,12 @@ export function Continuation({ handoff }: { handoff: Handoff }) {
   return (
     <section
       aria-label="Result"
-      className={`overflow-hidden rounded-[var(--radius)] border bg-surface ${c.verified ? "border-accent/35" : "border-amber/35"}`}
+      className={`overflow-hidden rounded-[var(--radius)] border bg-surface ${c.verified ? "border-verified/35" : "border-amber/35"}`}
     >
       <div
         className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2.5 text-[12.5px] ${
           c.verified
-            ? "border-accent/20 bg-accent-soft/60 text-accent-text"
+            ? "border-verified/20 bg-verified-soft text-verified-text"
             : "border-amber/20 bg-amber-soft/60 text-amber"
         }`}
       >

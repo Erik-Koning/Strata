@@ -8,87 +8,86 @@
    Saira wide caps kept for legends that want them. Every class name and token name is the one the pages already use. */
 
 :root {
-  /* Light by default: a warm paper canvas, white working surfaces, charcoal chrome (sidebar, evidence), one violet
-     for Strata and its actions, and green kept for one thing only: an outcome the tests proved. */
-  --bg: #f3f2ee;
+  /* One warm-light theme. Paper canvas, a slightly deeper sidebar of the same paper, white working surfaces,
+     charcoal type. Violet is Strata and its actions; green appears only on an outcome the tests proved. */
+  --bg: #f6f5f2;
+  --sidebar: #edece8;
   --surface: #ffffff;
-  --surface-2: #f1efea;
-  --surface-3: #e8e5de;
-  --sunk: #f6f5f1;
-  --ink: #18161f;
-  --ink-2: #48444f;
-  --ink-3: #6f6a78;
-  --line: rgb(24 22 31 / 8%);
-  --line-strong: rgb(24 22 31 / 14%);
-  --rule: rgb(24 22 31 / 5%);
+  --surface-2: #f2f1ed;
+  --surface-3: #e7e5e0;
+  --sunk: #faf9f7;
+  --ink: #1e1c22;
+  --ink-2: #4a4750;
+  --ink-3: #77737c;
+  --line: rgb(30 28 34 / 9%);
+  --line-strong: rgb(30 28 34 / 15%);
+  --rule: rgb(30 28 34 / 6%);
 
-  --accent: #6236d6;
-  --accent-hover: #5229c2;
+  --accent: #7253d8;
+  --accent-hover: #6141c9;
   --accent-ink: #ffffff;
-  --accent-soft: #eee8fc;
-  --accent-text: #5228c0;
-  --fuchsia: #b62fc9;
+  --accent-soft: #f0ecfb;
+  --accent-text: #5a3bc2;
+  --fuchsia: #a63bc0;
 
-  --verified: #2e7a57;
-  --verified-soft: #e4f1ea;
-  --verified-text: #23664a;
+  --verified: #3e7d5e;
+  --verified-soft: #eaf3ee;
+  --verified-text: #2e6a4c;
 
-  --amber: #93560a;
-  --amber-soft: #f8ecd8;
-  --danger: #b3263c;
-  --danger-soft: #fbe6e9;
-  --focus: #6236d6;
+  --amber: #91580f;
+  --amber-soft: #f7eddc;
+  --danger: #b0303f;
+  --danger-soft: #faeaec;
+  --focus: #7253d8;
 
-  --shadow: 0 1px 2px rgb(24 22 31 / 5%), 0 0 0 1px rgb(24 22 31 / 6%);
-  --shadow-lift: 0 1px 2px rgb(24 22 31 / 4%), 0 12px 32px -12px rgb(24 22 31 / 14%), 0 0 0 1px rgb(24 22 31 / 6%);
-  --shadow-pop: 0 32px 80px -24px rgb(24 22 31 / 40%), 0 0 0 1px rgb(24 22 31 / 10%);
+  --shadow: 0 1px 2px rgb(30 28 34 / 5%), 0 0 0 1px rgb(30 28 34 / 6%);
+  --shadow-lift: 0 1px 2px rgb(30 28 34 / 4%), 0 10px 28px -14px rgb(30 28 34 / 16%), 0 0 0 1px rgb(30 28 34 / 6%);
+  --shadow-pop: 0 28px 72px -24px rgb(30 28 34 / 32%), 0 0 0 1px rgb(30 28 34 / 8%);
   --radius: 12px;
   --radius-sm: 8px;
+  --relay-blue: #3a62c2;
+  --relay-blue-soft: #e8eefa;
   color-scheme: light;
 }
 
-/* Charcoal chrome: the sidebar and the evidence panels. Every token is redefined inside, so the same components
-   render light-on-charcoal without their own variants. */
-:root[data-theme="dark"],
-.chrome {
-  --bg: #17151c;
-  --surface: #1f1d26;
-  --surface-2: #27242f;
-  --surface-3: #312d3a;
-  --sunk: #141218;
-  --ink: #f1eff6;
-  --ink-2: #bdb8c9;
-  --ink-3: #8d889b;
-  --line: rgb(241 239 246 / 8%);
-  --line-strong: rgb(241 239 246 / 14%);
-  --rule: rgb(241 239 246 / 5%);
-  --accent: #8b63f0;
-  --accent-hover: #9c7af3;
+/* Optional dark theme (data-theme="dark"): the same system, never mixed with the light one. */
+:root[data-theme="dark"] {
+  --bg: #17161a;
+  --sidebar: #131215;
+  --surface: #1f1e23;
+  --surface-2: #26252b;
+  --surface-3: #302e35;
+  --sunk: #1b1a1e;
+  --ink: #efedf2;
+  --ink-2: #bcb8c4;
+  --ink-3: #8d8996;
+  --line: rgb(239 237 242 / 8%);
+  --line-strong: rgb(239 237 242 / 14%);
+  --rule: rgb(239 237 242 / 5%);
+  --accent: #8f74e6;
+  --accent-hover: #a08aea;
   --accent-ink: #ffffff;
-  --accent-soft: rgb(139 99 240 / 18%);
-  --accent-text: #c6b3fb;
-  --verified: #5fbf8f;
-  --verified-soft: rgb(95 191 143 / 14%);
-  --verified-text: #8fd6b1;
-  --amber: #efb45d;
-  --amber-soft: rgb(239 180 93 / 13%);
-  --danger: #ff8d9c;
-  --danger-soft: rgb(255 141 156 / 13%);
-  --focus: #c6b3fb;
-  --shadow: 0 0 0 1px rgb(241 239 246 / 7%);
-  --shadow-lift: 0 0 0 1px rgb(241 239 246 / 8%);
-  --shadow-pop: 0 32px 80px -24px rgb(0 0 0 / 70%), 0 0 0 1px rgb(241 239 246 / 8%);
+  --accent-soft: rgb(143 116 230 / 16%);
+  --accent-text: #c3b4f5;
+  --verified: #66b98d;
+  --verified-soft: rgb(102 185 141 / 13%);
+  --verified-text: #93d2b0;
+  --amber: #e9b265;
+  --amber-soft: rgb(233 178 101 / 12%);
+  --danger: #f4909c;
+  --danger-soft: rgb(244 144 156 / 12%);
+  --focus: #c3b4f5;
+  --shadow: 0 0 0 1px rgb(239 237 242 / 7%);
+  --shadow-lift: 0 0 0 1px rgb(239 237 242 / 8%);
+  --shadow-pop: 0 28px 72px -24px rgb(0 0 0 / 70%), 0 0 0 1px rgb(239 237 242 / 8%);
   --relay-blue: #9db4f5;
   --relay-blue-soft: rgb(157 180 245 / 14%);
   color-scheme: dark;
 }
-.chrome {
-  background: var(--bg);
-  color: var(--ink);
-}
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-sidebar: var(--sidebar);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
@@ -110,7 +109,7 @@
   --color-amber-soft: var(--amber-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-label: var(--font-saira), "Eurostile", ui-sans-serif, system-ui, sans-serif;
   --font-part: var(--font-martian), ui-monospace, SFMono-Regular, monospace;
@@ -384,10 +383,7 @@ h3 {
 /* Relay: handoff statuses. One cool blue for "approved, waiting to be picked up"; amber for work in someone's hands;
    violet (the accent) for done; muted outlines for a private draft and a revoked one. Test evidence: verified is filled violet, a
    claim is an amber outline. */
-:root {
-  --relay-blue: #2f5fc4;
-  --relay-blue-soft: #e5ecfa;
-}
+
 @layer components {
   .pill-draft {
     background: transparent;
@@ -489,187 +485,225 @@ h3 {
     background: var(--accent);
   }
   .drawer-backdrop {
-    background: rgb(0 0 0 / 55%);
+    background: rgb(30 28 34 / 22%);
   }
 }
 
-/* Unlayered on purpose: some browser extensions inject a global `.dot` rule, and unlayered styles outrank ours in
-   @layer components. These keep status dots inline wherever they appear. */
-.chip > .dot,
-.dot.dot {
-  position: static;
-  width: 7px;
-  height: 7px;
-}
 
-/* Relay's story: two people and what Strata carried between them, joined by links that fill as the work moves. */
+/* Relay's sequence: one sheet, three steps, one line through them. The line is solid violet where context moved,
+   dashed where it hasn't yet, and red where a revocation cut it. It draws itself once on load, left to right. */
 @layer components {
-  .relay-story {
+  .seq-sheet {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lift);
+    overflow: hidden;
+  }
+  .seq {
     display: grid;
-    gap: 0;
     grid-template-columns: minmax(0, 1fr);
   }
-  @media (min-width: 1100px) {
-    .relay-story {
-      grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1.12fr) 44px minmax(0, 1fr);
-      align-items: stretch;
-    }
-  }
-  .relay-mark {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    background: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  .relay-link {
+  .seq-step {
     position: relative;
-    display: grid;
-    place-items: center;
-    height: 28px;
-    color: var(--line-strong);
+    min-width: 0;
   }
-  .relay-link-line {
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 0;
-    border-left: 1.5px dashed var(--line-strong);
+  .seq-step[data-muted="true"] .seq-body {
+    opacity: 0.62;
   }
-  .relay-link-head {
-    position: relative;
-    transform: rotate(90deg);
-    color: var(--ink-3);
-  }
-  .relay-link[data-live="true"] .relay-link-line {
-    border-left: 2px solid var(--accent);
-  }
-  .relay-link[data-live="true"] .relay-link-head {
-    color: var(--accent);
-  }
-  .relay-link[data-stopped="true"] .relay-link-head {
-    color: var(--danger);
-  }
-  .relay-spark {
-    display: none;
-  }
-  @media (min-width: 1100px) {
-    .relay-link {
-      height: auto;
-    }
-    .relay-link-line {
-      left: 0;
-      right: 0;
-      top: 50%;
-      bottom: auto;
-      width: auto;
-      height: 0;
-      border-left: 0;
-      border-top: 1.5px dashed var(--line-strong);
-    }
-    .relay-link[data-live="true"] .relay-link-line {
-      border-left: 0;
-      border-top: 2px solid var(--accent);
-    }
-    .relay-link-head {
-      transform: none;
-      margin-left: auto;
-      margin-right: -6px;
-    }
-    .relay-spark {
-      display: block;
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 8px;
-      height: 8px;
-      margin-top: -4px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 0 4px var(--accent-soft);
-      opacity: 0;
-      animation: relay-travel 900ms cubic-bezier(0.4, 0, 0.2, 1) var(--delay, 0ms) 1 both;
-    }
-  }
-  @keyframes relay-travel {
-    0% {
-      left: 0;
-      opacity: 0;
-    }
-    20% {
-      opacity: 1;
-    }
-    80% {
-      opacity: 1;
-    }
-    100% {
-      left: calc(100% - 8px);
-      opacity: 0;
-    }
-  }
-
-  .relay-outcome {
-    --tone: var(--ink-2);
-    --tone-soft: var(--surface-2);
+  .seq-head {
     display: flex;
-    gap: 16px;
-    padding: 20px 22px;
-    border-radius: 14px;
-    background: var(--tone-soft);
-    color: var(--ink);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 22%, transparent);
+    align-items: center;
+    height: 36px;
   }
-  .relay-outcome[data-tone="verified"] {
-    --tone: var(--verified);
-    --tone-soft: var(--verified-soft);
-  }
-  .relay-outcome[data-tone="warn"] {
-    --tone: var(--amber);
-    --tone-soft: var(--amber-soft);
-  }
-  .relay-outcome[data-tone="danger"] {
-    --tone: var(--danger);
-    --tone-soft: var(--danger-soft);
-  }
-  .relay-outcome[data-tone="accent"] {
-    --tone: var(--accent);
-    --tone-soft: var(--accent-soft);
-  }
-  .relay-outcome h3 {
-    color: color-mix(in srgb, var(--tone) 70%, var(--ink));
-  }
-  .relay-outcome-icon {
+  .seq-node {
+    position: relative;
+    z-index: 1;
     display: grid;
     place-items: center;
     flex: none;
-    width: 40px;
-    height: 40px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 0 0 6px var(--surface);
+  }
+  .seq-seg {
+    display: none;
+  }
+  .seq-body {
+    padding: 14px 0 0;
+  }
+
+  /* Narrow: steps stack, joined by a vertical line down the left. */
+  @media (max-width: 1023px) {
+    .seq {
+      padding: 24px 20px 8px;
+    }
+    .seq-step {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      column-gap: 16px;
+      padding-bottom: 28px;
+    }
+    .seq-head {
+      align-items: flex-start;
+    }
+    .seq-body {
+      padding: 4px 0 0;
+    }
+    .seq-step:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 17.5px;
+      top: 40px;
+      bottom: 4px;
+      border-left: 1.5px dashed var(--line-strong);
+    }
+    .seq-step:has(.seq-out[data-seg="on"])::before {
+      border-left: 2px solid var(--accent);
+    }
+  }
+
+  /* Wide: three columns, the line running across their tops. */
+  @media (min-width: 1024px) {
+    .seq {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 30px 0 30px;
+    }
+    .seq-step {
+      padding: 0 28px;
+    }
+    .seq-step + .seq-step .seq-body {
+      border-left: 1px solid var(--line);
+      margin-left: -28px;
+      padding-left: 28px;
+    }
+    .seq-seg {
+      display: block;
+      height: 0;
+      border-top: 1.5px dashed var(--line-strong);
+      transform-origin: left center;
+    }
+    .seq-into {
+      display: none;
+    }
+    /* Runs from this node across both gutters to the next node, which sits on top of it. */
+    .seq-out {
+      flex: 1;
+      position: relative;
+      margin-right: -56px;
+    }
+    .seq-seg[data-seg="on"] {
+      border-top: 2px solid var(--accent);
+      animation: seq-draw 700ms cubic-bezier(0.3, 0, 0.2, 1) both;
+    }
+    .seq-step:nth-child(2) .seq-seg[data-seg="on"] {
+      animation-delay: 650ms;
+    }
+    .seq-out[data-seg="on"]::after {
+      content: "";
+      position: absolute;
+      right: 14px;
+      top: -5px;
+      width: 8px;
+      height: 8px;
+      border-top: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+      transform: rotate(45deg);
+    }
+    .seq-seg[data-seg="cut"] {
+      border-top-color: color-mix(in srgb, var(--danger) 55%, transparent);
+    }
+    .seq-body {
+      padding-top: 18px;
+    }
+  }
+  @keyframes seq-draw {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .seq-result {
+    --tone: var(--ink-3);
+    --tone-soft: var(--surface-2);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 28px 22px;
+    background: var(--tone-soft);
+    border-top: 1px solid color-mix(in srgb, var(--tone) 18%, transparent);
+  }
+  .seq-result[data-tone="verified"] {
+    --tone: var(--verified);
+    --tone-soft: var(--verified-soft);
+  }
+  .seq-result[data-tone="warn"] {
+    --tone: var(--amber);
+    --tone-soft: var(--amber-soft);
+  }
+  .seq-result[data-tone="danger"] {
+    --tone: var(--danger);
+    --tone-soft: var(--danger-soft);
+  }
+  .seq-result[data-tone="accent"] {
+    --tone: var(--accent);
+    --tone-soft: var(--accent-soft);
+  }
+  .seq-result-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    margin-top: 2px;
     border-radius: 50%;
     background: var(--surface);
     color: var(--tone);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 25%, transparent);
   }
-  .relay-outcome-meta {
-    font-size: 13px;
-    color: var(--ink-2);
+  .seq-result-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--tone) 80%, var(--ink));
+  }
+  @media (max-width: 1023px) {
+    .seq-result {
+      padding: 18px 20px;
+    }
   }
 
-  .relay-details {
+  /* Evidence links under the sheet: quiet text buttons that open the inspector at a section. */
+  .evidence-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-2);
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .evidence-link:hover {
     background: var(--surface);
-    border-radius: 14px;
+    color: var(--ink);
     box-shadow: var(--shadow);
   }
-  .relay-disclosure + .relay-disclosure {
+  .evidence-link .count {
+    color: var(--ink-3);
+  }
+  .evidence-section + .evidence-section {
     border-top: 1px solid var(--line);
+    padding-top: 24px;
   }
-  .relay-disclosure > summary:hover {
-    background: var(--sunk);
-  }
-  .relay-disclosure:first-child > summary {
-    border-radius: 14px 14px 0 0;
-  }
-  .relay-disclosure:last-child:not([open]) > summary {
-    border-radius: 0 0 14px 14px;
-  }
+}
+
+/* Unlayered: some browser extensions inject a global `.dot` rule. */
+.chip > .dot,
+.dot.dot {
+  position: static;
+  width: 7px;
+  height: 7px;
 }

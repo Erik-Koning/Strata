@@ -1,14 +1,15 @@
-import { ArrowRight, Cable } from "lucide-react";
+import { ArrowRight, Cable, ChevronDown, CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { KindChip, StatusChip } from "../../components/chips.tsx";
+import type { ReactNode } from "react";
+import { StatusChip } from "../../components/chips.tsx";
 import { FrozenPreview } from "../../components/frozen.tsx";
 import { StatusText } from "../../components/relay/status.tsx";
 import { Ago } from "../../components/time.tsx";
 import { DEFAULT_ORG } from "../../server/api-auth.ts";
 import { listHandoffs } from "../../server/handoffs/service.ts";
 import { frozen } from "../../server/memory/frozen.ts";
-import { overview, recentMemories, recentSessions } from "../../server/stats.ts";
+import { overview, recentMemories, recentSessions, waitingOn } from "../../server/stats.ts";
 import { requireViewer } from "../../server/viewer.ts";
 import { PageHeader } from "./page-header.tsx";
 import { requireCaller } from "./relay/caller.ts";
@@ -27,225 +28,285 @@ export default async function OverviewPage() {
     listHandoffs(caller, "inbox"),
     listHandoffs(caller, "outbox"),
   ]);
-  // Handed to me first, then mine, newest first within each: the four that most want a look.
-  const handoffs = [
-    ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
-    ...sent.map((h) => ({ ...h, box: "sent" as const })),
-  ].slice(0, 4);
   const project = stats.projects[0] ?? null;
   const block = project ? await frozen({ org: DEFAULT_ORG, user: viewer.userId, project }) : [];
   const live = stats.lastSeen ? Date.now() - stats.lastSeen.at.getTime() < LIVE_MS : false;
   const first = viewer.name.split(/\s+/)[0] ?? viewer.name;
 
   const all = [...inbox, ...sent];
-  const moving = all.filter((h) => h.status === "approved" || h.status === "claimed").length;
-  const finished = all.filter((h) => h.status === "completed").length;
-  // The product's story in four plain numbers, each a door to where you act on it.
-  const tiles = [
-    { label: "Handoffs in motion", value: moving, hint: "handed on, not finished yet", href: "/relay" },
-    {
-      label: "Waiting for your review",
-      value: stats.candidates,
-      hint: "things your agent learned",
-      href: "/memories?status=candidate",
-    },
-    { label: "Finished handoffs", value: finished, hint: "picked up and completed", href: "/relay" },
-    { label: "Remembered", value: stats.active, hint: "given to every new session", href: "/memories" },
+  const waiting = await waitingOn(viewer.userId);
+  const sessionDrafts = Math.max(0, waiting - stats.candidates);
+  const finished = all.filter((h) => h.status === "completed").slice(0, 4);
+  const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+  // What wants a person, in the order it's blocking someone: work handed to me, my drafts, then review.
+  const attention: { key: string; href: string; title: string; hint: string }[] = [
+    ...inbox
+      .filter((h) => h.status === "approved")
+      .map((h) => ({
+        key: h._id,
+        href: `/relay?id=${h._id}`,
+        title: `Pick up “${h.title}”`,
+        hint: `Handed to you by ${h.sender.name}`,
+      })),
+    ...sent
+      .filter((h) => h.status === "draft")
+      .map((h) => ({
+        key: h._id,
+        href: `/relay?id=${h._id}`,
+        title: `Review and approve “${h.title}”`,
+        hint: "A handoff your session drafted. Only you can see it.",
+      })),
+    ...(stats.candidates
+      ? [
+          {
+            key: "candidates",
+            href: "/memories?status=candidate",
+            title: `${plural(stats.candidates, "thing")} your agent learned ${stats.candidates === 1 ? "needs" : "need"} review`,
+            hint: "Keep it for future sessions, or forget it.",
+          },
+        ]
+      : []),
+    ...(sessionDrafts
+      ? [
+          {
+            key: "drafts",
+            href: "/my-day",
+            title: `${plural(sessionDrafts, "session summary", "session summaries")} to approve`,
+            hint: "Drafted when your sessions ended.",
+          },
+        ]
+      : []),
   ];
 
   return (
     <>
       <PageHeader
-        title={`${first}'s work, remembered`}
-        lede="What's being handed on, what your agents learned, and what they'll know next session."
+        title={`${first}'s workspace`}
+        lede={
+          <>
+            {plural(stats.sessions7d, "session")} this week, {plural(stats.events24h, "event")} captured today, and{" "}
+            {plural(stats.active, "memory", "memories")} given to every new session.
+          </>
+        }
+        actions={
+          <Link href="/relay" className="btn btn-sm">
+            Open handoffs
+          </Link>
+        }
       />
 
       {stats.keys === 0 ? (
         <Link
           href="/connect"
-          className="card mb-6 flex flex-wrap items-center gap-4 border-accent/30 bg-accent-soft p-5 transition-transform hover:-translate-y-px"
+          className="panel mb-8 flex flex-wrap items-center gap-4 p-5 transition-shadow hover:shadow-[var(--shadow-lift)]"
         >
-          <span className="grid size-11 place-items-center rounded-[12px] bg-accent text-accent-ink">
-            <Cable size={20} aria-hidden />
+          <span className="grid size-10 place-items-center rounded-full bg-accent-soft text-accent">
+            <Cable size={18} aria-hidden />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold text-[16px]">Connect Claude Code</span>
+            <span className="block font-semibold text-[15px]">Connect Claude Code</span>
             <span className="block text-[14px] text-ink-2">
               Make an API key, install the plugin, and your next session starts remembering.
             </span>
           </span>
-          <ArrowRight size={18} aria-hidden className="text-accent-text" />
+          <ArrowRight size={18} aria-hidden className="text-accent" />
         </Link>
       ) : null}
 
-      <section aria-label="At a glance" className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {tiles.map(({ label, value, hint, href }) => {
-          const body = (
-            <>
-              <span className="block font-semibold text-[34px] text-ink tabular-nums leading-none tracking-[-0.04em]">
-                {value.toLocaleString()}
-              </span>
-              <span className="mt-3 block font-medium text-[14px] text-ink">{label}</span>
-              <span className="mt-0.5 block text-[12.5px] text-ink-3">{hint}</span>
-            </>
-          );
-          const cls = "block rounded-[14px] bg-surface px-5 py-5 shadow-[var(--shadow)]";
-          return href ? (
-            <Link key={label} href={href} className={`${cls} transition-shadow hover:shadow-[var(--shadow-lift)]`}>
-              {body}
-            </Link>
-          ) : (
-            <div key={label} className={cls}>
-              {body}
-            </div>
-          );
-        })}
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          {project ? (
-            <FrozenPreview memories={block} project={project} />
-          ) : (
-            <section className="card p-6">
-              <h2 className="font-semibold text-[15px]">What Claude sees at the start of a session</h2>
-              <p className="mt-1.5 text-[14px] text-ink-3">
-                Nothing yet. Once a connected session tells Claude something worth keeping (“we always use pnpm here”),
-                it's remembered and shown here exactly as the next session receives it.
-              </p>
-            </section>
-          )}
-
-          <section className="card" aria-labelledby="recent-title">
-            <header className="flex items-center justify-between border-line border-b px-5 py-3.5">
-              <h2 id="recent-title" className="font-semibold text-[15px]">
-                Recently learned
-              </h2>
-              <Link href="/memories" className="btn btn-quiet btn-sm">
-                All memories <ArrowRight size={14} aria-hidden />
-              </Link>
-            </header>
-            {memories.length ? (
-              <ul className="divide-y divide-line">
-                {memories.map((m) => (
-                  <li key={m._id.toHexString()} className="px-5 py-3.5">
-                    <p className="text-[14.5px]">{m.text}</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <StatusChip status={m.status} />
-                      <KindChip kind={m.kind} />
-                      <span className="chip chip-mono">{m.scope.project}</span>
-                      <Ago at={m.createdAt.toISOString()} className="ml-auto text-[12.5px] text-ink-3" />
-                    </div>
+      <div className="grid gap-x-10 gap-y-10 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-10">
+          <Block title="Needs your attention">
+            {attention.length ? (
+              <ul className="panel divide-y divide-line overflow-hidden">
+                {attention.map((a) => (
+                  <li key={a.key}>
+                    <Link
+                      href={a.href}
+                      className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-sunk"
+                    >
+                      <span className="size-2 flex-none rounded-full bg-accent" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium text-[15px] text-ink leading-snug">{a.title}</span>
+                        <span className="mt-0.5 block text-[13px] text-ink-3">{a.hint}</span>
+                      </span>
+                      <ArrowRight
+                        size={16}
+                        aria-hidden
+                        className="flex-none text-ink-3 transition-transform group-hover:translate-x-0.5"
+                      />
+                    </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="px-5 py-6 text-[14px] text-ink-3">
-                No memories yet. They appear as your sessions tell Claude what to keep, or when you add one.
+              <p className="flex items-center gap-3 text-[15px] text-ink-2">
+                <CircleCheck size={18} className="flex-none text-verified" aria-hidden />
+                Nothing needs you right now.
               </p>
             )}
-          </section>
+          </Block>
+
+          <Block title="Recent handoffs" href="/relay" more="All handoffs">
+            {all.length ? (
+              <ul className="panel divide-y divide-line overflow-hidden">
+                {[
+                  ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
+                  ...sent.map((h) => ({ ...h, box: "sent" as const })),
+                ]
+                  .slice(0, 4)
+                  .map((h) => (
+                    <li key={h._id}>
+                      <Link href={`/relay?id=${h._id}`} className="block px-5 py-3.5 transition-colors hover:bg-sunk">
+                        <span className="block truncate font-medium text-[15px] text-ink">{h.title}</span>
+                        <span className="mt-1 flex items-center gap-3 text-[13px] text-ink-3">
+                          <StatusText status={h.status} />
+                          <span className="min-w-0 truncate">
+                            {h.box === "inbox"
+                              ? `From ${h.sender.name}`
+                              : h.recipient
+                                ? `To ${h.recipient.name}`
+                                : "Not sent"}
+                          </span>
+                          <Ago at={h.updatedAt} className="ml-auto flex-none" />
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-ink-3">
+                Nothing handed on yet. Run <code className="kbd">/strata:handoff</code> in Claude Code to draft one.
+              </p>
+            )}
+          </Block>
+
+          <Block title="New knowledge" href="/memories" more="Open knowledge">
+            {memories.length ? (
+              <ul className="grid gap-5">
+                {memories.map((m) => (
+                  <li key={m._id.toHexString()} className="border-line border-l-2 pl-4">
+                    <p className="text-[15px] text-ink leading-relaxed">{m.text}</p>
+                    <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-3">
+                      <StatusChip status={m.status} />
+                      <span className="capitalize">{m.kind}</span>
+                      <span>{m.scope.project === "*" ? "Every project" : m.scope.project}</span>
+                      <Ago at={m.createdAt.toISOString()} />
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[14px] text-ink-3">
+                Nothing learned yet. Memories appear as your sessions tell Claude what to keep.
+              </p>
+            )}
+          </Block>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          <section className="card" aria-labelledby="relay-title">
-            <header className="flex items-center justify-between border-line border-b px-5 py-3.5">
-              <h2 id="relay-title" className="font-semibold text-[15px]">
-                Handoffs
-              </h2>
-              <Link href="/relay" className="btn btn-quiet btn-sm">
-                Relay <ArrowRight size={14} aria-hidden />
-              </Link>
-            </header>
-            {handoffs.length ? (
-              <ul className="divide-y divide-line">
-                {handoffs.map((h) => (
+        <div className="flex min-w-0 flex-col gap-10">
+          <Block title="Recently finished">
+            {finished.length ? (
+              <ul className="grid gap-4">
+                {finished.map((h) => (
                   <li key={h._id}>
-                    <Link href={`/relay?id=${h._id}`} className="block px-5 py-3 transition-colors hover:bg-surface-2">
-                      <span className="block truncate font-medium text-[14px]">{h.title}</span>
-                      <span className="mt-1 flex items-center gap-2 text-[12px] text-ink-3">
-                        <StatusText status={h.status} />
-                        <span className="min-w-0 truncate">
-                          {h.box === "inbox"
-                            ? `from ${h.sender.name}`
-                            : h.recipient
-                              ? `to ${h.recipient.name}`
-                              : "not sent"}
+                    <Link href={`/relay?id=${h._id}`} className="group block">
+                      <span className="flex items-start gap-2.5">
+                        <CircleCheck size={16} className="mt-[3px] flex-none text-verified" aria-hidden />
+                        <span className="min-w-0">
+                          <span className="block font-medium text-[15px] text-ink leading-snug group-hover:text-accent-text">
+                            {h.title}
+                          </span>
+                          <span className="mt-0.5 block text-[13px] text-ink-3">
+                            {h.sender.name} to {h.recipient?.name ?? "no one"}, <Ago at={h.updatedAt} />
+                          </span>
                         </span>
-                        <Ago at={h.updatedAt} className="ml-auto flex-none" />
                       </span>
                     </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="px-5 py-6 text-[14px] text-ink-3">
-                Nothing handed on yet. <code className="kbd">/strata:handoff</code> drafts one from a session.
-              </p>
+              <p className="text-[14px] text-ink-3">No handoff has been finished yet.</p>
             )}
-          </section>
+          </Block>
 
-          <section className="card p-5" aria-labelledby="conn-title">
-            <div className="flex items-center justify-between">
-              <h2 id="conn-title" className="font-semibold text-[15px]">
-                Claude Code
-              </h2>
-              <span className={`chip ${live ? "status-active" : stats.lastSeen ? "" : "status-candidate"}`}>
-                <span className={`dot ${live ? "" : "dot-hollow"}`} aria-hidden />
-                {live ? "Connected" : stats.lastSeen ? "Idle" : "Not connected yet"}
-              </span>
-            </div>
-            {stats.lastSeen ? (
-              <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-[14px]">
-                <dt className="text-ink-3">Last seen</dt>
-                <dd>
-                  <Ago at={stats.lastSeen.at.toISOString()} />
-                </dd>
-                <dt className="text-ink-3">Key</dt>
-                <dd className="truncate">{stats.lastSeen.key}</dd>
-                <dt className="text-ink-3">Client</dt>
-                <dd className="truncate font-mono text-[13px]">{stats.lastSeen.client ?? "unknown"}</dd>
-              </dl>
-            ) : (
-              <p className="mt-3 text-[14px] text-ink-3">
-                {stats.keys
-                  ? "You have a key; start a Claude Code session and it shows up here."
-                  : "No client has connected yet."}
+          <Block title="Your agent">
+            <div className="panel p-5">
+              <p className="flex items-center gap-2.5 text-[15px]">
+                <span
+                  className={`size-2 rounded-full ${live ? "bg-verified" : stats.lastSeen ? "bg-ink-3" : "bg-amber"}`}
+                  aria-hidden
+                />
+                <span className="font-medium text-ink">
+                  {live ? "Claude Code is connected" : stats.lastSeen ? "Claude Code is idle" : "Not connected yet"}
+                </span>
               </p>
-            )}
-            <Link href="/connect" className="btn btn-sm mt-4">
-              {stats.keys ? "Manage keys" : "Connect Claude Code"}
-            </Link>
-          </section>
-
-          <section className="card" aria-labelledby="sessions-title">
-            <header className="border-line border-b px-5 py-3.5">
-              <h2 id="sessions-title" className="font-semibold text-[15px]">
-                Recent sessions
-              </h2>
-            </header>
-            {sessions.length ? (
-              <ul className="divide-y divide-line">
-                {sessions.map((s) => (
-                  <li key={s.sessionID} className="flex items-center gap-3 px-5 py-3">
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-[14px]">{s.project}</span>
-                      <span className="block truncate font-mono text-[12px] text-ink-3">
-                        {s.sessionID.slice(0, 8)} · {s.prompts} prompts · {s.events} events
+              <p className="mt-1 text-[13px] text-ink-3">
+                {stats.lastSeen ? (
+                  <>
+                    Last seen <Ago at={stats.lastSeen.at.toISOString()} /> with the key “{stats.lastSeen.key}”
+                  </>
+                ) : stats.keys ? (
+                  "You have a key; start a Claude Code session and it shows up here."
+                ) : (
+                  "No client has connected yet."
+                )}
+              </p>
+              {sessions.length ? (
+                <ul className="mt-4 grid gap-2 border-line border-t pt-4">
+                  {sessions.slice(0, 3).map((s) => (
+                    <li key={s.sessionID} className="flex items-center gap-3 text-[13.5px]">
+                      <span className="min-w-0 flex-1 truncate text-ink-2">
+                        {s.project}, {plural(s.prompts, "prompt")}
                       </span>
-                    </span>
-                    <Ago at={new Date(s.last).toISOString()} className="text-[12.5px] text-ink-3" />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-5 py-6 text-[14px] text-ink-3">
-                Sessions appear here once a connected client sends its first event.
-              </p>
-            )}
-          </section>
+                      <Ago at={new Date(s.last).toISOString()} className="flex-none text-[12.5px] text-ink-3" />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <Link href="/connect" className="btn btn-sm mt-4">
+                {stats.keys ? "Manage keys" : "Connect Claude Code"}
+              </Link>
+            </div>
+          </Block>
+
+          {project ? (
+            <details className="group panel overflow-hidden">
+              <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium text-[14.5px] text-ink">What Claude sees at session start</span>
+                  <span className="block text-[13px] text-ink-3">The exact memory block for {project}</span>
+                </span>
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className="flex-none text-ink-3 transition-transform group-open:rotate-180"
+                />
+              </summary>
+              <div className="border-line border-t">
+                <FrozenPreview memories={block} project={project} />
+              </div>
+            </details>
+          ) : null}
         </div>
       </div>
     </>
+  );
+}
+
+function Block({ title, href, more, children }: { title: string; href?: string; more?: string; children: ReactNode }) {
+  return (
+    <section aria-label={title}>
+      <div className="mb-3.5 flex items-baseline justify-between gap-3">
+        <h2 className="font-semibold text-[17px] text-ink tracking-[-0.02em]">{title}</h2>
+        {href ? (
+          <Link href={href} className="text-[13px] text-ink-3 underline-offset-4 hover:text-ink hover:underline">
+            {more}
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
   );
 }

@@ -68,7 +68,7 @@ export function AskStrata({ suggestions, records }: { suggestions: string[]; rec
       <header className="relative flex flex-wrap items-center gap-3 px-5 pt-5 sm:px-6">
         <div className="min-w-0 flex-1">
           <h2 id="ask-title" className="font-semibold text-[15px] tracking-[-0.01em]">
-            Ask Strata
+            Ask a question
           </h2>
           <p className="text-[12.5px] text-ink-3">
             Answers come from your {records.toLocaleString()} records, quoted and cited. Nothing is made up.

@@ -110,7 +110,7 @@ export default async function MyDayPage() {
           Things your sessions suggested remembering. Kept ones go to your agents; they stay yours alone. To forget one
           entirely, use{" "}
           <Link href="/memories" className="text-accent-text underline-offset-4 hover:underline">
-            Memories
+            Knowledge
           </Link>
           .
         </p>

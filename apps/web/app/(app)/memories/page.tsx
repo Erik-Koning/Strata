@@ -1,5 +1,5 @@
 import { MEMORY_KINDS, type MemoryKind, type MemoryStatus } from "@strata/contracts";
-import { Search } from "lucide-react";
+import { Forward, Lock, Search, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listMemories, overview } from "../../../server/stats.ts";
@@ -14,7 +14,7 @@ const STATUSES: { value: MemoryStatus | "all"; label: string }[] = [
   { value: "candidate", label: "Needs review" },
   { value: "active", label: "Remembered" },
   { value: "archived", label: "Archived" },
-  { value: "all", label: "Both open" },
+  { value: "all", label: "All open" },
 ];
 
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
@@ -62,9 +62,37 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
     <>
       <PageHeader
         title="Knowledge"
-        lede="What your agents learned, reviewed by a person. Remembered items reach your next sessions; anything that needs review waits for your yes, and you can correct or archive any of it."
+        lede="What your agents learned. You decide what they keep."
         actions={<AddMemory projects={stats.projects} />}
       />
+
+      <ul
+        aria-label="How knowledge is shared"
+        className="mb-8 grid gap-px overflow-hidden rounded-[12px] bg-line sm:grid-cols-3"
+      >
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Lock size={14} className="text-ink-3" aria-hidden /> Private to you
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">Everything here is yours. No teammate can read it.</p>
+        </li>
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Forward size={14} className="text-accent" aria-hidden /> Shared only by you
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">
+            A memory reaches a teammate only when you tick it in a handoff you approve.
+          </p>
+        </li>
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Undo2 size={14} className="text-ink-3" aria-hidden /> Yours to change
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">
+            Keep, archive or forget any item. Revoking a handoff takes back what it shared.
+          </p>
+        </li>
+      </ul>
 
       <form
         action="/memories"
