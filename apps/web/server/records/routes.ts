@@ -1,17 +1,22 @@
 // /api/records: the drafts the server wrote, and the author's decision about each. A draft is its author's alone;
 // an approved record is shared with everyone who has access, as access.ts says. Approved insights and workflow
-// findings are copied into memories so the next session can recall them.
+// findings are copied into memories so the next session can recall them; editing or discarding an approved one
+// retires that memory, and approving it again brings the same memory back. Each decision also brings the hub's
+// products and gaps up to date.
 import { createHash } from "node:crypto";
-import { RecordQuery, RecordUpdate, type RecordView, redact } from "@strata/contracts";
-import { type Filter, ObjectId } from "mongodb";
+import { type MemoryKind, RecordQuery, RecordUpdate, type RecordView, redact } from "@strata/contracts";
+import { type Filter, MongoServerError, ObjectId } from "mongodb";
 import { can } from "../access.ts";
+import { provider } from "../ai/provider.ts";
 import { actorOf, authenticate, type Principal } from "../api-auth.ts";
 import { audit } from "../audit.ts";
-import { type RecordDoc, records } from "../collections.ts";
+import { memories, type RecordDoc, records } from "../collections.ts";
 import { ApiError, check, json, parseBody, route } from "../http.ts";
+import { syncGaps } from "../hub/gaps.ts";
+import { ensureProductsFor } from "../hub/products.ts";
 import { indexesReady } from "../indexes.ts";
 import { normalize } from "../memory/extract.ts";
-import { addMemory } from "../memory/store.ts";
+import { addMemory, textKey as memoryTextKey } from "../memory/store.ts";
 import { accessFor } from "../people.ts";
 
 const clean = (value: string, max: number): string => redact(value).replace(/\s+/g, " ").trim().slice(0, max);
@@ -80,6 +85,108 @@ export const getRecord = route(async (request, id: string) => {
   return json({ record: view(await requireRecord(principal, id)) });
 });
 
+// The hub's derived views of approved work, brought up to date after a decision. Gaps are reconciled in the
+// background, one run at a time (a decision made meanwhile asks for one more run), and a failure is only logged: the
+// decision stands, and the next sync or the backfill catches up.
+let gapSync: Promise<void> | null = null;
+let gapSyncAgain = false;
+
+function syncGapsLater(doc: RecordDoc): void {
+  // Only approved context gaps feed the gaps (hub/gaps.ts); no other kind changes them.
+  if (doc.kind !== "context_gap") return;
+  if (gapSync) {
+    gapSyncAgain = true;
+    return;
+  }
+  gapSync = (async () => {
+    do {
+      gapSyncAgain = false;
+      try {
+        await syncGaps();
+      } catch (error) {
+        console.error("hub: syncing gaps failed", error);
+      }
+    } while (gapSyncAgain);
+  })().finally(() => {
+    gapSync = null;
+  });
+}
+
+// Resolves once the hub syncs started by decisions have finished: for tests, and for a clean shutdown.
+export async function hubPending(): Promise<void> {
+  while (gapSync) await gapSync;
+}
+
+// Whether another approved record holds this memory: one with the same words in the same scope shares it, since
+// addMemory keeps one.
+const heldElsewhere = async (memoryId: ObjectId, doc: RecordDoc): Promise<boolean> =>
+  Boolean(await records().findOne({ memoryId, status: "approved", _id: { $ne: doc._id } }, { projection: { _id: 1 } }));
+
+// A record's memory, once nothing approved holds it: archived, so agents stop recalling words nobody stands behind any
+// more.
+async function retireMemory(doc: RecordDoc): Promise<void> {
+  if (!doc.memoryId || (await heldElsewhere(doc.memoryId, doc))) return;
+  await memories().updateOne(
+    {
+      _id: doc.memoryId,
+      "scope.org": doc.scope.org,
+      "scope.user": doc.scope.user,
+      status: { $in: ["candidate", "active"] },
+    },
+    { $set: { status: "archived", updatedAt: new Date() } },
+  );
+}
+
+// The memory an approved insight or workflow finding is kept as. Approving again after an edit brings back the record's
+// first memory with the words approved now, rather than adding a second; when those words are already a memory in the
+// same scope, that one is used and the first stays retired.
+async function rememberApproved(doc: RecordDoc, kind: MemoryKind): Promise<ObjectId> {
+  const text = redact(doc.text).trim();
+  const key = memoryTextKey(text);
+  const scope = { "scope.org": doc.scope.org, "scope.user": doc.scope.user, "scope.project": doc.scope.project };
+  const [previous, same] = await Promise.all([
+    doc.memoryId ? memories().findOne({ _id: doc.memoryId, ...scope }) : null,
+    memories().findOne({ ...scope, textKey: key, status: { $in: ["candidate", "active"] } }),
+  ]);
+  if (previous && !same && !(await heldElsewhere(previous._id, doc))) {
+    const [embedding = []] = previous.textKey === key ? [previous.embedding] : await provider().embed([text]);
+    await memories().updateOne(
+      { _id: previous._id },
+      {
+        $set: { kind, text, textKey: key, embedding, status: "active", trust: "explicit", updatedAt: new Date() },
+      },
+    );
+    return previous._id;
+  }
+  const { memory } = await addMemory({
+    scope: doc.scope,
+    kind,
+    text: doc.text,
+    status: "active",
+    trust: "explicit",
+    confidence: 0.9,
+    provenance: {
+      sessionID: doc.sessionID,
+      messageID: null,
+      eventId: doc.eventIds[0] ?? null,
+      source: "manual",
+    },
+  });
+  if (previous && !previous._id.equals(memory._id)) await retireMemory(doc);
+  return memory._id;
+}
+
+const isDuplicate = (error: unknown): boolean => error instanceof MongoServerError && error.code === 11000;
+
+// The fields records are unique by, with the text's key (indexes.ts, record_unique).
+const uniqueScope = (doc: RecordDoc) => ({
+  "scope.org": doc.scope.org,
+  "scope.user": doc.scope.user,
+  "scope.project": doc.scope.project,
+  sessionID: doc.sessionID,
+  kind: doc.kind,
+});
+
 // Changes a record's title or text. An approved record goes back to draft: what was approved is no longer what's there.
 export async function editRecord(
   caller: Caller,
@@ -102,8 +209,30 @@ export async function editRecord(
     patch.status = "draft";
     patch.approvedAt = null;
   }
-  const updated = await records().findOneAndUpdate({ _id: doc._id }, { $set: patch }, { returnDocument: "after" });
+  let updated: RecordDoc | null;
+  try {
+    updated = await records().findOneAndUpdate({ _id: doc._id }, { $set: patch }, { returnDocument: "after" });
+  } catch (error) {
+    // The session already has a record of this kind that says the same thing (record_unique), maybe a discarded one.
+    if (!isDuplicate(error)) throw error;
+    const other = await records().findOne(
+      { ...uniqueScope(doc), textKey: patch.textKey, _id: { $ne: doc._id } },
+      { projection: { status: 1 } },
+    );
+    const label = recordLabel(doc.kind).toLowerCase();
+    throw new ApiError(
+      409,
+      "duplicate",
+      other?.status === "discarded"
+        ? `You discarded the same ${label} from this session before. Word this one differently, or discard it too.`
+        : `This session already has the same ${label}. Keep that one and discard this, or word this one differently.`,
+    );
+  }
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
+  if (doc.status === "approved") {
+    await retireMemory(doc);
+    syncGapsLater(doc);
+  }
   await audit({
     actor: auditActor(caller),
     action: "record.edit",
@@ -127,25 +256,8 @@ export async function approve(caller: Caller, id: string): Promise<RecordDoc> {
   if (doc.status === "discarded") throw new ApiError(409, "discarded", "A discarded record cannot be approved.");
   if (doc.status === "approved") return doc;
 
-  let memoryId: ObjectId | null = doc.memoryId;
   const memoryKind = doc.kind === "insight" ? "fact" : doc.kind === "workflow" ? "convention" : null;
-  if (memoryKind) {
-    const { memory } = await addMemory({
-      scope: doc.scope,
-      kind: memoryKind,
-      text: doc.text,
-      status: "active",
-      trust: "explicit",
-      confidence: 0.9,
-      provenance: {
-        sessionID: doc.sessionID,
-        messageID: null,
-        eventId: doc.eventIds[0] ?? null,
-        source: "manual",
-      },
-    });
-    memoryId = memory._id;
-  }
+  const memoryId: ObjectId | null = memoryKind ? await rememberApproved(doc, memoryKind) : doc.memoryId;
   const now = new Date();
   const updated = await records().findOneAndUpdate(
     { _id: doc._id },
@@ -153,6 +265,14 @@ export async function approve(caller: Caller, id: string): Promise<RecordDoc> {
     { returnDocument: "after" },
   );
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
+  // Approved work names its repository: the product it belongs to exists from now on. Never fails the approval; the
+  // hub's backfill makes any product missed here.
+  try {
+    await ensureProductsFor([doc.scope.project]);
+  } catch (error) {
+    console.error("hub: making the record's product failed", error);
+  }
+  syncGapsLater(doc);
   await audit({
     actor: auditActor(caller),
     action: "record.approve",
@@ -168,7 +288,8 @@ export const approveRecord = route(async (request, id: string) => {
   return json({ record: view(await approve(principal, id)) });
 });
 
-// Keeps a draft out of anything shared. It stays, marked discarded, and nobody else ever sees it.
+// Keeps a draft out of anything shared, or takes back an approved record. It stays, marked discarded, and nobody else
+// ever sees it.
 export async function discard(caller: Caller, id: string): Promise<RecordDoc> {
   const doc = await requireOwnRecord(caller, id);
   if (doc.status === "discarded") return doc;
@@ -179,6 +300,11 @@ export async function discard(caller: Caller, id: string): Promise<RecordDoc> {
     { returnDocument: "after" },
   );
   if (!updated) throw new ApiError(404, "not_found", "No such record.");
+  // Discarding an approved record takes it back from everyone, and from the agents' memory.
+  if (doc.status === "approved") {
+    await retireMemory(doc);
+    syncGapsLater(doc);
+  }
   await audit({
     actor: auditActor(caller),
     action: "record.discard",
