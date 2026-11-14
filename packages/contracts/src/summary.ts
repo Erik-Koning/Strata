@@ -105,26 +105,27 @@ export const SummaryReview = z
   .strict();
 export type SummaryReview = z.infer<typeof SummaryReview>;
 
-// POST /v1/events. Strict: anything the contract doesn't name (a prompt, a reply, a turn) is refused.
-export const SessionSummaryEvent = z
-  .object({
-    idempotencyKey: z.string().min(1).max(300),
-    type: z.literal("session_summary"),
-    sessionId: z.string().min(1).max(200),
-    revision: z.number().int().positive(),
-    projectId: z.string().min(1).max(100),
-    updatedAt: z.string().datetime({ offset: true }),
-    client: z
-      .object({ plugin: z.string().max(40), platform: z.string().max(40) })
-      .strict()
-      .optional(),
-    repo: SummaryRepo,
-    links: SummaryLinks,
-    summary: SummarySummary,
-    files: z.array(z.string().max(500)).max(200).default([]),
-    review: SummaryReview,
-  })
-  .strict();
+// POST /v1/events. The envelope is loose so a newer client's optional field is not refused; raw content
+// (a prompt, a reply, a turn) is still checked for and refused by the route before this runs.
+export const SessionSummaryEvent = z.looseObject({
+  // The contract version the client wrote it to. 1 when absent, as the first clients wrote.
+  v: z.number().int().min(1).max(10_000).default(1),
+  idempotencyKey: z.string().min(1).max(300),
+  type: z.literal("session_summary"),
+  sessionId: z.string().min(1).max(200),
+  revision: z.number().int().positive(),
+  projectId: z.string().min(1).max(100),
+  updatedAt: z.string().datetime({ offset: true }),
+  client: z
+    .object({ plugin: z.string().max(40), platform: z.string().max(40) })
+    .strict()
+    .optional(),
+  repo: SummaryRepo,
+  links: SummaryLinks,
+  summary: SummarySummary,
+  files: z.array(z.string().max(500)).max(200).default([]),
+  review: SummaryReview,
+});
 export type SessionSummaryEvent = z.infer<typeof SessionSummaryEvent>;
 
 export interface SearchResult {

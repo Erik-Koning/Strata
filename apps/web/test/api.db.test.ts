@@ -9,6 +9,7 @@ process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 
+const { EXAMPLE_EVENTS } = await import("@strata/contracts/examples");
 const { postEvents, postRecall, getFrozen, postCompress, postForget, postSave } = await import(
   "../server/memory/routes.ts"
 );
@@ -86,10 +87,14 @@ describe("auth", () => {
 describe("events", () => {
   it("stores each event once, however often it's sent", async () => {
     const batch = [event("tool", { tool: "Bash", status: "ok" }), event("tool", { tool: "Read", status: "ok" })];
-    expect(await (await call(postEvents, { body: { batch } })).json()).toEqual({ accepted: 2, duplicates: 0 });
+    expect(await (await call(postEvents, { body: { batch } })).json()).toEqual({
+      accepted: 2,
+      duplicates: 0,
+      rejected: [],
+    });
     const again = await call(postEvents, { body: { batch } });
     expect(again.status).toBe(202);
-    expect(await again.json()).toEqual({ accepted: 0, duplicates: 2 });
+    expect(await again.json()).toEqual({ accepted: 0, duplicates: 2, rejected: [] });
     expect(await events().countDocuments({ id: { $in: batch.map((b) => b.id) } })).toBe(2);
   });
 
@@ -102,6 +107,49 @@ describe("events", () => {
     const stored = await events().findOne({ id: e.id });
     expect(JSON.stringify(stored?.payload)).not.toContain("ghp_");
     expect(String(stored?.payload.text)).toContain("[REDACTED:");
+  });
+
+  it("accepts one event of every kind, as the contract's examples write them", async () => {
+    const res = await call(postEvents, { body: { batch: EXAMPLE_EVENTS } });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ accepted: EXAMPLE_EVENTS.length, duplicates: 0, rejected: [] });
+    const stored = await events().findOne({ id: EXAMPLE_EVENTS[1]?.id });
+    expect(stored).toMatchObject({ v: 1, known: true, promptID: "550e8400-e29b-41d4-a716-446655440000" });
+  });
+
+  it("refuses a bad event on its own, says why, and stores the rest", async () => {
+    const good = event("tool", { tool: "Read", status: "ok" });
+    const bad = event("prompt", { role: "user" });
+    const res = await call(postEvents, { body: { batch: [good, bad, { nonsense: true }] } });
+    expect(res.status).toBe(202);
+    const body = await res.json();
+    expect(body).toMatchObject({ accepted: 1, duplicates: 0 });
+    expect(body.rejected).toEqual([
+      { index: 1, id: bad.id, code: "invalid", message: expect.stringContaining("payload.text") },
+      { index: 2, code: "invalid", message: expect.any(String) },
+    ]);
+    expect(await events().countDocuments({ id: { $in: [good.id, bad.id] } })).toBe(1);
+  });
+
+  it("keeps a kind it doesn't know yet as it came, unread, with any envelope fields it doesn't name", async () => {
+    const newer = { ...event("screenshot", { width: 1280 }), agent: "explorer" };
+    expect(await (await call(postEvents, { body: { batch: [newer] } })).json()).toMatchObject({ accepted: 1 });
+    expect(await events().findOne({ id: newer.id })).toMatchObject({
+      kind: "screenshot",
+      known: false,
+      payload: { width: 1280 },
+      ext: { agent: "explorer" },
+    });
+  });
+
+  it("links a memory to the turn it came from", async () => {
+    const turn = {
+      ...event("prompt", { role: "user", text: "Remember that invoices round per line." }),
+      promptID: "p-42",
+    };
+    await call(postEvents, { body: { batch: [turn] } });
+    const memory = await memories().findOne({ text: "Invoices round per line." });
+    expect(memory?.provenance).toMatchObject({ messageID: "p-42", eventId: turn.id });
   });
 
   it("promotes only what the user said in their own turn", async () => {

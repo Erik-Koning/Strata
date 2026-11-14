@@ -22,6 +22,7 @@ export const resolveProject = (meta) => meta.projectId ?? getBinding(meta.repoKe
  */
 export function buildEvent(s, projectId) {
   return {
+    v: 1,
     idempotencyKey: `${s.sessionId}:summary:${s.revision}`,
     type: "session_summary",
     sessionId: s.sessionId,

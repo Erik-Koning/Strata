@@ -72,9 +72,7 @@ export async function ensureIndexes({
     summaryRevisions().createIndex({ userId: 1, updatedAt: -1 }, { name: "by_user_recent" }),
     summaryRevisions().createIndex({ "links.jira": 1 }, { name: "by_jira" }),
     summaryRevisions().createIndex({ "links.pr.url": 1 }, { name: "by_pr" }),
-    // Better Auth's device-authorization model.
-    db().collection("deviceCode").createIndex({ deviceCode: 1 }, { unique: true, name: "device_code_unique" }),
-    db().collection("deviceCode").createIndex({ userCode: 1 }, { unique: true, name: "user_code_unique" }),
+    // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };
 }

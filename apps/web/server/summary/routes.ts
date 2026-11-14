@@ -1,6 +1,6 @@
 // The /v1 routes the summary-first client uses: device sign-in, projects, approved summaries,
 // retraction, search and roll-ups. Every write is one engineer-approved session summary.
-import { SessionSummaryEvent } from "@strata/contracts";
+import { CONTRACT_VERSION, MIN_CONTRACT_VERSION, SessionSummaryEvent } from "@strata/contracts";
 import { auth } from "../auth.ts";
 import { db } from "../db.ts";
 import { createKey } from "../keys.ts";
@@ -106,6 +106,12 @@ export const postSummaryEvent = v1Route(async (request) => {
   if (RAW_FIELDS.some((field) => field in raw)) throw new V1Error(422, "raw_content_not_accepted");
 
   const event = parseV1(SessionSummaryEvent, raw);
+  if (event.v < MIN_CONTRACT_VERSION)
+    throw new V1Error(
+      426,
+      "upgrade_required",
+      `This client writes an older contract than the API accepts (versions ${MIN_CONTRACT_VERSION} to ${CONTRACT_VERSION}). Update the plugin.`,
+    );
   const header = request.headers.get("idempotency-key");
   if (header && header !== event.idempotencyKey)
     throw new V1Error(400, "idempotency_mismatch", "The Idempotency-Key header and body differ.");
@@ -118,6 +124,7 @@ export const postSummaryEvent = v1Route(async (request) => {
   if (!links.jira.length && !links.pr && !links.noTicket) throw new V1Error(422, "unlinked");
 
   const { duplicate } = await storeRevision({
+    v: event.v,
     userId: me.userId,
     sessionId: event.sessionId,
     projectId: event.projectId,

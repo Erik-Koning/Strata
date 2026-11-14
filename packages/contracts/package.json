@@ -7,7 +7,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./redact": "./src/redact.ts",
-    "./render": "./src/render.ts"
+    "./render": "./src/render.ts",
+    "./signals": "./src/signals.ts",
+    "./summary": "./src/summary.ts",
+    "./version": "./src/version.ts",
+    "./examples": "./src/examples.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",

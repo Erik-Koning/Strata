@@ -30,6 +30,7 @@ Header `Idempotency-Key` equals the body's `idempotencyKey`: `<sessionId>:summar
 
 ```json
 {
+  "v": 1,
   "idempotencyKey": "sess_abc:summary:3",
   "type": "session_summary",
   "sessionId": "sess_abc",

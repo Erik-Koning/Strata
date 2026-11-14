@@ -114,6 +114,7 @@ export async function resolveProjectIds(userId: string, projectId: string | null
 }
 
 export interface NewRevision {
+  v: number;
   userId: string;
   sessionId: string;
   projectId: string;

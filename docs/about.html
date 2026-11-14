@@ -1,0 +1,1113 @@
+<title>Strata</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: a core sample. One reading column; the layers section is the single bold moment,
+   drawn as bands that thicken with depth because the lower layers hold more material. */
+:root {
+  --bg: #F1F3F1;
+  --surface: #FFFFFF;
+  --ink: #1A2123;
+  --muted: #55605E;
+  --line: #D3D9D6;
+  --accent: #1D6A5A;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #DCEAE4;
+  --draft-bg: #F4E9CC;
+  --draft-ink: #6A4D0C;
+  --gone-bg: #EFE4E4;
+  --gone-ink: #7A3838;
+  --code-bg: #E7ECE9;
+  --band-1: #E5ECE8;
+  --band-2: #D3DFD9;
+  --band-3: #BFD0C8;
+  --band-4: #A8BFB5;
+  --band-ink: #1A2123;
+  --shadow: 0 1px 2px rgba(20, 35, 32, .06), 0 8px 24px rgba(20, 35, 32, .07);
+
+  --f-display: "Bricolage Grotesque", "Space Grotesk", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --t-xs: .78rem;
+  --t-sm: .875rem;
+  --t-md: 1rem;
+  --t-lg: 1.2rem;
+  --t-xl: 1.75rem;
+  --t-hero: clamp(3rem, 8vw, 5.25rem);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111716;
+    --surface: #182120;
+    --ink: #E3EAE7;
+    --muted: #9AA7A3;
+    --line: #2B3633;
+    --accent: #5DC3A7;
+    --accent-ink: #0C1412;
+    --accent-soft: #1C342D;
+    --draft-bg: #3A3020;
+    --draft-ink: #EBC979;
+    --gone-bg: #3A2626;
+    --gone-ink: #E8A4A4;
+    --code-bg: #1E2826;
+    --band-1: #2B3935;
+    --band-2: #24312D;
+    --band-3: #1E2A27;
+    --band-4: #192320;
+    --band-ink: #E3EAE7;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111716;
+  --surface: #182120;
+  --ink: #E3EAE7;
+  --muted: #9AA7A3;
+  --line: #2B3633;
+  --accent: #5DC3A7;
+  --accent-ink: #0C1412;
+  --accent-soft: #1C342D;
+  --draft-bg: #3A3020;
+  --draft-ink: #EBC979;
+  --gone-bg: #3A2626;
+  --gone-ink: #E8A4A4;
+  --code-bg: #1E2826;
+  --band-1: #2B3935;
+  --band-2: #24312D;
+  --band-3: #1E2A27;
+  --band-4: #192320;
+  --band-ink: #E3EAE7;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .3);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: var(--t-md);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+section { padding-block: 56px; border-top: 1px solid var(--line); }
+section.hero { border-top: 0; padding-block: 56px 64px; }
+
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h2 { font-size: var(--t-xl); font-weight: 700; letter-spacing: -.01em; }
+h3 { font-size: var(--t-lg); font-weight: 600; }
+p { margin: 0; }
+code, .mono { font-family: var(--f-mono); font-size: .9em; }
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.section-head { display: grid; gap: 10px; max-width: 65ch; margin-bottom: 32px; }
+.section-head p { color: var(--muted); }
+
+/* Hero */
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.eyebrow span + span::before { content: "/"; margin-right: 14px; color: var(--line); }
+.hero h1 {
+  font-size: var(--t-hero);
+  font-weight: 700;
+  letter-spacing: -.035em;
+  line-height: .95;
+  margin-top: 18px;
+}
+.tagline {
+  font-family: var(--f-display);
+  font-size: var(--t-lg);
+  font-weight: 600;
+  margin-top: 14px;
+}
+.lede { margin-top: 18px; max-width: 58ch; font-size: 1.05rem; }
+.status-line {
+  margin-top: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-sm);
+  color: var(--muted);
+}
+.status-line .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--draft-ink); }
+
+/* Review card */
+.review {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.review-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 10px;
+}
+.review-head h3 { font-size: var(--t-md); }
+.review-meta {
+  padding: 0 18px 12px;
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.chip {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--draft-bg);
+  color: var(--draft-ink);
+}
+.chip[data-state="approved"] { background: var(--accent-soft); color: var(--accent); }
+.chip[data-state="discarded"] { background: var(--gone-bg); color: var(--gone-ink); }
+.review-body { display: grid; padding: 4px 18px; }
+.review[data-state="discarded"] .review-body { opacity: .5; }
+.entry {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 10px;
+  border-bottom: 1px dashed var(--line);
+  font-size: var(--t-sm);
+}
+.entry:last-child { border-bottom: 0; }
+.entry dt {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  padding-top: 2px;
+}
+.entry dd { margin: 0; min-width: 0; }
+.entry dd[contenteditable="true"] {
+  background: var(--code-bg);
+  border-radius: 4px;
+  outline: 1px dashed var(--accent);
+  padding: 2px 6px;
+  margin: -2px -6px;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--line);
+}
+.btn {
+  font: 500 var(--t-sm) var(--f-body);
+  border-radius: 6px;
+  padding: 6px 14px;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.caption { margin-top: 10px; font-size: var(--t-xs); color: var(--muted); }
+
+/* Record kinds */
+.records { list-style: none; margin: 0; padding: 0; }
+.rec {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  padding-block: 22px;
+  border-top: 1px solid var(--line);
+}
+.rec:last-child { border-bottom: 1px solid var(--line); }
+.rec-name { display: grid; gap: 8px; align-content: start; }
+.rec-name h3 { font-size: var(--t-lg); }
+.tag {
+  justify-self: start;
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+.rec-what { display: grid; gap: 8px; align-content: start; }
+.rec-what .readers { font-size: var(--t-sm); color: var(--muted); }
+.example {
+  margin: 0;
+  background: var(--code-bg);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: var(--t-sm);
+  align-self: start;
+}
+.example b {
+  display: block;
+  font-family: var(--f-mono);
+  font-weight: 500;
+  font-size: var(--t-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.note-line { margin-top: 20px; color: var(--muted); font-size: var(--t-sm); max-width: 65ch; }
+
+/* Review flow */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 20px;
+  counter-reset: step;
+}
+.steps li {
+  counter-increment: step;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding-top: 14px;
+  border-top: 2px solid var(--line);
+}
+.steps li.gate { border-top-color: var(--accent); }
+.steps li::before {
+  content: counter(step);
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+.steps h3 { font-size: var(--t-md); }
+.steps p { font-size: var(--t-sm); color: var(--muted); }
+
+/* Layers */
+.core {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 16px;
+}
+.ruler {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+.ruler::before {
+  content: "";
+  position: absolute;
+  top: 7.5rem; bottom: 9rem; left: 50%;
+  width: 1px;
+  background: var(--line);
+}
+.ruler span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; letter-spacing: .06em; }
+.bands { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.band {
+  display: grid;
+  grid-template-columns: 12rem 13rem minmax(0, 1fr);
+  gap: 20px;
+  padding-inline: 20px;
+  color: var(--band-ink);
+  border-top: 1px solid var(--line);
+  align-items: center;
+}
+.band:first-child { border-top: 0; }
+.band h3 { font-size: var(--t-md); }
+.band .scope { font-family: var(--f-mono); font-size: var(--t-xs); opacity: .8; }
+.band p { font-size: var(--t-sm); }
+.b1 { background: var(--band-1); padding-block: 14px; }
+.b2 { background: var(--band-2); padding-block: 20px; }
+.b3 { background: var(--band-3); padding-block: 28px; }
+.b4 { background: var(--band-4); padding-block: 40px; }
+
+/* Hooks */
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: var(--t-sm); }
+th, td { text-align: left; padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th {
+  border-top: 0;
+  font-family: var(--f-mono);
+  font-weight: 500;
+  font-size: var(--t-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td:first-child { font-family: var(--f-mono); font-weight: 500; white-space: nowrap; }
+.sub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-top: 32px;
+}
+.sub-grid h3 { font-size: var(--t-md); margin-bottom: 10px; }
+.defs { margin: 0; display: grid; gap: 10px; font-size: var(--t-sm); }
+.defs div { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: 12px; }
+.defs dt { font-family: var(--f-mono); font-weight: 500; }
+.defs dd { margin: 0; color: var(--muted); }
+.planned { font-family: var(--f-mono); font-size: var(--t-xs); color: var(--muted); font-weight: 400; margin-left: 6px; }
+
+.runtimes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.runtime {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.runtime header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.runtime p { font-size: var(--t-sm); color: var(--muted); }
+.role { font-family: var(--f-mono); font-size: var(--t-xs); color: var(--accent); }
+.shared-core { margin-top: 16px; font-size: var(--t-sm); color: var(--muted); max-width: 65ch; }
+
+/* Flow to the hub */
+.flow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.node {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  background: var(--surface);
+}
+.node .where { font-family: var(--f-mono); font-size: var(--t-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.node h3 { font-size: var(--t-md); }
+.node p { font-size: var(--t-sm); color: var(--muted); }
+.arrow { align-self: center; color: var(--muted); font-family: var(--f-mono); font-size: 1.2rem; }
+
+/* Ground rules + open questions */
+.rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+}
+.rules li { padding-block: 14px; border-top: 1px solid var(--line); }
+.rules li strong { font-weight: 600; }
+.questions { margin: 0; padding-left: 1.2rem; display: grid; gap: 8px; max-width: 70ch; }
+.questions li::marker { color: var(--muted); }
+
+footer { padding-block: 28px 48px; border-top: 1px solid var(--line); font-size: var(--t-xs); color: var(--muted); font-family: var(--f-mono); }
+
+/* The hub: each capability beside a small example of what it shows */
+.feats { list-style: none; margin: 0; padding: 0; }
+.feat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 20px 40px;
+  align-items: start;
+  padding-block: 32px;
+  border-top: 1px solid var(--line);
+}
+.feat:last-child { border-bottom: 1px solid var(--line); }
+.feat-text { display: grid; gap: 12px; min-width: 0; }
+.feat-text header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.feat-text h3 { font-size: var(--t-lg); }
+.feat-text .readers { font-size: var(--t-sm); color: var(--muted); }
+.does { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: var(--t-sm); }
+.does li { position: relative; padding-left: 20px; }
+.does li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: .72em;
+  width: 10px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.does b { font-weight: 600; }
+
+.mock {
+  margin: 0;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: var(--t-sm);
+}
+.mock-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.mock-title { font-family: var(--f-display); font-weight: 600; font-size: var(--t-md); }
+.mock-sub, .src, .mock-foot { font-family: var(--f-mono); font-size: var(--t-xs); color: var(--muted); }
+.src { display: block; margin-top: 3px; overflow-wrap: anywhere; }
+.mock-foot { padding: 10px 16px 12px; border-top: 1px solid var(--line); }
+.chip[data-state="neutral"] { background: var(--code-bg); color: var(--muted); }
+
+.feed, .gap-list { list-style: none; margin: 0; padding: 4px 16px; }
+.feed li {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 12px;
+  border-top: 1px dashed var(--line);
+}
+.feed li:first-child, .gap-list li:first-child { border-top: 0; }
+.feed .chip { justify-self: start; align-self: start; margin-top: 2px; }
+
+.bars { list-style: none; margin: 0; padding: 16px; display: grid; gap: 14px; }
+.bar-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.bar-top b { font-family: var(--f-mono); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bar { height: 8px; margin-top: 6px; border-radius: 2px; background: var(--code-bg); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
+
+.gap-list li { display: grid; gap: 6px; padding-block: 12px; border-top: 1px dashed var(--line); }
+.gap-list li[data-state="resolved"] p { color: var(--muted); }
+.gap-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.count {
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.graph { display: block; width: 100%; height: auto; padding: 10px 8px 6px; }
+.graph .edge { stroke: var(--muted); stroke-opacity: .55; stroke-width: 1.4; fill: none; }
+.graph .elabel {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  fill: var(--muted);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+.graph .node rect { fill: var(--code-bg); stroke: none; }
+.graph .n-product rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; }
+.graph .n-gap rect { fill: var(--draft-bg); stroke: var(--draft-ink); stroke-opacity: .45; stroke-width: 1.2; }
+.graph .kind { font-family: var(--f-mono); font-size: 9px; letter-spacing: .06em; fill: var(--muted); text-anchor: middle; }
+.graph .name { font-family: var(--f-body); font-size: 12.5px; font-weight: 500; fill: var(--ink); text-anchor: middle; }
+
+.chat { display: grid; gap: 12px; padding: 16px; }
+.msg { margin: 0; max-width: 92%; padding: 10px 14px; border-radius: 12px; }
+.msg.me { justify-self: end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 4px; }
+.msg.bot { justify-self: start; display: grid; gap: 10px; background: var(--code-bg); border-bottom-left-radius: 4px; }
+.msg sup { font-family: var(--f-mono); font-size: .68em; color: var(--accent); margin-left: 1px; }
+.cites {
+  margin: 0;
+  padding: 8px 0 0 1.5em;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 2px;
+  font-family: var(--f-mono);
+  font-size: var(--t-xs);
+  color: var(--muted);
+}
+
+/* Journeys */
+.journeys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.journey {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.journey header { display: grid; gap: 4px; }
+.journey h3 { font-size: var(--t-md); }
+.journey ol { margin: 0; padding-left: 1.3rem; display: grid; gap: 6px; font-size: var(--t-sm); }
+.journey li::marker { font-family: var(--f-mono); font-size: var(--t-xs); color: var(--muted); }
+
+@media (max-width: 900px) {
+  .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .rec { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .rec-name { grid-column: 1 / -1; }
+  .band { grid-template-columns: 11rem minmax(0, 1fr); }
+  .band p { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  section { padding-block: 40px; }
+  .rec { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .sub-grid, .runtimes, .rules { grid-template-columns: minmax(0, 1fr); }
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .arrow { justify-self: center; transform: rotate(90deg); }
+  .core { grid-template-columns: minmax(0, 1fr); }
+  .ruler { display: none; }
+  .band { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .entry { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .defs div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .feat, .journeys { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+  .feed li { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .btn { transition: border-color .15s, filter .15s; }
+}
+</style>
+
+<main>
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <div class="eyebrow"><span>Claude Code plugin</span><span>opencode v2 adapter, optional</span></div>
+        <h1>Strata</h1>
+        <p class="tagline">Layered memory for AI-assisted development.</p>
+        <p class="lede">Strata drafts short notes about your coding sessions: what was built, what was learned, how the work actually got done, where it slowed down, and what the agent had to guess. You review every note before anyone else sees it. Approved notes build up, layer by layer, into a shared picture of each product: what shipped, where engineering time goes, what nobody has written down, and an assistant that answers from all of it.</p>
+        <p class="status-line"><span class="dot" aria-hidden="true"></span>Design draft, November 2026. The capture plugin and memory API are built; records and the hub are next.</p>
+      </div>
+
+      <figure style="margin:0">
+        <article class="review" id="review-card" data-state="draft" aria-label="Example session summary awaiting review">
+          <div class="review-head">
+            <h3>Session summary</h3>
+            <span class="chip" id="review-status" data-state="draft">draft</span>
+          </div>
+          <div class="review-meta">billing-service · feat/invoice-retry · PAY-412 · 47 min</div>
+          <dl class="review-body">
+            <div class="entry">
+              <dt>What changed</dt>
+              <dd id="review-changed">Added retry with exponential backoff to the invoice sync worker and moved the timeout into config. Added 3 tests; all pass.</dd>
+            </div>
+            <div class="entry">
+              <dt>Insight</dt>
+              <dd>The ledger rounds per line, so invoice totals must be summed from rounded lines or reconciliation fails.</dd>
+            </div>
+            <div class="entry">
+              <dt>Workflow</dt>
+              <dd>Integration tests need the local Mongo container running first. The README doesn't say so.</dd>
+            </div>
+            <div class="entry">
+              <dt>Pain point</dt>
+              <dd>The full test suite ran 4 times at about 11 min each. Running only the touched package would have saved about 40 min.</dd>
+            </div>
+            <div class="entry">
+              <dt>Context gap</dt>
+              <dd>No record of why the queue delivers at least once. The agent assumed handlers are idempotent and read 3 files to confirm it.</dd>
+            </div>
+          </dl>
+          <div class="review-actions">
+            <button class="btn primary" id="btn-approve" type="button">Approve</button>
+            <button class="btn" id="btn-edit" type="button">Edit</button>
+            <button class="btn" id="btn-discard" type="button">Discard</button>
+          </div>
+        </article>
+        <figcaption class="caption">Example draft with made-up content. Nobody else sees it until you approve it.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Five kinds of record</h2>
+        <p>The agent drafts these at the end of a session, or logs one the moment it runs into it. All five go through the same review.</p>
+      </div>
+      <ul class="records">
+        <li class="rec">
+          <div class="rec-name"><h3>Summary</h3><span class="tag">drafted at session end</span></div>
+          <div class="rec-what">
+            <p>What was implemented and why, in a few sentences, linked to the Jira ticket and GitHub PR behind it.</p>
+            <p class="readers">Read by managers, PMs and teammates who want status without asking.</p>
+          </div>
+          <p class="example"><b>Example</b>Added retry with backoff to the invoice sync worker; timeout now comes from config. PAY-412.</p>
+        </li>
+        <li class="rec">
+          <div class="rec-name"><h3>Insight</h3><span class="tag">drafted or logged live</span></div>
+          <div class="rec-what">
+            <p>A fact about the system that the code doesn't make obvious: a constraint, a quirk, or a decision and the reason for it.</p>
+            <p class="readers">Read by the next engineer and the next agent session.</p>
+          </div>
+          <p class="example"><b>Example</b>Ledger rounds per line. Sum rounded lines, never round the invoice total.</p>
+        </li>
+        <li class="rec">
+          <div class="rec-name"><h3>Workflow finding</h3><span class="tag">drafted or logged live</span></div>
+          <div class="rec-what">
+            <p>How work on this repo actually gets done: setup steps, test order, release steps, who approves what.</p>
+            <p class="readers">Read by new joiners and analysts learning how a team works.</p>
+          </div>
+          <p class="example"><b>Example</b>Run <code>docker compose up mongo</code> before <code>npm run test:int</code>.</p>
+        </li>
+        <li class="rec">
+          <div class="rec-name"><h3>Pain point</h3><span class="tag">suggested</span></div>
+          <div class="rec-what">
+            <p>Something that slowed the session down, written as a suggestion: a slow build, a flaky test, a missing script, a manual step that keeps coming back.</p>
+            <p class="readers">Read by team leads and platform teams deciding what to fix.</p>
+          </div>
+          <p class="example"><b>Example</b>Add a per-package test script. The full suite ran 4 times in one session.</p>
+        </li>
+        <li class="rec">
+          <div class="rec-name"><h3>Context gap</h3><span class="tag">logged live</span></div>
+          <div class="rec-what">
+            <p>Information the agent needed and couldn't find, so it guessed, searched, or had to ask. Gaps that repeat across sessions point at the docs worth writing.</p>
+            <p class="readers">Read by doc owners, and loaded into the next session so the agent knows what it doesn't know.</p>
+          </div>
+          <p class="example"><b>Example</b>Why is the queue at-least-once? No ADR, no comment. Agent read 3 files to infer it.</p>
+        </li>
+      </ul>
+      <p class="note-line">Pain points and context gaps describe the codebase and the process. They never describe a person.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Nothing is shared without review</h2>
+        <p>Until you approve a record, nobody else can see it.</p>
+      </div>
+      <ol class="steps">
+        <li><h3>Capture</h3><p>Hooks capture your prompts, Claude's replies and how long each tool ran. Never a command's output.</p></li>
+        <li><h3>Redact</h3><p>Secrets, tokens and keys are stripped on your machine, and again on the server.</p></li>
+        <li><h3>Draft</h3><p>When the session ends, Claude drafts a summary and findings. Only you can see the draft, and the session's prompts and replies are then deleted.</p></li>
+        <li class="gate"><h3>Review</h3><p>You approve, edit or discard each record, in the hub or with <code>/strata:review</code>.</p></li>
+        <li><h3>Share</h3><p>Approved records join the product's pages and are indexed for search.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Four layers, read from the top</h2>
+        <p>Each layer rolls up the one below it. Most questions are answered from the top two layers, and the detail underneath is fetched only when someone drills down.</p>
+      </div>
+      <div class="core">
+        <div class="ruler" aria-hidden="true"><span>read first</span><span>detail on demand</span></div>
+        <ol class="bands">
+          <li class="band b1">
+            <h3>Product overview</h3>
+            <span class="scope">one per product · rewritten each roll-up</span>
+            <p>What the product is, where it stands, who knows it. The first thing a manager or new joiner reads.</p>
+          </li>
+          <li class="band b2">
+            <h3>Ticket and PR</h3>
+            <span class="scope">one per Jira ticket or GitHub PR</span>
+            <p>Approved session summaries rolled up and linked to the work item they belong to.</p>
+          </li>
+          <li class="band b3">
+            <h3>Session</h3>
+            <span class="scope">one per coding session · reviewed</span>
+            <p>The approved summary with its insights, workflow findings, pain points and context gaps.</p>
+          </li>
+          <li class="band b4">
+            <h3>Session events</h3>
+            <span class="scope">many per session · deleted once drafted</span>
+            <p>Prompts, replies and tool timings, redacted. Raw material for the session draft, and nobody else's to read.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Where approved records go</h2>
+        <p>Strata is the capture layer of the Delivery Context Hub (working name). The hub is the separate web app where people ask questions and get answers that cite their sources.</p>
+      </div>
+      <div class="flow">
+        <div class="node">
+          <span class="where">Engineer's machine</span>
+          <h3>Strata plugin</h3>
+          <p>Hooks, redaction on the machine, and a durable outbox.</p>
+        </div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="node">
+          <span class="where">Cloud</span>
+          <h3>MongoDB Atlas</h3>
+          <p>Drafts only their author sees, approved records for everyone with access, and vector search over them.</p>
+        </div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="node">
+          <span class="where">Web app</span>
+          <h3>Delivery Context Hub</h3>
+          <p>Product pages, where engineering time goes, context gaps, the knowledge graph and an assistant, for managers, PMs and engineers.</p>
+        </div>
+      </div>
+      <p class="note-line">Every record keeps links to the ticket, PR and repo it came from, so an answer in the hub can always point back to its source.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>What the hub does</h2>
+        <p>Five capabilities, built from approved records and from tool timings that carry no content. Every summary, figure and answer opens the records behind it. The examples use made-up data.</p>
+      </div>
+      <ul class="feats">
+        <li class="feat">
+          <div class="feat-text">
+            <header><h3>Product pages</h3><span class="tag">one per product</span></header>
+            <p>Each product, made up of one or more repositories, gets a page that says what it is, what changed lately and what's in progress. Status without a standup, and without anyone writing a report.</p>
+            <ul class="does">
+              <li><b>What's new:</b> recent features and changes in plain language, rolled up from approved session summaries and linked to their tickets and PRs.</li>
+              <li><b>In progress:</b> open tickets and PRs with recent sessions, and the pain points slowing them down.</li>
+              <li>The product's own friction, open context gaps and slice of the knowledge graph.</li>
+              <li>Who has worked on each area recently, so you know whom to ask.</li>
+              <li>A weekly digest of the page for anyone who follows the product, and a home page across all products.</li>
+            </ul>
+            <p class="readers">For managers, PMs, and anyone who'd otherwise ask in a standup.</p>
+          </div>
+          <figure class="mock" aria-label="Example: What's new on a product page">
+            <div class="mock-head"><span class="mock-title">billing-service</span><span class="mock-sub">What's new · week of 9 Nov</span></div>
+            <ul class="feed">
+              <li><span class="chip" data-state="approved">shipped</span><div><p>Invoice sync retries with backoff, and its timeout now comes from config.</p><span class="src">PAY-412 · PR #1180 · 2 sessions</span></div></li>
+              <li><span class="chip">in review</span><div><p>Credit notes for partial refunds.</p><span class="src">PAY-398 · PR #1174 · 4 sessions</span></div></li>
+              <li><span class="chip" data-state="neutral">in progress</span><div><p>Ledger export to CSV for the finance team.</p><span class="src">PAY-405 · 3 sessions · no PR yet</span></div></li>
+            </ul>
+          </figure>
+        </li>
+        <li class="feat">
+          <div class="feat-text">
+            <header><h3>Where engineering time goes</h3><span class="tag">hours, ranked</span></header>
+            <p>Time lost to slow, flaky and repeated work, ranked so the biggest leak is at the top, each with a suggested fix.</p>
+            <ul class="does">
+              <li>Measured from test, build, install and lint runs: how long each took, whether it failed, and how often it was run again.</li>
+              <li>The pain points in session drafts explain the cause and suggest the fix.</li>
+              <li>Grouped by product and repository, with the trend over recent weeks.</li>
+              <li>Every figure opens the sessions behind it.</li>
+              <li>File an item as a ticket, then check whether the hours fell after the fix shipped.</li>
+            </ul>
+            <p class="readers">For team leads and platform teams deciding what to fix next.</p>
+          </div>
+          <figure class="mock" aria-label="Example: hours lost, ranked">
+            <div class="mock-head"><span class="mock-title">Hours lost</span><span class="mock-sub">last 30 days · all products</span></div>
+            <ol class="bars">
+              <li><div class="bar-top"><span>Integration suite re-run after a flaky test</span><b>38 h</b></div><div class="bar"><i style="width:100%"></i></div><span class="src">billing-service · 212 runs in 41 sessions</span></li>
+              <li><div class="bar-top"><span>Whole suite run when one package changed</span><b>21 h</b></div><div class="bar"><i style="width:55.3%"></i></div><span class="src">billing-service, ledger-api · 96 runs</span></li>
+              <li><div class="bar-top"><span>Integration tests started before local Mongo</span><b>9 h</b></div><div class="bar"><i style="width:23.7%"></i></div><span class="src">billing-service · 64 failed runs</span></li>
+              <li><div class="bar-top"><span>Dependency install retried behind the proxy</span><b>6 h</b></div><div class="bar"><i style="width:15.8%"></i></div><span class="src">web-checkout · 30 runs</span></li>
+            </ol>
+            <p class="mock-foot">Fixed 2 Nov: lint ran twice on every commit. 7 h a month before, under 1 h since.</p>
+          </figure>
+        </li>
+        <li class="feat">
+          <div class="feat-text">
+            <header><h3>Context gaps</h3><span class="tag">agents and people</span></header>
+            <p>What agents and people needed to know and couldn't find. The gaps that repeat are the docs worth writing first.</p>
+            <ul class="does">
+              <li><b>From agents:</b> logged live when a session had to guess, search at length, or ask.</li>
+              <li><b>From people:</b> questions the assistant couldn't answer, and gaps people log themselves with <code>/strata:note</code>.</li>
+              <li>Counted across sessions and people, so the gaps that keep coming back rise to the top.</li>
+              <li>Give a gap an owner, then resolve it by linking the doc, ADR or code comment that answers it.</li>
+              <li>Open gaps load into new sessions, so the agent knows what it doesn't know. A resolved gap brings its answer instead.</li>
+            </ul>
+            <p class="readers">For doc owners and tech leads, and for the next agent session.</p>
+          </div>
+          <figure class="mock" aria-label="Example: context gaps, most asked first">
+            <div class="mock-head"><span class="mock-title">Context gaps</span><span class="mock-sub">billing-service · most asked first</span></div>
+            <ul class="gap-list">
+              <li><p>Why does the job queue deliver at least once?</p><span class="gap-meta"><span class="count">23 sessions</span><span class="count">4 people</span><span class="chip">open · no owner</span></span></li>
+              <li><p>Which environment variables does staging need?</p><span class="gap-meta"><span class="count">11 sessions</span><span class="count">6 people</span><span class="chip">open · platform docs</span></span></li>
+              <li data-state="resolved"><p>How are refunds reconciled with the ledger?</p><span class="gap-meta"><span class="count">9 sessions</span><span class="count">2 people</span><span class="chip" data-state="approved">resolved · ADR-017</span></span></li>
+            </ul>
+          </figure>
+        </li>
+        <li class="feat">
+          <div class="feat-text">
+            <header><h3>Knowledge graph</h3><span class="tag">typed links</span></header>
+            <p>Products, code areas, tickets, PRs, sessions, records and docs in one connected map. Follow a fact back to where it came from, and forward to what it affects.</p>
+            <ul class="does">
+              <li>Typed links: <i>about</i>, <i>found in</i>, <i>worked on</i>, <i>changes</i>, <i>resolved by</i>, <i>replaces</i>.</li>
+              <li>Open any code area to see its insights, workflow findings, open gaps and recent work.</li>
+              <li>An insight is flagged for review when later PRs change the code it's about, so stale knowledge doesn't linger.</li>
+              <li>The assistant follows these links as well as searching text, which keeps its answers specific.</li>
+            </ul>
+            <p class="readers">For anyone tracing why something is the way it is.</p>
+          </div>
+          <figure class="mock" aria-label="Example: part of the knowledge graph for billing-service">
+            <svg class="graph" viewBox="0 0 460 290" role="img" aria-labelledby="graph-title">
+              <title id="graph-title">Part of the billing-service graph. The product contains the ledger and invoice-sync areas. One session found an insight about the ledger, logged a context gap about invoice-sync, and worked on PAY-412, whose PR changed invoice-sync.</title>
+              <line class="edge" x1="200" y1="50" x2="100" y2="94"/>
+              <line class="edge" x1="260" y1="50" x2="360" y2="94"/>
+              <line class="edge" x1="80" y1="174" x2="80" y2="130"/>
+              <line class="edge" x1="280" y1="174" x2="350" y2="130"/>
+              <line class="edge" x1="380" y1="174" x2="380" y2="130"/>
+              <line class="edge" x1="190" y1="244" x2="110" y2="210"/>
+              <line class="edge" x1="230" y1="244" x2="230" y2="210"/>
+              <line class="edge" x1="270" y1="244" x2="350" y2="210"/>
+              <text class="elabel" x="150" y="75">contains</text>
+              <text class="elabel" x="310" y="75">contains</text>
+              <text class="elabel" x="80" y="155">about</text>
+              <text class="elabel" x="315" y="155">about</text>
+              <text class="elabel" x="380" y="155">changes</text>
+              <text class="elabel" x="150" y="230">found in</text>
+              <text class="elabel" x="230" y="230">logged in</text>
+              <text class="elabel" x="310" y="230">worked on</text>
+              <g class="node n-product" transform="translate(230 32)"><rect x="-70" y="-18" width="140" height="36" rx="6"/><text class="kind" y="-5">PRODUCT</text><text class="name" y="10">billing-service</text></g>
+              <g class="node" transform="translate(80 112)"><rect x="-50" y="-18" width="100" height="36" rx="6"/><text class="kind" y="-5">AREA</text><text class="name" y="10">ledger</text></g>
+              <g class="node" transform="translate(380 112)"><rect x="-60" y="-18" width="120" height="36" rx="6"/><text class="kind" y="-5">AREA</text><text class="name" y="10">invoice-sync</text></g>
+              <g class="node" transform="translate(80 192)"><rect x="-62" y="-18" width="124" height="36" rx="6"/><text class="kind" y="-5">INSIGHT</text><text class="name" y="10">rounds per line</text></g>
+              <g class="node n-gap" transform="translate(230 192)"><rect x="-68" y="-18" width="136" height="36" rx="6"/><text class="kind" y="-5">CONTEXT GAP</text><text class="name" y="10">why at-least-once?</text></g>
+              <g class="node" transform="translate(380 192)"><rect x="-70" y="-18" width="140" height="36" rx="6"/><text class="kind" y="-5">TICKET · PR</text><text class="name" y="10">PAY-412 · #1180</text></g>
+              <g class="node" transform="translate(230 262)"><rect x="-60" y="-18" width="120" height="36" rx="6"/><text class="kind" y="-5">SESSION</text><text class="name" y="10">3 Nov · 47 min</text></g>
+            </svg>
+          </figure>
+        </li>
+        <li class="feat">
+          <div class="feat-text">
+            <header><h3>Ask Strata</h3><span class="tag">chat assistant</span></header>
+            <p>A chat assistant that answers from approved records and the knowledge graph, cites every claim, and says when it doesn't know. It's the main way new joiners find their feet.</p>
+            <ul class="does">
+              <li><b>Onboarding:</b> a first-week path for each product: the overview, local setup, the insights that catch people out, and whom to ask.</li>
+              <li><b>Status:</b> “What changed in billing this week?” answered from What's new, with links.</li>
+              <li><b>How and why:</b> workflow findings and insights, each with its source.</li>
+              <li>Answers only from what the person asking is allowed to see.</li>
+              <li>A question it can't answer becomes a context gap, or counts toward one that's already open.</li>
+              <li>The same answers inside Claude Code, through <code>strata_search</code>.</li>
+            </ul>
+            <p class="readers">For new joiners first, and anyone with a question about a product.</p>
+          </div>
+          <figure class="mock" aria-label="Example conversation with the assistant">
+            <div class="mock-head"><span class="mock-title">Ask Strata</span><span class="mock-sub">billing-service</span></div>
+            <div class="chat">
+              <p class="msg me">I start on billing-service on Monday. Where do I begin?</p>
+              <div class="msg bot">
+                <p>Read the product overview first<sup>1</sup>. To run it locally, start the Mongo container before the integration tests<sup>2</sup>. Two things catch people out. The ledger rounds each line, so totals are summed from rounded lines<sup>3</sup>. And nobody has written down why the job queue delivers at least once<sup>4</sup>; I've added your question to that gap.</p>
+                <ol class="cites">
+                  <li>Product overview · billing-service</li>
+                  <li>Workflow finding · PAY-377</li>
+                  <li>Insight · PAY-412 · PR #1180</li>
+                  <li>Context gap · open</li>
+                </ol>
+              </div>
+            </div>
+          </figure>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Four journeys</h2>
+        <p>How the capabilities fit together for the people who use them most.</p>
+      </div>
+      <div class="journeys">
+        <article class="journey">
+          <header><span class="role">PM or executive</span><h3>Monday status, without a standup</h3></header>
+          <ol>
+            <li>The weekly digest arrives: what shipped and what's in progress, for each product you follow.</li>
+            <li>Open a product page and read What's new.</li>
+            <li>Open a line to see its PR, its ticket and the reviewed session summary behind it.</li>
+            <li>Ask a follow-up: “Why did the invoice timeout move into config?”</li>
+          </ol>
+        </article>
+        <article class="journey">
+          <header><span class="role">New joiner</span><h3>Productive in the first week</h3></header>
+          <ol>
+            <li>Ask the assistant where to start, and get a first-week path for the product.</li>
+            <li>The first Claude Code session starts with the product overview, the workflow findings and the open gaps.</li>
+            <li>Local setup works first time, because the workflow findings cover what the README leaves out.</li>
+            <li>A question nobody can answer yet becomes a context gap, with someone to own it.</li>
+          </ol>
+        </article>
+        <article class="journey">
+          <header><span class="role">Team or platform lead</span><h3>Fix the biggest time sink</h3></header>
+          <ol>
+            <li>Open Where engineering time goes: hours lost this month, ranked.</li>
+            <li>Open the top item and read the sessions and pain points behind its 38 hours.</li>
+            <li>File it as a ticket from the page.</li>
+            <li>After the fix ships, the trend shows whether the hours came down.</li>
+          </ol>
+        </article>
+        <article class="journey">
+          <header><span class="role">Tech lead or doc owner</span><h3>Close a context gap</h3></header>
+          <ol>
+            <li>See the gaps that agents and people hit most, and how often each comes back.</li>
+            <li>Take ownership of “Why does the job queue deliver at least once?”</li>
+            <li>Write the ADR and link it. The gap is marked resolved.</li>
+            <li>New sessions start with the answer, and the gap stops coming back.</li>
+          </ol>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>How it plugs into Claude Code</h2>
+        <p>Strata ships as a Claude Code plugin. Five hooks do the capture; commands and MCP tools cover review and search.</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Hook</th><th scope="col">Fires when</th><th scope="col">What Strata does</th></tr></thead>
+          <tbody>
+            <tr><td>SessionStart</td><td>A session starts or resumes</td><td>Loads the product overview and open context gaps, so the agent starts with what earlier sessions learned. Records the repository, branch and commit.</td></tr>
+            <tr><td>PostToolUse</td><td>A tool call finishes</td><td>Records how long the tool ran and whether it worked. For a shell command, also its kind (test, build, lint…), its exit code and a fingerprint to count re-runs. Never the command text or its output.</td></tr>
+            <tr><td>Stop</td><td>Claude finishes a response</td><td>Captures Claude's reply, redacted, for the session draft, and the branch or commit if either changed.</td></tr>
+            <tr><td>PreCompact</td><td>Before the conversation is compacted</td><td>Captures the transcript before detail is summarized away.</td></tr>
+            <tr><td>SessionEnd</td><td>The session closes</td><td>Closes the session. The server drafts its summary and findings for your review.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sub-grid">
+        <div>
+          <h3>Commands <span class="planned">planned</span></h3>
+          <dl class="defs">
+            <div><dt>/strata:review</dt><dd>Open your review queue: the drafts from your sessions.</dd></div>
+            <div><dt>/strata:note</dt><dd>Add your own note to the current session, or log a gap you ran into yourself.</dd></div>
+            <div><dt>/strata:gaps</dt><dd>List open context gaps for this repo.</dd></div>
+          </dl>
+        </div>
+        <div>
+          <h3>MCP tools <span class="planned">planned</span></h3>
+          <dl class="defs">
+            <div><dt>strata_search</dt><dd>Search approved records and the knowledge graph across products: who solved this, and how. The hub's assistant answers from the same search.</dd></div>
+            <div><dt>strata_record</dt><dd>Log an insight, workflow finding or context gap the moment the agent runs into it.</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Runtimes</h2>
+      </div>
+      <div class="runtimes">
+        <div class="runtime">
+          <header><h3>Claude Code</h3><span class="role">primary</span></header>
+          <p>A plugin with a manifest, hooks, slash commands, an MCP server, and a skill that tells the agent when to log an insight or a context gap.</p>
+        </div>
+        <div class="runtime">
+          <header><h3>opencode v2</h3><span class="role">optional</span></header>
+          <p>A thin adapter that maps opencode's session events onto the same capture core. Same records, same review queue, same sync.</p>
+        </div>
+      </div>
+      <p class="shared-core">Capture, redaction, the review queue and sync live in one shared core. Each runtime adds only an adapter, so a record looks the same whichever tool produced it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Ground rules</h2>
+        <p>Visibility into the work, not the worker.</p>
+      </div>
+      <ul class="rules">
+        <li><strong>Summaries are what's kept.</strong> Prompts and replies, redacted, are held only until the session is drafted, then deleted.</li>
+        <li><strong>Redaction at source.</strong> Secrets are stripped on your machine before anything leaves it, and again on the server.</li>
+        <li><strong>You see what others see.</strong> Every record is yours to edit or discard first.</li>
+        <li><strong>About code and process.</strong> Pain points and gaps never name or rate a person.</li>
+        <li><strong>No activity logs.</strong> No keystrokes, no idle time, and no prompt history past drafting. Friction hours come from test, build and install runs, never from a person's time.</li>
+        <li><strong>Not for ratings.</strong> Records are never used in performance reviews.</li>
+        <li><strong>Who, never how much.</strong> Pages show who has worked on an area recently, never counts, rankings or comparisons of people.</li>
+        <li><strong>Answers show their sources.</strong> The assistant answers only from approved records, cites each one, and says when it doesn't know.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Open questions</h2>
+      </div>
+      <ul class="questions">
+        <li>What is the record schema, and how much editing does a typical draft need?</li>
+        <li>How many response notes per session help before they turn into noise?</li>
+        <li>Which opencode v2 events map onto Stop, PreCompact and SessionEnd?</li>
+        <li>Which embeddings model backs Atlas Vector Search? Voyage AI is the natural pairing.</li>
+        <li>Does the hub read Atlas directly, or go through a Strata API?</li>
+        <li>Where does the knowledge graph live: links in MongoDB walked with <code>$graphLookup</code>, or a separate graph store?</li>
+        <li>What counts as a code area for the graph and for friction: a folder, a package, or an owners file?</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">Strata · design draft · 14 November 2026</div>
+  </footer>
+</main>
+
+<script>
+(() => {
+  var card = document.getElementById('review-card');
+  var chip = document.getElementById('review-status');
+  var changed = document.getElementById('review-changed');
+  var editBtn = document.getElementById('btn-edit');
+
+  function stopEditing() {
+    changed.contentEditable = 'false';
+    editBtn.textContent = 'Edit';
+  }
+  function setState(state, label) {
+    card.dataset.state = state;
+    chip.dataset.state = state;
+    chip.textContent = label;
+  }
+
+  document.getElementById('btn-approve').addEventListener('click', () => {
+    stopEditing();
+    setState('approved', 'approved');
+  });
+  document.getElementById('btn-discard').addEventListener('click', () => {
+    stopEditing();
+    setState('discarded', 'discarded');
+  });
+  editBtn.addEventListener('click', () => {
+    if (changed.isContentEditable) {
+      stopEditing();
+      setState('draft', 'edited draft');
+    } else {
+      changed.contentEditable = 'true';
+      changed.focus();
+      editBtn.textContent = 'Done';
+      setState('draft', 'editing');
+    }
+  });
+})();
+</script>

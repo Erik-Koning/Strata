@@ -56,6 +56,7 @@ let revision = 0;
 const summaryEvent = (overrides: Record<string, unknown> = {}) => {
   revision += 1;
   return {
+    v: 1,
     idempotencyKey: `s1:summary:${revision}`,
     type: "session_summary",
     sessionId: "s1",

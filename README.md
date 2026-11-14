@@ -5,9 +5,10 @@ turns it into short summaries your team can search, and keeps the raw prompts an
 get what was built, why, the decisions behind it, and the gaps worth documenting, with the Jira ticket and GitHub PR
 attached.
 
-The web app in this repository is still the earlier long-term memory API. The client now targets a `/v1` summary API;
-building that backend is the next step. Until it exists, the plugin works locally: capture, summaries, review, local
-overview, search and roll-ups all run on your machine.
+The web app serves both the memory API and the `/v1` summary API the new client uses: device sign-in, projects,
+approved session summaries, retraction, search and roll-ups. The memory API now speaks contract v1: versioned, typed
+events that grow without breaking older clients. The plugin still drafts locally; moving drafting onto the server is
+the next design step.
 
 ## What's built so far
 
@@ -28,8 +29,8 @@ exactly what goes with it, connect a client step by step, and list every change 
 on a phone.
 
 The client is covered by 38 tests that run the hooks, CLI and dashboard as real processes against a mock server. The
-memory API has unit and database tests. The `/v1` backend for the summary client is the next build; the rest is in the
-to-do below, which an [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is working through.
+memory API and the `/v1` summary API have unit and database tests. The rest is in the to-do below, which an
+[Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is working through.
 
 ## Architecture
 
@@ -44,24 +45,23 @@ flowchart LR
     OP -.-> PL
   end
   subgraph server["Strata web app: apps/web"]
-    API["/api/memory/* today<br/>/v1 summary API next"]
+    API["/api/memory/*<br/>/v1 summary API"]
     UI["Pages: Overview, Memories,<br/>Connect, Audit log"]
     AUTH["Better Auth<br/>accounts, sessions"]
     JOBS["Extract (inline today)<br/>dedupe, embed, summarize, score: to do"]
   end
   DB[("MongoDB<br/>memory_events, memories, memory_summaries,<br/>memory_audit, api_keys, auth")]
-  PL -- "HTTPS + device token<br/>(when /v1 exists)" --> API
+  PL -- "HTTPS + device token" --> API
   UI --- AUTH
   API --> JOBS
   API --> DB
   JOBS --> DB
   UI --> DB
-  CT["packages/contracts<br/>schemas, redact, render"] -.- API
+  CT["packages/contracts<br/>schemas, signals, summary,<br/>redact, render"] -.- API
 ```
 
-Only the API touches the database. The summary client talks to `/v1`; until that exists it runs locally against its
-own store. The memory API and its pages still use `packages/contracts`; the plugin carries its own summary schema and
-redaction for now.
+Only the API touches the database. The summary client talks to `/v1`. The memory API and its pages use
+`packages/contracts`; the plugin carries its own summary schema and redaction for now.
 
 **One session, as the plugin sees it:**
 
@@ -71,7 +71,7 @@ sequenceDiagram
   participant P as Strata plugin
   participant L as local claude -p
   participant D as review dashboard
-  participant A as Strata /v1 (next)
+  participant A as Strata /v1
   C->>P: SessionStart
   P->>P: build the repo overview from earlier summaries
   P-->>C: overview as context, kept for this session
@@ -112,13 +112,17 @@ The memory API's data model, who can do what, and how each hook maps to the clie
 | Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                                 |
 | AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                      |
 | Claude Code plugin       | `clients/claude-code`    | hooks, session summaries, review dashboard, MCP server, OpenCode adapter; no build step |
-| Contracts                | `packages/contracts`     | zod schemas, `redact`, `renderFrozen`, `renderRecall` (memory API)                      |
+| Contracts                | `packages/contracts`     | contract version, zod schemas, signals, summary, `redact`, render                       |
 | Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                                |
 | The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                                 |
 
 ## To-do
 
 What's left, in the order the team is working through it. Each group is one journey in the team's task graph.
+
+The groups from **Contracts** to **Pages for work records** come from the plan review of 14 November 2026
+([`docs/plan.md`](docs/plan.md)). They turn Strata from personal agent memory into reviewed work records that a team
+can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 **Done: the foundation**
 
@@ -130,13 +134,13 @@ What's left, in the order the team is working through it. Each group is one jour
 - [x] The Claude Code plugin: local capture, session summaries, review dashboard, redaction, MCP tools, marketplace
 - [x] The pages: Overview, Memories, Connect, Audit log
 
-**Summary backend (next)**
+**Summary backend**
 
-- [ ] `/v1/auth/device`, `/v1/auth/token`, `/v1/me`: device-code sign-in for the plugin
-- [ ] `/v1/projects`: projects and team membership
-- [ ] `/v1/events`: approved `session_summary` revisions only, idempotent, author from the token
-- [ ] `DELETE /v1/sessions/:id`, `/v1/search`, `/v1/rollups`
-- [ ] MongoDB collections for summaries, revisions, projects and the audit log
+- [x] `/v1/auth/device`, `/v1/auth/token`, `/v1/me`: device-code sign-in for the plugin
+- [x] `/v1/projects`: projects and team membership
+- [x] `/v1/events`: approved `session_summary` revisions only, idempotent, author from the token
+- [x] `DELETE /v1/sessions/:id`, `/v1/search`, `/v1/rollups`
+- [x] MongoDB collections for summaries, revisions, projects and the audit log
 - [ ] The web pages read the summary store; Connect issues a plugin sign-in
 
 **Test harness**
@@ -149,6 +153,8 @@ What's left, in the order the team is working through it. Each group is one jour
 - [ ] Verify the real `@opencode-ai/plugin` event names and fields against `adapters/opencode/strata.js`
 - [ ] Install the adapter in a live OpenCode session and confirm a turn becomes a summary
 - [ ] Acceptance through a fake OpenCode host, alongside the Claude Code hook tests
+- [ ] Bundle `@strata/contracts` into the plugin if it adopts the versioned event contract: once installed outside
+      this repository it can't import the workspace package
 
 **Memory pipeline**
 
@@ -167,6 +173,70 @@ backend changes.
 - [ ] Provenance one click away: the session, the message and the event behind a memory
 - [ ] Memories for every project (`*`) set from the page; editing a memory as a superseding one
 - [ ] Bulk keep and archive for candidates; pagination tested at scale
+
+**Contracts**
+
+- [x] A payload schema for each event kind, in place of `z.record(z.string(), z.unknown())`; each event checked on
+      its own, so one bad event is refused alone (202 with `rejected`)
+- [x] A contract version on every event (`v`, now 1); within a version changes only add; kinds, versions and fields
+      the API doesn't know yet are kept, not refused; `upgrade_required` (426) for clients too old
+- [x] The `finding` event (what `record_finding` sends) and generic links (`Ref`: ticket, PR, commit, doc)
+- [ ] Record shapes the API answers with: kind, status, sources, the review update (with `/api/records`)
+- [x] Example events (`@strata/contracts/examples`) that the contract's and the API's tests accept
+- [ ] A plugin test that every event its hooks queue parses as known: the summary-first client does not emit memory
+      events yet; this returns with the capture rework
+
+**Records and review**
+
+The current client drafts locally and uploads only approved summaries. These server-side record features are the
+contract-v1 direction, not yet implemented.
+
+- [ ] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
+      `approved`, `discarded`; an edited flag; the session, product and links; the events each record came from
+- [ ] An Anthropic provider behind `server/ai/provider.ts` that drafts a session's records when the session ends
+- [ ] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
+- [ ] MCP tool `record_finding`, so the agent logs an insight, workflow finding, pain point or context gap when it
+      runs into one (a `finding` event through the outbox), and a skill that says when to use it
+- [ ] Approved insights and workflow findings copied into memories, so the next session recalls them
+- [ ] Prompt, reply and transcript text deleted as soon as a session is drafted. Decided 14 November 2026: drafting
+      runs on the server, from redacted text, and a draft is its author's alone until they approve it
+- [ ] Choose the embeddings model: OpenAI, as the brief proposes, or Voyage AI
+
+**Capture for work records**
+
+Contract v1 implemented these in the client this branch replaced. Porting them into the summary-first plugin is part
+of the next step.
+
+- [ ] Session links from the plugin: repository, branch, HEAD commit, folder, and ticket keys parsed from the branch
+      name; sent at the start and again when the branch or commit changes
+- [ ] Tool signals without content: how long each call ran; for a shell command, its kind (test, build, typecheck,
+      lint, format, install, git), its exit code when it failed, and a fingerprint to count re-runs
+- [ ] The pull request for a session's branch, looked up on GitHub (read-only)
+- [ ] The session-start block also carries the product overview and open context gaps (fetched at startup only, so
+      the cache rule holds)
+
+**Teams and products**
+
+- [ ] Organisations, teams and members, in place of the single `default` organisation
+- [ ] Roles: engineer, viewer (managers and PMs), admin, with a permission filter on every read
+- [ ] A `products` collection mapping repositories to products
+- [ ] `/api/products/:id`: the overview, tickets and PRs, and approved records
+
+**Roll-ups**
+
+- [ ] Ticket and PR summaries, made from approved records only, with the ids of the records behind them
+- [ ] Product overviews, rewritten from the layer below on each roll-up
+
+**Pages for work records**
+
+- [ ] Review queue: drafts grouped by session; approve, edit, discard, bulk approve
+- [ ] Session page: the summary, its findings, its links, and where each finding came from
+- [ ] Products: a list, then each product's overview, tickets and PRs, insights, workflow notes, pain points and open
+      gaps
+- [ ] Friction: pain points and context gaps grouped by repository, with how often each repeats
+- [ ] What others see about me: a person's view of exactly what viewers see about their work
+- [ ] Organisation settings: members, roles, and which repository belongs to which product
+- [ ] Overview reframed around what's awaiting review, products and friction; Memories renamed Agent memory
 
 **Shipping**
 
@@ -194,29 +264,40 @@ Install the plugin, then open its dashboard with `/strata:dashboard`:
 /plugin install strata@strata
 ```
 
-The plugin works locally with no backend: it writes summaries, keeps a per-repo overview, and lets you review, edit
-and link work. Sign-in, sending approved summaries and team search wait for the `/v1` backend. Settings, sign-in and
-review live in the dashboard; `STRATA_URL` and `STRATA_HOME` are optional environment overrides. More in
-[`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
+The plugin writes summaries locally, keeps a per-repo overview, and lets you review, edit and link work. Start the app,
+then run `/strata:login` in Claude Code: it opens `/activate`, and after you approve the code the plugin can send
+approved summaries. Settings, sign-in and review live in the dashboard; `STRATA_URL` and `STRATA_HOME` are optional
+environment overrides. More in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
 ## The API
 
-The memory API below is what the web app serves today. The Claude Code client now speaks the summary API described in
-[`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md); its `/v1` routes are the next
-backend build.
+The web app serves two APIs. The memory API uses contract v1 (versioned events; below). The summary API is what the
+Claude Code plugin uses: [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
-Every route takes `Authorization: Bearer <key>` and answers `{ error: { code, message } }` when it fails. The scope
-is `{ project }`; the organisation and the person come from the key.
+| Route                                         | Body / query                    | Answer                                   |
+| --------------------------------------------- | ------------------------------- | ---------------------------------------- |
+| `POST /v1/auth/device`, `POST /v1/auth/token` | `{ client }`, `{ device_code }` | device sign-in; the token is an API key  |
+| `GET /v1/me`, `GET /v1/projects`              |                                 | the person, their projects               |
+| `POST /v1/events`                             | approved `session_summary`      | 201 first, 200 duplicate, `{ ok: true }` |
+| `DELETE /v1/sessions/:id`                     |                                 | retract every revision                   |
+| `GET /v1/search`, `GET /v1/rollups`           | `q`, `projectId`                | teammates' approved summaries            |
 
-| Route                       | Body                                                       | Answer                                          |
-| --------------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
-| `POST /api/memory/events`   | `{ batch: [{ id, sessionID, scope, kind, payload, ts }] }` | 202 `{ accepted, duplicates }`, deduped on `id` |
-| `POST /api/memory/recall`   | `{ sessionID, scope, query, k }`                           | `{ memories: [{ _id, kind, text }] }`           |
-| `GET /api/memory/frozen`    | `?sessionID&project`                                       | `{ memories }`, the same for the same data      |
-| `POST /api/memory/compress` | `{ sessionID, scope, messages }`                           | `{ summary }`                                   |
-| `POST /api/memory/forget`   | `{ scope, ids \| query, dryRun? }`                         | what went: memories, summaries, events          |
-| `POST /api/memory/save`     | `{ scope, text, kind }`                                    | 201 `{ memory }`                                |
-| `GET /api/health`           |                                                            | `{ ok, db, search }`                            |
+The memory API's routes take `Authorization: Bearer <key>` and answer `{ error: { code, message } }` when they fail.
+The scope is `{ project }`; the organisation and the person come from the key.
+
+Every event carries the contract version it was written to (`v`). The contract only grows within a version, and the API
+keeps what it doesn't understand yet rather than refusing it: the rules are in
+[`docs/architecture.md`](docs/architecture.md#the-contract-and-how-it-changes).
+
+| Route                       | Body                                                                     | Answer                                                    |
+| --------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `POST /api/memory/events`   | `{ batch: [{ v, id, sessionID, scope, kind, payload, ts, promptID? }] }` | 202 `{ accepted, duplicates, rejected }`, deduped on `id` |
+| `POST /api/memory/recall`   | `{ sessionID, scope, query, k }`                                         | `{ memories: [{ _id, kind, text }] }`                     |
+| `GET /api/memory/frozen`    | `?sessionID&project`                                                     | `{ memories }`, the same for the same data                |
+| `POST /api/memory/compress` | `{ sessionID, scope, messages }`                                         | `{ summary }`                                             |
+| `POST /api/memory/forget`   | `{ scope, ids \| query, dryRun? }`                                       | what went: memories, summaries, events                    |
+| `POST /api/memory/save`     | `{ scope, text, kind }`                                                  | 201 `{ memory }`                                          |
+| `GET /api/health`           |                                                                          | `{ ok, db, search, contract: { min, max } }`              |
 
 ## Develop
 
