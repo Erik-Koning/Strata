@@ -19,11 +19,14 @@
     "db:indexes": "pnpm --filter @strata/web run db:indexes",
     "db:seed": "pnpm --filter @strata/web run db:seed",
     "invite": "pnpm --filter @strata/web run invite",
-    "hub:backfill": "pnpm --filter @strata/web run hub:backfill"
+    "hub:backfill": "pnpm --filter @strata/web run hub:backfill",
+    "mail:test": "pnpm --filter @strata/web run mail:test",
+    "sst": "sst"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
     "@types/node": "26.6.6",
+    "sst": "4.17.2",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
   }

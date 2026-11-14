@@ -33,6 +33,7 @@ function requireAuth() {
 }
 
 function openBrowser(url) {
+  // Tests and headless runs set STRATA_NO_BROWSER: the URL is printed either way, and a test must never open a tab.
   if (process.env.STRATA_NO_BROWSER) return;
   const [cmd, ...rest] =
     process.platform === "darwin"

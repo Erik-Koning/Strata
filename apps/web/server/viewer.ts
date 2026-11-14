@@ -7,6 +7,7 @@ import { cache } from "react";
 import type { Role } from "./access.ts";
 import { auth } from "./auth.ts";
 import { type Actor, accessFor } from "./people.ts";
+import { usesPlugin } from "./stats.ts";
 
 export interface Viewer {
   userId: string;
@@ -15,6 +16,8 @@ export interface Viewer {
   role: Role;
   // The teams this person manages.
   manages: string[];
+  // They use the plugin themselves (a client has used one of their keys): they get My Day.
+  usesPlugin: boolean;
 }
 
 export const getViewer = cache(async (): Promise<Viewer | null> => {
@@ -22,7 +25,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     .api.getSession({ headers: await headers() })
     .catch(() => null);
   if (!session) return null;
-  const access = await accessFor(session.user.id);
+  const [access, plugin] = await Promise.all([accessFor(session.user.id), usesPlugin(session.user.id)]);
   if (access.suspended) return null;
   return {
     userId: session.user.id,
@@ -30,6 +33,7 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
     email: session.user.email,
     role: access.role,
     manages: access.manages,
+    usesPlugin: plugin,
   };
 });
 
@@ -43,6 +47,13 @@ export async function requireViewer(): Promise<Viewer> {
 export async function requireAdmin(): Promise<Viewer> {
   const viewer = await requireViewer();
   if (viewer.role !== "admin") notFound();
+  return viewer;
+}
+
+// For My Day: only people who use the plugin themselves. Anyone else gets a 404.
+export async function requirePluginUser(): Promise<Viewer> {
+  const viewer = await requireViewer();
+  if (!viewer.usesPlugin) notFound();
   return viewer;
 }
 

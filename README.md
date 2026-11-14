@@ -15,7 +15,7 @@ change.
 **The web app** (Next.js 16, `apps/web`) has invite-only accounts with roles, teams and suspension, API keys you make per
 machine, and the memory API: capture, recall, the frozen block, compaction summaries, save and forget. It also serves
 the `/v1` summary API and the records review API. Every route checks a bearer key first and validates its body against a
-shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, records, projects, teams,
+shared contract. **MongoDB** (Atlas) holds events, memories, summaries, records, projects, teams,
 invitations, an audit log and the keys, with a vector index for recall and a text index behind it.
 
 **The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API
@@ -229,6 +229,10 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 - [ ] GitHub Actions running the gate and the end-to-end suite against an Atlas-local service container
 - [ ] `docs/architecture.md`: backups and restore (`mongodump`), HTTPS, logs, Dependabot
 - [ ] Rate limits on the API, and a size limit on event batches
+- [x] Email sending: strata.anythingfactory.dev an Amazon SES sender (DKIM, DMARC, its own MAIL FROM), a send-only
+      key per stage (`sst.config.ts`), and `sendMail` in `apps/web/server/mail.ts`; `pnpm mail:test <email>` checks it
+- [ ] The emails themselves: confirming a new account's address and resetting a password, through Better Auth and
+      `sendMail` (links use `BETTER_AUTH_URL`)
 
 ## Run it
 

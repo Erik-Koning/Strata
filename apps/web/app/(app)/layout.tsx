@@ -2,6 +2,7 @@ import { LogOut } from "lucide-react";
 import type { ReactNode } from "react";
 import { Wordmark } from "../../components/logo.tsx";
 import { Nav } from "../../components/nav.tsx";
+import { waitingOn } from "../../server/stats.ts";
 import { requireViewer } from "../../server/viewer.ts";
 import { signOut } from "../(auth)/actions.ts";
 
@@ -13,13 +14,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const admin = viewer.role === "admin";
+  const myDay = viewer.usesPlugin ? await waitingOn(viewer.userId) : null;
   return (
     <div className="md:grid md:min-h-dvh md:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="sticky top-0 z-10 flex items-center justify-between gap-3 border-line border-b bg-bg/90 px-4 py-2.5 backdrop-blur md:h-dvh md:flex-col md:items-stretch md:justify-start md:gap-8 md:overflow-y-auto md:border-r md:border-b-0 md:px-4 md:py-6">
         <div className="flex-none max-md:[&_span.text-\[16px\]]:hidden">
           <Wordmark />
         </div>
-        <Nav admin={viewer.role === "admin"} />
+        <Nav admin={admin} myDay={myDay} />
         <div className="hidden md:mt-auto md:block">
           <div className="flex items-center gap-3 rounded-[12px] px-2 py-2">
             <span className="grid size-9 flex-none place-items-center rounded-full bg-accent-soft font-semibold text-[13px] text-accent-text">

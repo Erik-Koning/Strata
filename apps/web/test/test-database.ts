@@ -3,12 +3,13 @@
 import { randomBytes } from "node:crypto";
 import type { Db } from "mongodb";
 
-// Points MONGODB_URI at a fresh database named `<prefix>_<tag>` and returns its name. Call it before importing the app.
+// Points MONGODB_URI at a fresh database and returns its name: the prefix, the builder's namespace when there is one,
+// and random bytes, so a run never meets another's database or one a crashed run left. Call it before importing the app.
 export function testDatabase(prefix: string): string {
   const base = process.env.MONGODB_URI;
   if (!base) throw new Error("MONGODB_URI isn't set: put it in .env.local at the repository root (README, Run it)");
-  const tag = process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex");
-  const name = `${prefix}_${tag}`;
+  const namespace = process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_").slice(0, 20);
+  const name = [prefix, namespace, randomBytes(4).toString("hex")].filter(Boolean).join("_");
   process.env.MONGODB_URI = withDatabase(base, name);
   return name;
 }
