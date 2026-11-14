@@ -1,5 +1,5 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
-import type { MemoryKind, MemoryStatus, Scope, TrustLevel } from "@strata/contracts";
+import type { MemoryKind, MemoryStatus, Ref, Scope, TrustLevel } from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
 import type { Role } from "./access.ts";
 import { db } from "./db.ts";
@@ -81,7 +81,9 @@ export interface AuditDoc {
     | "member.restore"
     | "team.create"
     | "team.delete"
-    | "team.member";
+    | "team.member"
+    | "record.approve"
+    | "record.discard";
   targetIds: string[];
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;
@@ -136,6 +138,29 @@ export interface InviteDoc {
   revokedAt: Date | null;
 }
 
+// What a person's sessions drafted for them to share (records.ts): a session summary, or a finding the agent logged.
+// Its author's alone while a draft; everyone's once approved. A discarded draft is deleted.
+export interface RecordDoc {
+  _id: ObjectId;
+  // What makes it once: "finding:<event id>" or "summary:<user>:<session id>".
+  key: string;
+  // The author is scope.user.
+  scope: Scope;
+  // summary, insight, workflow, pain_point or context_gap (an open list: a newer client's type is kept as it came).
+  kind: string;
+  text: string;
+  refs: Ref[];
+  sessionID: string;
+  // The events it was drafted from.
+  sourceIds: string[];
+  status: "draft" | "approved";
+  // The author changed the text: a redraft leaves it alone.
+  edited: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+}
+
 export const events = (): Collection<EventDoc> => db().collection<EventDoc>("memory_events");
 export const memories = (): Collection<MemoryDoc> => db().collection<MemoryDoc>("memories");
 export const summaries = (): Collection<SummaryDoc> => db().collection<SummaryDoc>("memory_summaries");
@@ -144,5 +169,6 @@ export const apiKeys = (): Collection<ApiKeyDoc> => db().collection<ApiKeyDoc>("
 export const members = (): Collection<MemberDoc> => db().collection<MemberDoc>("members");
 export const teams = (): Collection<TeamDoc> => db().collection<TeamDoc>("teams");
 export const invites = (): Collection<InviteDoc> => db().collection<InviteDoc>("invites");
+export const records = (): Collection<RecordDoc> => db().collection<RecordDoc>("records");
 
 export const VECTOR_INDEX = "memories_embedding";

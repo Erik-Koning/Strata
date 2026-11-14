@@ -3,7 +3,7 @@
 // runs it), which becomes queryable a little after it's created: `wait` polls until it is.
 
 import { provider } from "./ai/provider.ts";
-import { apiKeys, audits, events, invites, memories, summaries, teams, VECTOR_INDEX } from "./collections.ts";
+import { apiKeys, audits, events, invites, memories, records, summaries, teams, VECTOR_INDEX } from "./collections.ts";
 import { db } from "./db.ts";
 
 const EVENT_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -22,6 +22,7 @@ export async function ensureIndexes({
     "members",
     "teams",
     "invites",
+    "records",
   ])
     if (!existing.has(name))
       await db()
@@ -56,6 +57,9 @@ export async function ensureIndexes({
     teams().createIndex({ managerIds: 1 }, { name: "by_manager" }),
     invites().createIndex({ hash: 1 }, { unique: true, name: "hash_unique" }),
     invites().createIndex({ email: 1, createdAt: -1 }, { name: "by_email" }),
+    records().createIndex({ key: 1 }, { unique: true, name: "key_unique" }),
+    records().createIndex({ "scope.user": 1, status: 1, createdAt: -1 }, { name: "by_author" }),
+    records().createIndex({ status: 1, approvedAt: -1 }, { name: "approved" }),
   ]);
   return { vector: await ensureVectorIndex(wait, timeoutMs) };
 }

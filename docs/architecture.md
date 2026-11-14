@@ -25,6 +25,7 @@ One deployable (`apps/web`) and one database. Only the API touches MongoDB. Both
 | `members`                                    | A person's role (engineer, manager, exec, admin) and whether they're suspended          | `_id` is the account id                         |
 | `teams`                                      | A name, its members and its managers                                                    | name unique (any case), memberIds, managerIds   |
 | `invites`                                    | Email, role, teams, SHA-256 of the token, expiry, who made it, when it was used         | hash unique, email                              |
+| `records`                                    | Drafts and approved records: a session summary or a finding, its author, refs, sources  | key unique, author+status, approved             |
 | `user`, `session`, `account`, `verification` | Better Auth                                                                             | Better Auth's own                               |
 
 The vector index (`memories_embedding`) is an Atlas Search index filtered on `scope.org`, `scope.project`,
@@ -164,6 +165,21 @@ prompts, replies and transcripts is deleted; until drafting exists, the 30-day T
 it. The promise to the people whose sessions these are is "nothing is shared without your review", not "nothing
 leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until
 its author approves it.
+
+What's built (`server/records.ts`), run inline after each batch of events is stored:
+
+- **A finding** (`kind: "finding"`) becomes a draft at once, with its refs. Made once per event, however often it's
+  sent.
+- **A session's summary** is drafted when the session ends (`session` with `event: "end"`), from its prompts and
+  replies through the AI provider (`stub`: extractive, until a real one is set), with the session's ticket refs and
+  branch. A session that ends again redrafts it, unless its author has edited or approved it.
+- **My Day** (`/my-day`) is where the author decides: approve and share (optionally after editing), save an edit, or
+  discard, which deletes the draft. Only the author can do any of these. It also lists the candidate memories their
+  sessions suggested, to keep or set aside. Only people who use the plugin themselves get My Day: one of their API
+  keys has been used by a client.
+
+Not built yet: deleting a session's prompt and reply text once it's drafted (the 30-day TTL still limits it), and
+forgetting a memory doesn't yet remove a draft made from the same events.
 
 ## The OpenCode plugin (next)
 

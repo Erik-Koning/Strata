@@ -5,11 +5,11 @@ import { type Access, isRole, ROLE_LABELS, type Role } from "./access.ts";
 import { audit } from "./audit.ts";
 import { auth } from "./auth.ts";
 import { type AuditDoc, apiKeys, members, type TeamDoc, teams } from "./collections.ts";
+import { Refusal } from "./refusal.ts";
 
 export type Actor = AuditDoc["actor"];
 
-// A refusal the page shows as it is: the person asked for something the rules don't allow.
-export class Refusal extends Error {}
+export { Refusal };
 
 const adapter = async () => (await auth().$context).internalAdapter;
 

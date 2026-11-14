@@ -17,6 +17,7 @@ import { MongoBulkWriteError } from "mongodb";
 import { type Principal, scopeFor } from "../api-auth.ts";
 import { type EventDoc, events } from "../collections.ts";
 import { ApiError } from "../http.ts";
+import { draftFrom } from "../records.ts";
 import { extract, statusFor } from "./extract.ts";
 import { addMemory } from "./store.ts";
 
@@ -70,6 +71,7 @@ export async function ingest(principal: Principal, batch: unknown[]): Promise<Re
     }
   }
   await processEvents(insertedIds);
+  await draftFrom(insertedIds);
   return { accepted: insertedIds.length, duplicates: parsed.length - insertedIds.length, rejected };
 }
 

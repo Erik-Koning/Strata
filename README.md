@@ -151,6 +151,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 - [x] Invite-only accounts; roles (engineer, manager, executive, admin), teams, suspension; the People page and the
       admins' log of access changes (`pnpm invite <email>` makes the first admin)
+- [x] My Day, for people who use the plugin: approve, edit or discard what their sessions drafted (session
+      summaries at session end, and findings), and keep or set aside suggested memories
 - [ ] Home views by role, over approved records (everyone sees those; private memory stays its owner's): pain points
       and context gaps for engineers; features and who worked on them for managers; progress for executives. Who,
       never how much: no counts, rankings or activity about people

@@ -4,6 +4,7 @@ import {
   MailPlus,
   MailX,
   ScrollText,
+  Share2,
   Sparkles,
   Trash2,
   UserCheck,
@@ -18,6 +19,7 @@ import { Ago } from "../../../components/time.tsx";
 import { isRole, ROLE_LABELS } from "../../../server/access.ts";
 import type { AuditDoc } from "../../../server/collections.ts";
 import { namesFor } from "../../../server/people.ts";
+import { recordLabel } from "../../../server/records.ts";
 import { auditTrail, orgAuditTrail } from "../../../server/stats.ts";
 import { requireViewer } from "../../../server/viewer.ts";
 import { PageHeader } from "../page-header.tsx";
@@ -54,6 +56,18 @@ function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: s
       return { icon: KeyRound, tone: "text-accent-text", text: `Made the API key “${String(d.name ?? "")}”` };
     case "key.revoke":
       return { icon: KeyRound, tone: "text-danger", text: "Revoked an API key" };
+    case "record.approve":
+      return {
+        icon: Share2,
+        tone: "text-accent-text",
+        text: `Approved and shared a ${recordLabel(String(d.kind)).toLowerCase()}${d.edited ? ", after editing it" : ""}`,
+      };
+    case "record.discard":
+      return {
+        icon: Trash2,
+        tone: "text-danger",
+        text: `Discarded a draft ${recordLabel(String(d.kind)).toLowerCase()}`,
+      };
     case "invite.create":
       return { icon: MailPlus, tone: "text-accent-text", text: `Invited ${String(d.email)} as ${role(d.role)}` };
     case "invite.revoke":
@@ -119,7 +133,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
         lede={
           everyone
             ? "Every change to who has access: invitations, roles, suspensions and teams. What people save, forget or connect in their own memory is theirs, and isn't shown here."
-            : "Every memory saved or forgotten, every summary made at a compaction, every key made or revoked, and any change an admin made to your access."
+            : "Every memory saved or forgotten, every summary made at a compaction, every draft you approved or discarded, every key made or revoked, and any change an admin made to your access."
         }
         actions={
           viewer.role === "admin" ? (
