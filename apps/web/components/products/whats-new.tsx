@@ -2,6 +2,7 @@
 // findings shared alongside it, its tickets and pull requests, and a link to the session.
 import { Sparkles } from "lucide-react";
 import type { WeekView } from "../../server/hub/product-page.ts";
+import { InlineMarkdown, Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 import { RefChips, SessionLink } from "./refs.tsx";
 
@@ -31,9 +32,7 @@ export function WhatsNew({ weeks, sinceWeeks }: { weeks: WeekView[]; sinceWeeks:
                       {session.summary.title ? (
                         <p className="font-medium text-[15px] leading-snug">{session.summary.title}</p>
                       ) : null}
-                      <p className="mt-1 whitespace-pre-wrap break-words text-[14px] text-ink-2">
-                        {session.summary.text}
-                      </p>
+                      <Markdown className="mt-1 break-words text-[14px] text-ink-2">{session.summary.text}</Markdown>
                     </>
                   ) : (
                     <p className="text-[13px] text-ink-3">Findings from this session</p>
@@ -43,9 +42,9 @@ export function WhatsNew({ weeks, sinceWeeks }: { weeks: WeekView[]; sinceWeeks:
                       {session.findings.map((finding) => (
                         <li key={finding.id} className="flex flex-wrap items-start gap-x-2 gap-y-1">
                           <span className="chip flex-none">{finding.kindLabel}</span>
-                          <span className="min-w-0 flex-1 basis-56 break-words text-[13.5px] text-ink-2 leading-6">
+                          <InlineMarkdown className="min-w-0 flex-1 basis-56 break-words text-[13.5px] text-ink-2 leading-6">
                             {finding.text}
-                          </span>
+                          </InlineMarkdown>
                         </li>
                       ))}
                       {session.moreFindings ? (

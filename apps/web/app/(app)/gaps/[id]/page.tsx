@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { GapActions } from "../../../../components/gaps/gap-actions.tsx";
 import { Answer, Owner, plural, SeenChips } from "../../../../components/gaps/gap-parts.tsx";
 import { RelatedPanel } from "../../../../components/graph/related.tsx";
+import { InlineMarkdown } from "../../../../components/markdown.tsx";
 import { Ago } from "../../../../components/time.tsx";
 import { getGap } from "../../../../server/hub/gaps.ts";
 import { listProducts } from "../../../../server/hub/products.ts";
@@ -153,7 +154,9 @@ export default async function GapPage({ params }: PageProps<"/gaps/[id]">) {
                             <span className="chip flex-none">
                               {line.source === "record" ? "Finding" : "In the summary"}
                             </span>
-                            <p className="min-w-0 flex-1 basis-56 break-words text-[14px] text-ink-2">{line.text}</p>
+                            <InlineMarkdown className="min-w-0 flex-1 basis-56 break-words text-[14px] text-ink-2">
+                              {line.text}
+                            </InlineMarkdown>
                           </li>
                         ))}
                       </ul>

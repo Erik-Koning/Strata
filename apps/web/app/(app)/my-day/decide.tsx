@@ -4,6 +4,7 @@
 import { Check, LoaderCircle, Pencil } from "lucide-react";
 import { useState, useTransition } from "react";
 import { ConfirmButton } from "../../../components/confirm-button.tsx";
+import { Markdown } from "../../../components/markdown.tsx";
 import { approve, decideCandidate, discard, type Result, save } from "./actions.ts";
 
 function Problem({ error }: { error: string | null }) {
@@ -49,7 +50,7 @@ export function Draft({ id, text, label }: { id: string; text: string; label: st
           <p className="text-[12.5px] text-ink-3">{value.length.toLocaleString()} of 4,000 characters</p>
         </>
       ) : (
-        <p className="whitespace-pre-wrap break-words text-[14.5px] leading-relaxed">{value}</p>
+        <Markdown className="break-words text-[14.5px] leading-relaxed">{value}</Markdown>
       )}
       <Problem error={error} />
       <div className="flex flex-wrap items-center gap-2">

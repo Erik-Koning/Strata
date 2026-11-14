@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { type DigestGap, type DigestProduct, type DigestTimeItem, dayLabel } from "../../server/hub/digest.ts";
 import { durationLabel } from "../../server/hub/product-page.ts";
+import { InlineMarkdown, Markdown } from "../markdown.tsx";
 import { names, RefChips, SessionLink } from "../products/refs.tsx";
 
 const HEADER = "flex flex-wrap items-center justify-between gap-2 border-line border-b px-5 py-3.5";
@@ -55,9 +56,9 @@ export function ProductWeek({ product }: { product: DigestProduct }) {
                     {session.summary.title ? (
                       <p className="font-medium text-[15px] leading-snug">{session.summary.title}</p>
                     ) : null}
-                    <p className="mt-1 line-clamp-6 whitespace-pre-wrap break-words text-[14px] text-ink-2">
+                    <Markdown className="mt-1 line-clamp-6 break-words text-[14px] text-ink-2">
                       {session.summary.text}
-                    </p>
+                    </Markdown>
                   </>
                 ) : (
                   <p className="text-[13px] text-ink-3">Findings from this session</p>
@@ -67,9 +68,9 @@ export function ProductWeek({ product }: { product: DigestProduct }) {
                     {session.findings.map((finding) => (
                       <li key={finding.id} className="flex flex-wrap items-start gap-x-2 gap-y-1">
                         <span className="chip flex-none">{finding.kindLabel}</span>
-                        <span className="min-w-0 flex-1 basis-56 break-words text-[13.5px] text-ink-2 leading-6">
+                        <InlineMarkdown className="min-w-0 flex-1 basis-56 break-words text-[13.5px] text-ink-2 leading-6">
                           {finding.text}
-                        </span>
+                        </InlineMarkdown>
                       </li>
                     ))}
                     {session.moreFindings ? (
@@ -114,7 +115,7 @@ export function ProductWeek({ product }: { product: DigestProduct }) {
                         <CircleHelp size={15} aria-hidden className="mt-[3px] flex-none text-amber" />
                         <span className="min-w-0 flex-1 break-words">
                           <span className="sr-only">Open question: </span>
-                          {question.text}
+                          <InlineMarkdown>{question.text}</InlineMarkdown>
                         </span>
                       </li>
                     ))}
@@ -271,7 +272,7 @@ function GapItem({ gap, resolved }: { gap: DigestGap; resolved: boolean }) {
         href={`/gaps/${encodeURIComponent(gap.id)}`}
         className="line-clamp-3 break-words text-[14px] underline-offset-4 hover:underline"
       >
-        {gap.text}
+        <InlineMarkdown links={false}>{gap.text}</InlineMarkdown>
       </Link>
       {about.length ? <p className="mt-1 text-[12.5px] text-ink-3">{about.join(" · ")}</p> : null}
       {resolved && answer ? (
@@ -285,7 +286,9 @@ function GapItem({ gap, resolved }: { gap: DigestGap; resolved: boolean }) {
           <ArrowUpRight size={12} aria-hidden className="flex-none" />
         </a>
       ) : resolved && gap.resolution?.note ? (
-        <p className="mt-1 line-clamp-2 text-[12.5px] text-ink-2">Answer: {gap.resolution.note}</p>
+        <p className="mt-1 line-clamp-2 text-[12.5px] text-ink-2">
+          Answer: <InlineMarkdown>{gap.resolution.note}</InlineMarkdown>
+        </p>
       ) : null}
     </li>
   );

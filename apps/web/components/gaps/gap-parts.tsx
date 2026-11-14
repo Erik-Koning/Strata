@@ -1,6 +1,7 @@
 // The pieces of a gap both the list and a gap's own page show: how often it came up, who owns it, and what answered
 // it. Server components: dates arrive as ISO strings for <Ago>.
 import { Link2, UserRound } from "lucide-react";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 
 export const plural = (count: number, one: string, many = `${one}s`): string =>
@@ -77,7 +78,7 @@ export function Answer({
         {seenSince ? <span className="chip status-candidate">Came up again since</span> : null}
       </p>
       {resolution.note ? (
-        <p className="mt-1.5 whitespace-pre-wrap break-words text-[14px] text-ink-2">{resolution.note}</p>
+        <Markdown className="mt-1.5 break-words text-[14px] text-ink-2">{resolution.note}</Markdown>
       ) : null}
       {link ? (
         <a

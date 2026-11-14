@@ -6,6 +6,7 @@ import type { MemoryStatus } from "@strata/contracts";
 import { Archive, CheckCircle2, LoaderCircle, Trash2, X } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { KindChip, StatusChip } from "../../../components/chips.tsx";
+import { Markdown } from "../../../components/markdown.tsx";
 import { Ago } from "../../../components/time.tsx";
 import { changeStatus, confirmForget, previewForget } from "./actions.ts";
 
@@ -110,7 +111,7 @@ export function MemoryList({ rows }: { rows: MemoryRow[] }) {
                 aria-label={`Select: ${m.text.slice(0, 60)}`}
               />
               <div className="min-w-0 flex-1">
-                <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{m.text}</p>
+                <Markdown className="break-words text-[15px] leading-relaxed">{m.text}</Markdown>
                 <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
                   <StatusChip status={m.status} />
                   <KindChip kind={m.kind} />

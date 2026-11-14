@@ -1,6 +1,7 @@
 // A session's findings of one kind, as a card: each with when it was shared and where it came from (logged by the agent
 // during the session, or written into the session's summary). Items arrive serialised: plain strings, no Date.
 import type { LucideIcon } from "lucide-react";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 
 export interface FindingItem {
@@ -42,7 +43,7 @@ export function FindingGroup({
         {items.map((item) => (
           <li key={item.id} className="px-5 py-3.5">
             {item.title ? <p className="mb-0.5 font-medium text-[14px]">{item.title}</p> : null}
-            <p className="whitespace-pre-wrap break-words text-[14px]">{item.text}</p>
+            <Markdown className="break-words text-[14px]">{item.text}</Markdown>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-ink-3">
               <span>{SOURCE[item.source]}</span>
               <span aria-hidden>·</span>

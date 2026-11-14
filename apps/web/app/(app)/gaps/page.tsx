@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { GapActions } from "../../../components/gaps/gap-actions.tsx";
 import { Answer, Owner, SeenChips, SeenWhen } from "../../../components/gaps/gap-parts.tsx";
+import { InlineMarkdown } from "../../../components/markdown.tsx";
 import { type Gap, listGaps } from "../../../server/hub/gaps.ts";
 import { listProducts } from "../../../server/hub/products.ts";
 import { requireViewer } from "../../../server/viewer.ts";
@@ -157,7 +158,7 @@ function GapRow({ gap, product, viewerId }: { gap: Gap; product: string | undefi
           href={`/gaps/${gap.id}`}
           className="break-words font-medium text-[14px] leading-snug underline-offset-4 hover:underline"
         >
-          {gap.text}
+          <InlineMarkdown links={false}>{gap.text}</InlineMarkdown>
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[12.5px] text-ink-3">
           <span className="chip">{product ?? "No product"}</span>

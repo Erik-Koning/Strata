@@ -5,6 +5,7 @@ import { Boxes, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import type { ProductNews } from "../../server/hub/overview.ts";
 import type { SessionWork } from "../../server/hub/product-page.ts";
+import { InlineMarkdown, Markdown } from "../markdown.tsx";
 import { RefChips, SessionLink } from "../products/refs.tsx";
 import { Ago } from "../time.tsx";
 import { BigEmpty, CardHeader, FootLink } from "./parts.tsx";
@@ -21,9 +22,7 @@ function NewsSession({ session }: { session: SessionWork }) {
         <>
           {summary.title ? <p className="font-medium text-[14.5px] leading-snug">{summary.title}</p> : null}
           {summary.text && summary.text !== summary.title ? (
-            <p className="mt-0.5 line-clamp-3 whitespace-pre-wrap break-words text-[13.5px] text-ink-2">
-              {summary.text}
-            </p>
+            <Markdown className="mt-0.5 line-clamp-3 break-words text-[13.5px] text-ink-2">{summary.text}</Markdown>
           ) : null}
         </>
       ) : null}
@@ -32,9 +31,9 @@ function NewsSession({ session }: { session: SessionWork }) {
           {findings.map((finding) => (
             <li key={finding.id} className="flex flex-wrap items-start gap-x-2 gap-y-1">
               <span className="chip flex-none">{finding.kindLabel}</span>
-              <span className="line-clamp-2 min-w-0 flex-1 basis-48 break-words text-[13.5px] text-ink-2 leading-6">
+              <InlineMarkdown className="line-clamp-2 min-w-0 flex-1 basis-48 break-words text-[13.5px] text-ink-2 leading-6">
                 {finding.text}
-              </span>
+              </InlineMarkdown>
             </li>
           ))}
         </ul>

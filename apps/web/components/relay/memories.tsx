@@ -3,6 +3,7 @@
 import type { SharedMemory } from "@strata/contracts";
 import { CornerDownRight } from "lucide-react";
 import { KindChip } from "../chips.tsx";
+import { Markdown } from "../markdown.tsx";
 import { Ago } from "../time.tsx";
 
 export function SharedMemories({ memories, note }: { memories: SharedMemory[]; note?: string }) {
@@ -16,7 +17,7 @@ export function SharedMemories({ memories, note }: { memories: SharedMemory[]; n
         <ul className="mt-2.5 grid gap-2">
           {memories.map((m) => (
             <li key={m._id} className="rounded-[10px] border border-line bg-surface px-3 py-2.5">
-              <p className="text-[13.5px] leading-snug">{m.text}</p>
+              <Markdown className="break-words text-[13.5px] leading-snug">{m.text}</Markdown>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <KindChip kind={m.kind} />
                 <span className={`chip ${m.trust === "explicit" ? "status-active" : "status-candidate"}`}>

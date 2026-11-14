@@ -16,6 +16,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { RelatedPanel } from "../../../../components/graph/related.tsx";
+import { InlineMarkdown, Markdown } from "../../../../components/markdown.tsx";
 import { FindingGroup, type FindingItem } from "../../../../components/sessions/findings.tsx";
 import { repoUrl, sessionIdFrom } from "../../../../components/sessions/format.ts";
 import { SessionLinks } from "../../../../components/sessions/session-links.tsx";
@@ -142,7 +143,7 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
                       </span>
                     </div>
                     {d.title ? <p className="mb-0.5 font-medium text-[14px]">{d.title}</p> : null}
-                    <p className="whitespace-pre-wrap break-words text-[14px] text-ink-2">{d.text}</p>
+                    <Markdown className="break-words text-[14px] text-ink-2">{d.text}</Markdown>
                   </li>
                 ))}
               </ul>
@@ -158,14 +159,14 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
             {built.length || why || decisions.length ? (
               <div className="flex flex-col gap-4 px-5 py-4">
                 {built.map((text) => (
-                  <p key={text} className="whitespace-pre-wrap break-words text-[14px]">
+                  <Markdown key={text} className="break-words text-[14px]">
                     {text}
-                  </p>
+                  </Markdown>
                 ))}
                 {why ? (
                   <div>
                     <h3 className="mb-1 font-medium text-[13px] text-ink-3">Why</h3>
-                    <p className="whitespace-pre-wrap break-words text-[14px]">{why}</p>
+                    <Markdown className="break-words text-[14px]">{why}</Markdown>
                   </div>
                 ) : null}
                 {decisions.length ? (
@@ -174,7 +175,7 @@ export default async function SessionPage({ params }: PageProps<"/sessions/[id]"
                     <ul className="flex list-disc flex-col gap-1 pl-5 text-[14px] marker:text-ink-3">
                       {decisions.map((d) => (
                         <li key={d} className="break-words">
-                          {d}
+                          <InlineMarkdown>{d}</InlineMarkdown>
                         </li>
                       ))}
                     </ul>

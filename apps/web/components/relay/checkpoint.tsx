@@ -2,6 +2,7 @@
 import type { Handoff } from "@strata/contracts";
 import { ArrowRight, Check, Circle, CircleSlash, ShieldCheck, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
+import { InlineMarkdown, Markdown } from "../markdown.tsx";
 import { RepoLine } from "./repo.tsx";
 
 type Tone = "done" | "open" | "danger" | "muted";
@@ -40,7 +41,7 @@ export function ItemList({
               <span className="mt-[3px] grid size-[14px] flex-none place-items-center">
                 {mark ?? <span className="size-1 rounded-full bg-ink-3" aria-hidden />}
               </span>
-              <span className="min-w-0 text-ink-2">{item}</span>
+              <InlineMarkdown className="min-w-0 text-ink-2">{item}</InlineMarkdown>
             </li>
           ))}
         </ul>
@@ -67,11 +68,13 @@ export function NextAction({ text, label = "Next action" }: { text: string; labe
 export function CheckpointBody({ handoff }: { handoff: Handoff }) {
   return (
     <>
-      <p
-        className={`max-w-[72ch] whitespace-pre-wrap text-[14.5px] leading-relaxed ${handoff.summary ? "text-ink" : "text-ink-3"}`}
-      >
-        {handoff.summary || "No summary."}
-      </p>
+      {handoff.summary ? (
+        <Markdown className="max-w-[72ch] break-words text-[14.5px] text-ink leading-relaxed">
+          {handoff.summary}
+        </Markdown>
+      ) : (
+        <p className="text-[14.5px] text-ink-3">No summary.</p>
+      )}
       {handoff.completed.length || handoff.remaining.length || handoff.blockers.length ? (
         <div className="grid gap-px overflow-hidden rounded-[var(--radius)] border border-line bg-line lg:grid-cols-3">
           <ItemList title="Completed" items={handoff.completed} tone="done" className="bg-surface p-4" />
@@ -114,7 +117,7 @@ export function Continuation({ handoff }: { handoff: Handoff }) {
         </span>
       </div>
       <div className="grid gap-4 px-4 py-4">
-        <p className="max-w-[72ch] whitespace-pre-wrap text-[14.5px] text-ink leading-relaxed">{c.summary}</p>
+        <Markdown className="max-w-[72ch] break-words text-[14.5px] text-ink leading-relaxed">{c.summary}</Markdown>
         {c.completed.length ? <ItemList title="Done in this session" items={c.completed} tone="done" /> : null}
         {c.repo ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-line border-t pt-3">
