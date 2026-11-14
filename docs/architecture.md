@@ -179,6 +179,22 @@ promise to the people whose sessions these are is "nothing is shared without you
 machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until its author
 approves it. The provider is the deterministic stub today; the Anthropic drafter is next.
 
+**What's built.** `server/records/draft.ts` runs inline after events are stored:
+
+- **A finding** (`kind: "finding"`) becomes a draft at once, with its refs, and is made once per event however often
+  it is sent.
+- **A session's summary** is drafted when the session ends (`session` with `event: "end"`), from its prompts and replies
+  through the AI provider (the stub is extractive until a real one is set), with the session's refs and branch.
+- **My Day** (`/my-day`, served by the adapter in `server/records.ts`) is where the author decides: approve and share
+  (optionally after editing), save an edit, or discard, which sets the record aside and keeps it in the audit log. It
+  also lists candidate memories the sessions suggested, to keep or archive. Only people who use the plugin get My Day:
+  one of their API keys has been used by a client.
+- `GET/PATCH /api/records` and the approve/discard routes expose the same decisions to clients; approval copies
+  insights and workflow findings into memories.
+
+Not built yet: deleting a session's prompt and reply text once it is drafted (the 30-day TTL still limits it), and
+forgetting a memory does not yet remove a draft made from the same events.
+
 ## The OpenCode adapter
 
 `clients/claude-code/adapters/opencode/strata.js` maps opencode events (`session.created`, `message.updated`,

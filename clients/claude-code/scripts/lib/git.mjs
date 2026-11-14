@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 import { settings } from "./store.mjs";
 
-// Not a trim(): whitespace before the final newline belongs to a path (claude-mem #2663 note).
+// Not a trim(): whitespace before the final newline belongs to a path.
 function run(cwd, cmd, args, timeout = 3000) {
   try {
     return execFileSync(cmd, args, {

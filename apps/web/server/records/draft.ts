@@ -6,7 +6,7 @@ import { type DraftRecord, type Ref, redact, type Scope } from "@strata/contract
 import { MongoServerError, ObjectId } from "mongodb";
 import { provider } from "../ai/provider.ts";
 import { audit } from "../audit.ts";
-import { events, records } from "../collections.ts";
+import { type EventDoc, events, records } from "../collections.ts";
 import { normalize } from "../memory/extract.ts";
 
 const MAX_RECORDS = 20;
@@ -41,6 +41,46 @@ const asRefs = (value: unknown): Ref[] => {
 };
 
 const isDuplicate = (error: unknown): boolean => error instanceof MongoServerError && error.code === 11000;
+
+/** A finding the agent logged becomes a draft at once, once per event, so it is on My Day before the session ends. */
+export async function draftFinding(event: EventDoc): Promise<boolean> {
+  const type = typeof event.payload.type === "string" ? event.payload.type : "";
+  const kind = FINDING_KINDS[type as keyof typeof FINDING_KINDS];
+  const text = clean(event.payload.text, 4000);
+  if (!kind || !text) return false;
+  const now = new Date();
+  const textKey = createHash("sha1").update(normalize(text)).digest("hex");
+  try {
+    await records().insertOne({
+      _id: new ObjectId(),
+      scope: event.scope,
+      sessionID: event.sessionID,
+      kind,
+      status: "draft",
+      title: null,
+      text,
+      textKey,
+      refs: asRefs(event.payload.refs),
+      eventIds: [event.id],
+      edited: false,
+      createdAt: now,
+      updatedAt: now,
+      approvedAt: null,
+      memoryId: null,
+    });
+  } catch (error) {
+    if (isDuplicate(error)) return false;
+    throw error;
+  }
+  await audit({
+    actor: { kind: "service", id: "server", label: "server" },
+    action: "record.draft",
+    targetIds: [event.sessionID],
+    scope: event.scope,
+    detail: { records: 1, kind },
+  });
+  return true;
+}
 
 /** Draft a session's records. Idempotent by the records' text; safe to call again for the same session. */
 export async function draftSession(scope: Scope, sessionID: string): Promise<{ created: number }> {

@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 // Hook entrypoint. Fail-open by design: whatever goes wrong, exit 0 with valid (or no)
-// output, so the hub can never block or break an engineer's session. claude-mem learned
-// this the hard way: exiting 2 from UserPromptSubmit dropped prompts, from Stop re-woke
-// the agent in a loop.
+// output, so the hub can never block or break an engineer's session. Exiting 2 from
+// UserPromptSubmit would drop prompts; from Stop it would re-wake the agent in a loop.
 //
 // What the hooks do: remember the prompt (UserPromptSubmit), and after each turn (Stop) queue the
 // redacted turn text for a background worker that writes the session summary. Nothing here

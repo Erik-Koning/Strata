@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ConfirmButton } from "../../../components/confirm-button.tsx";
 import { Ago } from "../../../components/time.tsx";
 import { ROLE_LABELS } from "../../../server/access.ts";
 import { listOpenInvites } from "../../../server/invites.ts";
@@ -6,7 +7,7 @@ import { listPeople, listTeams } from "../../../server/people.ts";
 import { requireAdmin } from "../../../server/viewer.ts";
 import { PageHeader } from "../page-header.tsx";
 import { cancelInvite, changeRole, removeTeam, restorePerson, suspendPerson } from "./actions.ts";
-import { ConfirmButton, InviteForm, NewTeam, RoleSelect, TeamPeople } from "./controls.tsx";
+import { InviteForm, NewTeam, RoleSelect, TeamPeople } from "./controls.tsx";
 
 export const metadata: Metadata = { title: "People" };
 

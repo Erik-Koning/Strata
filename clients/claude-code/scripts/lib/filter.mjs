@@ -4,7 +4,6 @@ import path from "node:path";
 import { settings } from "./store.mjs";
 
 // Glob support for config.json `excludedPaths`: `*`, `**`, `?`, and a leading `~`.
-// Same semantics claude-mem uses for its excluded-projects setting.
 function globToRegex(pattern) {
   let expanded = pattern.replace(/\\/g, "/");
   if (expanded === "~" || expanded.startsWith("~/")) expanded = os.homedir().replace(/\\/g, "/") + expanded.slice(1);
@@ -35,7 +34,7 @@ export function isExcluded(cwd) {
 }
 
 // The directory a hook runs in must be a real absolute directory. Hosts occasionally
-// send an empty, relative or stale cwd (claude-mem rejects these at its adapter).
+// send an empty, relative or stale cwd.
 export function resolveCwd(input) {
   for (const candidate of [input.cwd, process.env.CLAUDE_PROJECT_DIR]) {
     if (typeof candidate !== "string" || !path.isAbsolute(candidate)) continue;

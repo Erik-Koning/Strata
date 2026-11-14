@@ -99,7 +99,9 @@ export interface AuditDoc {
     | "member.restore"
     | "team.create"
     | "team.delete"
-    | "team.member";
+    | "team.member"
+    | "record.approve"
+    | "record.discard";
   targetIds: string[];
   scope: Partial<Scope> | null;
   detail: Record<string, unknown>;

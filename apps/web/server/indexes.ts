@@ -92,6 +92,8 @@ export async function ensureIndexes({
       { unique: true, name: "record_unique" },
     ),
     records().createIndex({ "scope.user": 1, status: 1, updatedAt: -1 }, { name: "by_author_status" }),
+    records().createIndex({ "scope.user": 1, status: 1, createdAt: -1 }, { name: "by_author" }),
+    records().createIndex({ status: 1, approvedAt: -1 }, { name: "approved" }),
     records().createIndex({ "scope.user": 1, sessionID: 1 }, { name: "by_session" }),
     // The deviceCode indexes belong to Better Auth's device-authorization schema; it creates them itself.
   ]);

@@ -4,6 +4,7 @@ import {
   MailPlus,
   MailX,
   ScrollText,
+  Share2,
   Sparkles,
   Trash2,
   UserCheck,
@@ -18,6 +19,7 @@ import { Ago } from "../../../components/time.tsx";
 import { isRole, ROLE_LABELS } from "../../../server/access.ts";
 import type { AuditDoc } from "../../../server/collections.ts";
 import { namesFor } from "../../../server/people.ts";
+import { recordLabel } from "../../../server/records.ts";
 import { auditTrail, orgAuditTrail } from "../../../server/stats.ts";
 import { requireViewer } from "../../../server/viewer.ts";
 import { PageHeader } from "../page-header.tsx";
@@ -72,12 +74,16 @@ function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: s
       return { icon: Archive, tone: "text-ink-2", text: "Edited a drafted record" };
     case "record.approve":
       return {
-        icon: UserCheck,
+        icon: Share2,
         tone: "text-accent-text",
-        text: `Approved a ${String(d.kind ?? "record")}${d.memoryId ? ", and added it to memory" : ""}`,
+        text: `Approved and shared a ${recordLabel(String(d.kind)).toLowerCase()}${d.edited ? ", after editing it" : ""}`,
       };
     case "record.discard":
-      return { icon: Trash2, tone: "text-danger", text: `Discarded a ${String(d.kind ?? "record")}` };
+      return {
+        icon: Trash2,
+        tone: "text-danger",
+        text: `Discarded a draft ${recordLabel(String(d.kind)).toLowerCase()}`,
+      };
     case "invite.create":
       return { icon: MailPlus, tone: "text-accent-text", text: `Invited ${String(d.email)} as ${role(d.role)}` };
     case "invite.revoke":

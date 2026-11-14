@@ -96,7 +96,7 @@ Org directory      --->    Access control, audit
 
 ### 5.1 Capture (the plugin)
 
-- A hook runs after each AI output in the coding tool and writes a short, high-level summary of what was implemented. The idea is similar in mechanism to how claude-mem hooks into the tool, but the purpose here is shared visibility, not token savings.
+- A hook runs after each AI output in the coding tool and writes a short, high-level summary of what was implemented. The mechanism is a coding-tool hook, but the purpose here is shared visibility, not token savings.
 - Summaries roll up in layers: per-output notes, session summary, ticket or PR summary, project overview.
 - Secrets and sensitive data are redacted before anything leaves the engineer's machine. Summaries only; raw code and full prompts are not stored.
 - The engineer can see, edit, and add notes before or after sync.

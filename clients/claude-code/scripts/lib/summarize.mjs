@@ -44,8 +44,8 @@ function runClaude(prompt) {
     const cwd = p("summarizer");
     fs.mkdirSync(cwd, { recursive: true, mode: 0o700 });
     // Own empty working directory (no repo files to pick up), no tools, no slash commands, no MCP,
-    // project settings off. STRATA_INTERNAL makes our own hooks ignore this session, and
-    // CLAUDE_MEM_INTERNAL does the same for claude-mem, so the summarizer is never itself summarized.
+    // project settings off. STRATA_INTERNAL makes our own hooks ignore this session, so the summarizer
+    // is never itself summarized.
     const child = spawn(
       claudeBin(),
       [
@@ -68,7 +68,7 @@ function runClaude(prompt) {
       ],
       {
         cwd,
-        env: { ...process.env, STRATA_INTERNAL: "1", CLAUDE_MEM_INTERNAL: "1" },
+        env: { ...process.env, STRATA_INTERNAL: "1" },
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       },

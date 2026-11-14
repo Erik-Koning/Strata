@@ -17,7 +17,7 @@ import { MongoBulkWriteError } from "mongodb";
 import { type Principal, scopeFor } from "../api-auth.ts";
 import { type EventDoc, events } from "../collections.ts";
 import { ApiError } from "../http.ts";
-import { draftSession } from "../records/draft.ts";
+import { draftFinding, draftSession } from "../records/draft.ts";
 import { extract, statusFor } from "./extract.ts";
 import { addMemory } from "./store.ts";
 
@@ -71,7 +71,17 @@ export async function ingest(principal: Principal, batch: unknown[]): Promise<Re
     }
   }
   await processEvents(insertedIds);
-  // A session's end is the signal to draft its records. Drafting is idempotent, and a failure must never lose events.
+  // A finding is drafted as soon as its event is stored; a session's end drafts the summary and any remaining findings.
+  const inserted = new Set(insertedIds);
+  for (const event of docs) {
+    if (!inserted.has(event.id) || !event.known || event.kind !== "finding") continue;
+    try {
+      await draftFinding(event);
+    } catch (error) {
+      console.error("records: drafting a finding failed", { sessionID: event.sessionID, error });
+    }
+  }
+  // Drafting is idempotent, and a failure must never lose events.
   const ended = docs.filter((doc) => doc.known && doc.kind === "session" && doc.payload.event === "end");
   for (const event of ended) {
     try {

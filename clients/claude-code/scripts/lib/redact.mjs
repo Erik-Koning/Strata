@@ -1,8 +1,7 @@
 // Client-side redaction, the first line of defence: secrets never leave the engineer's
-// machine. The server must redact again. Patterns are adapted from claude-mem's list
-// and keep its lessons: bounded whitespace (no quadratic backtracking), values must
-// contain a letter (so `max_tokens=4096` survives), and bare `token`/`secret` words only
-// count in config-shaped positions (so `const token = getToken()` survives).
+// machine. The server must redact again. Bounded whitespace (no quadratic backtracking),
+// values must contain a letter (so `max_tokens=4096` survives), and bare `token`/`secret`
+// words only count in config-shaped positions (so `const token = getToken()` survives).
 const MARK = "[redacted]";
 const VALUE_CLASS = String.raw`[A-Za-z0-9_.\-+/=~@#$%^*!?]`;
 // 8+ value chars with at least one letter, not followed by more value chars or a call paren.
