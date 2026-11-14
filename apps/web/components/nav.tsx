@@ -1,10 +1,11 @@
 "use client";
-import { Activity, Brain, Cable, Forward, ScrollText, ShieldCheck } from "lucide-react";
+import { Activity, Brain, Cable, Forward, Radar, ScrollText, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
   { href: "/", label: "Overview", icon: Activity },
+  { href: "/intelligence", label: "Intelligence", icon: Radar },
   { href: "/memories", label: "Memories", icon: Brain },
   { href: "/relay", label: "Relay", icon: Forward },
   { href: "/connect", label: "Connect", icon: Cable },

@@ -16,7 +16,8 @@
     "invite": "node --env-file-if-exists=.env.local scripts/invite.ts",
     "atlas:check": "node --env-file-if-exists=.env.local scripts/atlas-check.ts",
     "db:reembed": "node --env-file-if-exists=.env.local scripts/re-embed.ts",
-    "relay:demo-accounts": "node --env-file-if-exists=.env.local scripts/relay-demo-accounts.ts"
+    "relay:demo-accounts": "node --env-file-if-exists=.env.local scripts/relay-demo-accounts.ts",
+    "intelligence:demo": "node --env-file-if-exists=.env.local scripts/intelligence-demo.ts"
   },
   "dependencies": {
     "@strata/contracts": "workspace:*",
