@@ -1,6 +1,7 @@
 // The /v1 summary API end to end, through its route handlers, on a database of its own.
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase } from "./test-database.ts";
 
 const name = `v1_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
 const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
@@ -91,7 +92,7 @@ beforeAll(async () => {
   projectId = projects.projects[0].id;
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 

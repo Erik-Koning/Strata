@@ -1,6 +1,7 @@
 // The record pipeline end to end: versioned events in, drafts out, review, approval into memories, raw text gone.
 import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase } from "./test-database.ts";
 
 const name = `records_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
 const base = process.env.MONGODB_URI ?? "mongodb://127.0.0.1:27017/?directConnection=true";
@@ -77,7 +78,7 @@ beforeAll(async () => {
   key = (await createKey("records-user", "test")).key;
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 
