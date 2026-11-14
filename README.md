@@ -225,16 +225,20 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 ## Run it
 
-You need Node 24, pnpm and Docker.
+You need Node 24 and pnpm. Local development runs on the team's MongoDB Atlas cluster, so there's no database to start:
+put its address in `.env.local` at the repository root, once (it's gitignored).
 
 ```sh
 pnpm install
-docker run -d --name strata-mongo -p 127.0.0.1:27017:27017 mongodb/mongodb-atlas-local:8.0
-cp .env.example apps/web/.env.local   # then set MONGODB_URI=mongodb://localhost:27017/strata?directConnection=true
-pnpm db:indexes
-pnpm invite you@example.com           # prints a sign-up link that makes you the first admin
-pnpm dev                              # http://localhost:9316 by default (PORT)
+echo 'MONGODB_URI=<the cluster address>' >> .env.local
+pnpm invite you@example.com           # no account yet? prints a sign-up link (an admin's, by default)
+pnpm dev                              # http://localhost:9316 (set PORT in the shell to change it)
 ```
+
+The app, the scripts and `pnpm test:db` read `.env.local` from `apps/web`, then the repository root, then, in a git
+worktree, the main checkout, so a new worktree runs with nothing to copy; a variable set in the shell wins. The
+cluster is production: `pnpm test:db` works in a throwaway database it removes afterwards, but `pnpm invite` and
+`pnpm db:seed` write to the real one.
 
 Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
 **Connect**: make an API key, install the plugin, and start a Claude Code session.
@@ -273,11 +277,11 @@ keeps what it doesn't understand yet rather than refusing it: the rules are in
 | `pnpm typecheck`       | TypeScript across the workspace                                      |
 | `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes              |
 | `pnpm test`            | Unit tests: no database, no network                                  |
-| `pnpm test:db`         | API and database tests on a database of their own on `MONGODB_URI`   |
+| `pnpm test:db`         | API and database tests, each in a throwaway database on the cluster  |
 | `pnpm test:acceptance` | The plugin's hooks as real processes against a fake API              |
 | `pnpm build`           | The plugin's bundles (`clients/claude-code/dist`), then `next build` |
 | `pnpm db:indexes`      | Every index, the vector index included, idempotently                 |
-| `pnpm db:seed`         | Made-up memories for the pages                                       |
+| `pnpm db:seed`         | Made-up memories for a made-up user, on `MONGODB_URI`'s database     |
 
 Embeddings and summaries go through one interface (`apps/web/server/ai/provider.ts`). The default, `stub`, is
 deterministic and offline, so every test runs without a key.

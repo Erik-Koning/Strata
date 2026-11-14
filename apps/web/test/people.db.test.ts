@@ -1,11 +1,9 @@
 // People, roles, teams and invitations, through Better Auth and the app's own collections, on a database of their own
-// on MONGODB_URI's server, dropped afterwards.
-import { randomBytes } from "node:crypto";
+// on MONGODB_URI's server, emptied afterwards (test-database.ts).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `am_people_${randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("am_people");
 process.env.MEMORY_AI_PROVIDER = "stub";
 
 const { db, closeMongo } = await import("../server/db.ts");
@@ -37,7 +35,7 @@ beforeAll(async () => {
   await ensureIndexes();
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 

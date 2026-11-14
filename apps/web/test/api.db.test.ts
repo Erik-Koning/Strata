@@ -1,11 +1,9 @@
-// The memory API end to end, through its route handlers, on a database of its own on MONGODB_URI's server (the
-// team's atlas-local MongoDB), dropped afterwards.
-import { randomBytes } from "node:crypto";
+// The memory API end to end, through its route handlers, on a database of its own on MONGODB_URI's server,
+// emptied afterwards (test-database.ts).
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
-const name = `am_test_${process.env.A6G_NAMESPACE?.replace(/[^a-z0-9]/gi, "_") ?? randomBytes(4).toString("hex")}`;
-const base = process.env.MONGODB_URI ?? "mongodb://localhost:9317/?directConnection=true";
-process.env.MONGODB_URI = base.replace(/\/([^/?]*)(\?|$)/, `/${name}$2`);
+const name = testDatabase("am_test");
 process.env.MEMORY_API_TOKEN = "test-service-token-0123456789abcdef";
 process.env.MEMORY_AI_PROVIDER = "stub";
 
@@ -50,7 +48,7 @@ beforeAll(async () => {
   await ensureIndexes({ wait: true, timeoutMs: 120_000 });
 });
 afterAll(async () => {
-  await db().dropDatabase();
+  await dropTestDatabase(db(), name);
   await closeMongo();
 });
 
