@@ -1,4 +1,4 @@
-// The record pipeline end to end: versioned events in, drafts out, review, approval into memories, raw text gone.
+// The record pipeline end to end: versioned events in, drafts out, review, approval into memories, raw text kept until the TTL.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { dropTestDatabase, testDatabase } from "./test-database.ts";
 
