@@ -23,7 +23,7 @@ function suggestionsFor(p: Pulse): string[] {
   const top = p.projects[0];
   const out = [
     friction ? `What's blocking ${name(friction.project)}?` : "What's blocking us?",
-    "What did the team discover this week?",
+    "What did I discover this week?",
     "What changed recently?",
     "Why did we choose this approach?",
     "What work is still unfinished?",
