@@ -1,5 +1,15 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
-import type { MemoryKind, MemoryStatus, Scope, TrustLevel } from "@strata/contracts";
+import type {
+  HandoffStatus,
+  MemoryKind,
+  MemoryStatus,
+  Person,
+  RecordedTest,
+  RepoState,
+  Scope,
+  TimelineEntry,
+  TrustLevel,
+} from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
 import type { Role } from "./access.ts";
 import { db } from "./db.ts";
@@ -71,6 +81,16 @@ export interface AuditDoc {
     | "memory.forget"
     | "memory.compress"
     | "memory.promote"
+    | "memory.correct"
+    | "handoff.create"
+    | "handoff.edit"
+    | "handoff.approve"
+    | "handoff.read"
+    | "handoff.claim"
+    | "handoff.test"
+    | "handoff.complete"
+    | "handoff.revoke"
+    | "handoff.denied"
     | "key.create"
     | "key.revoke"
     | "invite.create"
@@ -136,6 +156,49 @@ export interface InviteDoc {
   revokedAt: Date | null;
 }
 
+// A Relay handoff: one task's checkpoint, from its sender to one recipient (packages/contracts/src/handoff.ts has the
+// lifecycle and the rules). Only the sender reads a draft; the recipient reads it once approved and until revoked.
+export interface HandoffDoc {
+  _id: ObjectId;
+  org: string;
+  project: string;
+  title: string;
+  summary: string;
+  completed: string[];
+  remaining: string[];
+  blockers: string[];
+  failedApproaches: string[];
+  decisions: string[];
+  changedFiles: string[];
+  nextAction: string;
+  testCommands: string[];
+  repo: RepoState | null;
+  sourceSessionID: string | null;
+  status: HandoffStatus;
+  sender: Person;
+  recipient: Person | null;
+  // Memories the sender shared with it, all theirs; re-checked on every read.
+  memoryIds: ObjectId[];
+  tests: (Omit<RecordedTest, "at"> & { at: Date })[];
+  continuation: {
+    sessionID: string | null;
+    summary: string;
+    completed: string[];
+    changedFiles: string[];
+    claimRepo: RepoState | null;
+    repo: RepoState | null;
+    verified: boolean;
+  } | null;
+  timeline: (Omit<TimelineEntry, "at"> & { at: Date })[];
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+  claimedAt: Date | null;
+  completedAt: Date | null;
+  revokedAt: Date | null;
+  revokeReason: string | null;
+}
+
 export const events = (): Collection<EventDoc> => db().collection<EventDoc>("memory_events");
 export const memories = (): Collection<MemoryDoc> => db().collection<MemoryDoc>("memories");
 export const summaries = (): Collection<SummaryDoc> => db().collection<SummaryDoc>("memory_summaries");
@@ -144,5 +207,7 @@ export const apiKeys = (): Collection<ApiKeyDoc> => db().collection<ApiKeyDoc>("
 export const members = (): Collection<MemberDoc> => db().collection<MemberDoc>("members");
 export const teams = (): Collection<TeamDoc> => db().collection<TeamDoc>("teams");
 export const invites = (): Collection<InviteDoc> => db().collection<InviteDoc>("invites");
+
+export const handoffs = (): Collection<HandoffDoc> => db().collection<HandoffDoc>("handoffs");
 
 export const VECTOR_INDEX = "memories_embedding";

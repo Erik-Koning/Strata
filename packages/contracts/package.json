@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./handoff": "./src/handoff.ts",
     "./redact": "./src/redact.ts",
     "./render": "./src/render.ts",
     "./signals": "./src/signals.ts",
