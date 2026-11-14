@@ -1,14 +1,14 @@
 // The page for where engineering time goes (/time): the hours lost in a range, by command and product, each command
 // with its weekly trend, the pain points sessions shared about its product, and a ticket to fix it, ready to copy.
 //
-// It only composes the read models (timeLost, timeTrend, recordsFor, listProducts), always as the viewer, so their
+// It only composes the read models (timeLost, timeTrends, recordsFor, listProducts), always as the viewer, so their
 // rules hold here too: only products with approved work, no person anywhere in a figure, nothing for a suspended
 // viewer. The formatting is pure and exported, so the tests can pin it down without a database. Everything the page
 // gets back is plain data: strings and numbers, no Date or ObjectId.
 import { config } from "../config.ts";
 import { getProduct, listProducts } from "./products.ts";
 import type { ViewerRef } from "./reader.ts";
-import { type TimeItem, timeLost, timeTrend } from "./signals.ts";
+import { type TimeItem, timeLost, timeTrends } from "./signals.ts";
 import { recordsFor, type TeamRecord } from "./team-records.ts";
 import { DAY_MS, normalizeText } from "./text.ts";
 import { HOUR_MS, type Lost } from "./time-math.ts";
@@ -313,7 +313,8 @@ export async function timePage(
   const shown = items.slice(0, SHOWN_ITEMS);
   const productIds = [...new Set(shown.flatMap((item) => (item.productId ? [item.productId] : [])))];
   const [trends, painPoints] = await Promise.all([
-    Promise.all(shown.map((item) => timeTrend(item.key, { since, until }, viewer))),
+    // Each command's trend in its own product: a monorepo split by folder runs the same command in several.
+    timeTrends(shown, { since, until }, viewer),
     Promise.all(
       productIds.map(
         async (productId) =>

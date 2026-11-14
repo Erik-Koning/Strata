@@ -70,6 +70,24 @@ phone. It's covered by unit tests, database tests against the real engine, and a
 hooks as real processes. The rest is in the to-do below, which an
 [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is now working through.
 
+**The team's pages** read approved work from both write paths as one (`apps/web/server/hub`), never anyone's drafts:
+
+- **My Day** (`/my-day`): what your sessions drafted, by session, to approve, edit or discard; nobody else sees a draft.
+- **Products** (`/products`): every repository becomes a product the first time it's seen (a monorepo can split into
+  several by folder). Each product's page has What's new by week, In progress by ticket and pull request, the time
+  lost on its tools, its open gaps, and its code areas with who has worked on them.
+- **Where engineering time goes** (`/time`): the hours commands lost to failures, re-runs and slow runs in a range,
+  ranked, each with its weekly trend, the pain points sessions shared about it, and a ticket to copy. Measured on
+  tools, never on people.
+- **Context gaps** (`/gaps`): what agents and people couldn't find, ranked by how often it comes back; anyone can take
+  one on, resolve it with what answers it, or reopen it.
+- **Ask Strata** (`/ask`): questions answered only from approved work, each claim citing its source, and a first-week
+  path through a product for new joiners. A question nothing answers becomes a gap.
+- **A page per session** (`/sessions/[id]`): its summary, findings, links and areas; its author also sees their drafts
+  and the session's tool time.
+
+No page counts, ranks or compares people: they show who has worked on something, by name, never how much.
+
 ## Architecture
 
 ```mermaid
@@ -230,7 +248,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 - [x] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
       `approved`, `discarded`; an edited flag; the session and links; the events each record came from
-- [ ] An Anthropic provider behind `server/ai/provider.ts` that drafts a session's records when the session ends
+- [x] An Anthropic provider behind `server/ai/provider.ts` that drafts a session's records when the session ends
+      (`MEMORY_AI_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`; the stub without them), after the request has answered
 - [x] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
 - [x] MCP tool `strata_record` logs an insight, workflow finding, pain point or context gap as a `finding` event
 - [x] Approved insights and workflow findings copied into memories, so the next session recalls them
@@ -252,21 +271,27 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 
 - [ ] Organisations, in place of the single `default` organisation
 - [x] Roles (engineer, manager, exec, admin), teams, invites and suspension, with a permission filter on every read
-- [ ] A `products` collection mapping repositories to products
+- [x] A `products` collection mapping repositories to products: one made per repository the first time it's seen,
+      whole or one folder of it
 - [ ] `/api/products/:id`: the overview, tickets and PRs, and approved records
 
 **Roll-ups**
 
-- [ ] Ticket and PR summaries, made from approved records only, with the ids of the records behind them
+- [x] Work grouped by ticket, then pull request, from approved records only, with the sessions behind it (In progress
+      on a product's page)
+- [ ] Ticket and PR summaries written from those records, with the ids of the records behind them
+- [x] Product overviews read from approved work each time: What's new by week and In progress
 - [ ] Product overviews, rewritten from the layer below on each roll-up
 
 **Pages for work records**
 
-- [ ] Review queue: drafts grouped by session; approve, edit, discard, bulk approve
-- [ ] Session page: the summary, its findings, its links, and where each finding came from
-- [ ] Products: a list, then each product's overview, tickets and PRs, insights, workflow notes, pain points and open
+- [x] Review queue (My Day, `/my-day`): drafts grouped by session; approve, edit, discard
+- [ ] Bulk approve on My Day
+- [x] Session page: the summary, its findings, its links, and where each finding came from
+- [x] Products: a list, then each product's overview, tickets and PRs, insights, workflow notes, pain points and open
       gaps
-- [ ] Friction: pain points and context gaps grouped by repository, with how often each repeats
+- [x] Friction: pain points and context gaps grouped by product, with how often each repeats (`/gaps`), and the hours
+      lost on tools, with the pain points that explain them (`/time`)
 - [ ] What others see about me: a person's view of exactly what viewers see about their work
 - [ ] Organisation settings: members, roles, and which repository belongs to which product
 - [ ] Overview reframed around what's awaiting review, products and friction; Memories renamed Agent memory
@@ -391,9 +416,14 @@ The Claude Code client also uses the summary and review APIs:
 | `DELETE /v1/sessions/:id`                     |                                 | retract every summary revision             |
 | `GET /v1/search`, `GET /v1/rollups`           | `q`, `projectId`                | approved summaries                         |
 | `GET /api/records`                            | `status`, `kind`, `project`     | records the caller may see                 |
-| `GET/PATCH /api/records/:id`                  | `title`, `text`                 | read or edit a draft                       |
+| `GET/PATCH /api/records/:id`                  | `title`, `text`                 | read one; edit your own                    |
 | `POST /api/records/:id/approve`               |                                 | approve it; insights/workflow go to memory |
 | `POST /api/records/:id/discard`               |                                 | discard it                                 |
+
+Only a record's author edits, approves or discards it. Editing an approved record sends it back to draft and retires
+its memory until it's approved again (which brings the same memory back); an edit that says what another record of
+the session already says answers 409. Approving makes the record's repository a product, and approving, editing or
+discarding a context gap brings the gaps page up to date.
 
 ## Develop
 

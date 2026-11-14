@@ -8,7 +8,16 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { appOrigin, callRelayTool, checkRepo, RELAY_TOOLS, repoState, runCommand } from "../scripts/lib/relay.mjs";
+import { gitContext, projectOf } from "../scripts/lib/git.mjs";
+import {
+  appOrigin,
+  callRelayTool,
+  checkRepo,
+  RELAY_TOOLS,
+  relayDeps,
+  repoState,
+  runCommand,
+} from "../scripts/lib/relay.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MCP = join(here, "..", "scripts", "mcp.mjs");
@@ -81,6 +90,26 @@ describe("repoState", () => {
     const local = repoState(a);
     assert.equal(local.pushed, false);
     assert.deepEqual(local.uncommitted, ["wip.txt"]);
+  });
+});
+
+describe("the project", () => {
+  it("is one name for the hooks, strata_record and Relay, and STRATA_PROJECT overrides it for all of them", () => {
+    const { a } = repos();
+    const saved = process.env.STRATA_PROJECT;
+    try {
+      delete process.env.STRATA_PROJECT;
+      const own = projectOf(a);
+      assert.equal(gitContext(a).project, own);
+      assert.equal(relayDeps(a).project, own);
+      process.env.STRATA_PROJECT = " relay-demo/durations ";
+      assert.equal(projectOf(a), "relay-demo/durations");
+      assert.equal(gitContext(a).project, "relay-demo/durations");
+      assert.equal(relayDeps(a).project, "relay-demo/durations");
+    } finally {
+      if (saved === undefined) delete process.env.STRATA_PROJECT;
+      else process.env.STRATA_PROJECT = saved;
+    }
   });
 });
 

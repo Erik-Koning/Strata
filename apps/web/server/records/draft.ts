@@ -15,6 +15,7 @@ const holdsText = (event: { kind: string; payload: Record<string, unknown> }): b
   TEXT_KINDS.has(event.kind) || (event.kind === "event" && event.payload.type === "compact_summary");
 const MAX_RECORDS = 20;
 const FINDING_KINDS = {
+  summary: "summary",
   insight: "insight",
   workflow: "workflow",
   pain_point: "pain_point",
@@ -172,20 +173,25 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
       const kind = FINDING_KINDS[type as keyof typeof FINDING_KINDS];
       const text = textOf(event);
       if (!kind || !text.trim()) return [];
-      return [{ kind, text, refs: asRefs(event.payload.refs), eventId: event.id }];
+      const title = typeof event.payload.title === "string" ? event.payload.title : undefined;
+      return [{ kind, text, ...(title ? { title } : {}), refs: asRefs(event.payload.refs), eventId: event.id }];
     });
+  // A client that summarized the session itself has said what it wants drafted; the model is not asked again.
+  const clientSummary = findings.some((draft) => draft.kind === "summary");
 
   const drafts: (DraftRecord & { eventId?: string })[] = [
     ...findings,
-    ...(await provider().draftRecords({
-      sessionID,
-      project: scope.project,
-      prompts,
-      replies,
-      compactSummary: compact ? textOf(compact) : null,
-      tools,
-      refs,
-    })),
+    ...(clientSummary
+      ? []
+      : await provider().draftRecords({
+          sessionID,
+          project: scope.project,
+          prompts,
+          replies,
+          compactSummary: compact ? textOf(compact) : null,
+          tools,
+          refs,
+        })),
   ].slice(0, MAX_RECORDS);
 
   const now = new Date();

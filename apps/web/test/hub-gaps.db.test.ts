@@ -15,7 +15,7 @@ const { db, closeMongo } = await import("../server/db.ts");
 const { ensureIndexes } = await import("../server/indexes.ts");
 const { audits, gaps, members, records, summaryRevisions } = await import("../server/collections.ts");
 const { Refusal } = await import("../server/people.ts");
-const { getGap, listGaps, recordAskGap, reopenGap, resolveGap, syncGaps, takeGap } = await import(
+const { gapHistory, getGap, listGaps, recordAskGap, reopenGap, resolveGap, syncGaps, takeGap } = await import(
   "../server/hub/gaps.ts"
 );
 const { runHubBackfill } = await import("../server/hub/backfill.ts");
@@ -226,6 +226,48 @@ describe("owning and resolving", () => {
       ["gap.resolve", ada],
       ["gap.reopen", bo],
     ]);
+  });
+
+  it("needs a note to resolve a gap, a link alone isn't enough", async () => {
+    const retry = await byText("No docs for the retry budget.");
+    for (const input of [
+      { url: "https://wiki.example.com/retry", note: "" },
+      { url: "https://wiki.example.com/retry", note: "   " },
+      { note: "x".repeat(1001) },
+      null as unknown as { note: string },
+    ])
+      await expect(resolveGap(retry!.id, bo, input), JSON.stringify(input)).rejects.toThrow(/note/);
+    expect(await getGap(retry!.id, bo)).toMatchObject({ status: "open", resolution: null });
+  });
+
+  it("gives a gap's history, newest first: each time it came up, and who changed it", async () => {
+    const retry = await byText("No docs for the retry budget.");
+    const history = await gapHistory(retry!.id, bo);
+    const count = (kind: string) => history.filter((e) => e.kind === kind).length;
+    expect([count("session"), count("question"), count("take"), count("resolve"), count("reopen")]).toEqual([
+      3, 1, 1, 1, 1,
+    ]);
+    for (let i = 1; i < history.length; i++) expect(history[i - 1]!.at >= history[i]!.at).toBe(true);
+    expect(history.filter((e) => e.kind === "session").map((e) => "sessionId" in e && e.sessionId)).toEqual(
+      expect.arrayContaining(["s1", "s2", "s7"]),
+    );
+    expect(history.find((e) => e.kind === "resolve")).toMatchObject({
+      by: "Ada Lovelace",
+      url: "https://wiki.example.com/retry",
+    });
+    expect(history.find((e) => e.kind === "take")).toMatchObject({ by: "Bo Diddley", url: null });
+    // Nobody is named behind a session or a question.
+    for (const e of history.filter((e) => e.kind === "session" || e.kind === "question"))
+      expect(e).not.toHaveProperty("by");
+    expect(await gapHistory(retry!.id, bo, 2)).toHaveLength(2);
+    expect(await gapHistory(retry!.id.toUpperCase(), bo)).toEqual(history);
+  });
+
+  it("gives no history to a suspended person, or for a gap that isn't there", async () => {
+    const retry = await byText("No docs for the retry budget.");
+    expect(await gapHistory(retry!.id, cy)).toEqual([]);
+    expect(await gapHistory("not-an-id", bo)).toEqual([]);
+    expect(await gapHistory(new ObjectId().toHexString(), bo)).toEqual([]);
   });
 
   it("refuses a suspended person, and a gap that isn't there", async () => {
