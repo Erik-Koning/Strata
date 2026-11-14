@@ -17,6 +17,8 @@ import { MongoBulkWriteError } from "mongodb";
 import { type Principal, scopeFor } from "../api-auth.ts";
 import { type EventDoc, events } from "../collections.ts";
 import { ApiError } from "../http.ts";
+import { recordSignals } from "../hub/signals.ts";
+import { draftSession } from "../records/draft.ts";
 import { extract, statusFor } from "./extract.ts";
 import { addMemory } from "./store.ts";
 
@@ -70,7 +72,41 @@ export async function ingest(principal: Principal, batch: unknown[]): Promise<Re
     }
   }
   await processEvents(insertedIds);
+  // Tool time into signal_daily, and a product for each repository named. Never fails the request: what it misses,
+  // the hub's backfill counts later.
+  const inserted = new Set(insertedIds);
+  try {
+    await recordSignals(docs.filter((doc) => inserted.has(doc.id)));
+  } catch (error) {
+    console.error("hub: counting tool time failed", error);
+  }
+  // A session's end is the signal to draft its records. A model can take longer than a client waits, so drafting runs
+  // after the answer; a retried end event is harmless (draftSession claims the session first), and a failure never
+  // loses events.
+  const ended = new Map(
+    docs
+      .filter((doc) => doc.known && doc.kind === "session" && doc.payload.event === "end")
+      .map((doc) => [`${doc.scope.org}\u001f${doc.scope.user}\u001f${doc.scope.project}\u001f${doc.sessionID}`, doc]),
+  );
+  for (const event of ended.values()) draftLater(event.scope, event.sessionID);
   return { accepted: insertedIds.length, duplicates: parsed.length - insertedIds.length, rejected };
+}
+
+// Drafting started by ingest and not finished yet.
+const drafting = new Set<Promise<void>>();
+
+function draftLater(scope: EventDoc["scope"], sessionID: string): void {
+  const job: Promise<void> = draftSession(scope, sessionID)
+    .then(() => undefined)
+    .catch((error) => console.error("records: drafting failed", { sessionID, error }))
+    .finally(() => drafting.delete(job));
+  drafting.add(job);
+}
+
+// Resolves once every drafting job ingest started has finished, including any started meanwhile: for tests, and for a
+// clean shutdown.
+export async function draftPending(): Promise<void> {
+  while (drafting.size) await Promise.allSettled([...drafting]);
 }
 
 // The extract job, on events not read yet. Runs inline after ingest for now; the jobs route will run it on a schedule.

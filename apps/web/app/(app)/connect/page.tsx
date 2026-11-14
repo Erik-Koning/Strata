@@ -50,14 +50,11 @@ export default async function ConnectPage() {
       <PageHeader
         eyebrow="Connect"
         title="Connect Claude Code"
-        lede="Four steps, about a minute. The plugin captures what matters from your sessions, gives Claude what it should remember, and never changes bytes it already sent, so the prompt cache holds."
+        lede="Four steps, about a minute. The plugin summarizes each session on your machine; you review it, and only what you approve is shared."
       />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <ol className="card p-6 sm:p-8">
-          <Step n={1} title="Make an API key">
-            <KeyMaker origin={origin} />
-          </Step>
-          <Step n={2} title="Install the plugin">
+          <Step n={1} title="Install the plugin">
             <p className="mb-3 text-[14px] text-ink-2">
               In Claude Code, add this repository as a plugin marketplace and install from it:
             </p>
@@ -65,23 +62,42 @@ export default async function ConnectPage() {
               <CodeLine code={`/plugin marketplace add ${repo}`} />
               <CodeLine code="/plugin install strata@strata" />
             </div>
-            <p className="mt-3 text-[13.5px] text-ink-3">
-              Or for one session: <span className="kbd break-all">claude --plugin-dir {repo}/clients/claude-code</span>
-            </p>
-          </Step>
-          <Step n={3} title="Point it at this app">
-            <p className="mb-3 text-[14px] text-ink-2">
-              Set these two in <span className="kbd">~/.claude/settings.json</span> under{" "}
-              <span className="kbd">env</span>, or in your shell. Step 1 gives you the snippet with your key filled in.
+            <p className="mt-3 mb-2 text-[13.5px] text-ink-3">
+              Or for one session, straight from this checkout. <span className="kbd">STRATA_HOME</span> keeps this
+              sign-in apart from your everyday one:
             </p>
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
-              <CodeLine code={`MEMORY_API_URL=${origin}`} />
-              <CodeLine code="MEMORY_API_TOKEN=<your key>" />
+              <CodeLine
+                code={`STRATA_URL=${origin} STRATA_HOME=~/.strata-dev claude --plugin-dir ${repo}/clients/claude-code`}
+              />
+            </div>
+          </Step>
+          <Step n={2} title="Point it at this app">
+            <p className="mb-3 text-[14px] text-ink-2">
+              The plugin finds the app at <span className="kbd">STRATA_URL</span>. Set it in{" "}
+              <span className="kbd">~/.claude/settings.json</span> under <span className="kbd">env</span>, or in your
+              shell.
+            </p>
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
+              <CodeLine code={`STRATA_URL=${origin}`} />
+            </div>
+            <p className="mt-3 text-[13.5px] text-ink-3">
+              Settings, sign-in and review also live in <span className="kbd">/strata:dashboard</span>.
+            </p>
+          </Step>
+          <Step n={3} title="Sign in">
+            <p className="mb-3 text-[14px] text-ink-2">
+              Run this in Claude Code. It opens this app's <span className="kbd">/activate</span> page and waits;
+              approve the code there. No API key needed.
+            </p>
+            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
+              <CodeLine code="/strata:login" />
             </div>
           </Step>
           <Step n={4} title="Start a session">
             <p className="text-[14px] text-ink-2">
-              Open Claude Code in any project and send a message. Its key shows as connected here within seconds
+              Open Claude Code in any project. It writes a summary on your machine when work finishes; review and
+              approve it in <span className="kbd">/strata:dashboard</span>, and only approved summaries arrive here
               {live.length && !seen ? " (this page checks every 5 seconds)" : ""}.
             </p>
           </Step>
@@ -93,8 +109,12 @@ export default async function ConnectPage() {
               Your keys
             </h2>
             <p className="text-[13px] text-ink-3">
-              Each client that talks to the API. Revoking one cuts it off at once.
+              API keys are for scripts and older clients. The Claude Code plugin signs in with{" "}
+              <span className="kbd">/strata:login</span>. Revoking one cuts it off at once.
             </p>
+            <div className="mt-3">
+              <KeyMaker origin={origin} />
+            </div>
           </header>
           {keys.length ? (
             <ul className="divide-y divide-line">
@@ -142,7 +162,7 @@ export default async function ConnectPage() {
               })}
             </ul>
           ) : (
-            <p className="px-5 py-6 text-[14px] text-ink-3">No keys yet. Make one in step 1.</p>
+            <p className="px-5 py-6 text-[14px] text-ink-3">No keys yet. Make one above when a script needs one.</p>
           )}
         </section>
       </div>

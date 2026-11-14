@@ -180,10 +180,20 @@ describe("choosing a provider", () => {
     expect(embeddingModelId(provider())).toBe("openai:text-embedding-3-small:1536");
   });
 
-  it("fails clearly without a key, and for a provider that can't embed", () => {
+  it("fails clearly without a key for a real embeddings provider", () => {
     use({ MEMORY_AI_PROVIDER: "voyage" });
     expect(() => provider()).toThrow("needs VOYAGE_API_KEY");
+    use({ MEMORY_AI_PROVIDER: "openai" });
+    expect(() => provider()).toThrow("needs OPENAI_API_KEY");
+  });
+
+  it("anthropic writes text and embeds with the stub, under the stub's model id", () => {
+    use({ MEMORY_AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: KEY });
+    const p = provider();
+    expect(p).toMatchObject({ name: "anthropic", dimensions: 256, semantic: false });
+    // Memories stored under the stub stay findable after switching to anthropic: same vectors, same id.
+    expect(embeddingModelId(p)).toBe("stub:fnv1a-hash:256");
     use({ MEMORY_AI_PROVIDER: "anthropic" });
-    expect(() => provider()).toThrow("Anthropic has no embeddings API");
+    expect(provider().name).toBe("stub");
   });
 });

@@ -1,22 +1,6 @@
 {
   "name": "strata",
-  "displayName": "Strata",
-  "version": "0.1.0",
-  "description": "Long-term memory for Claude Code: captures your sessions, recalls what matters for each prompt, and gives Claude memory tools, without breaking the prompt cache.",
-  "author": { "name": "Strata" },
-  "license": "UNLICENSED",
-  "keywords": ["memory", "context", "prompt-cache"],
-  "userConfig": {
-    "api_url": {
-      "type": "string",
-      "title": "Strata address",
-      "description": "The web app's address, such as http://localhost:9316. Leave empty to use MEMORY_API_URL from your environment."
-    },
-    "api_token": {
-      "type": "string",
-      "title": "API key",
-      "description": "An API key from the app's Connect page. Kept in your system's credential store. Leave empty to use MEMORY_API_TOKEN.",
-      "sensitive": true
-    }
-  }
+  "version": "0.3.0",
+  "description": "Writes a short, engineer-reviewed summary of each Claude Code session and, once approved, sends it to Strata with the Jira ticket and GitHub PR behind it.",
+  "author": { "name": "Strata" }
 }

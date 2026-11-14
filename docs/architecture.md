@@ -5,27 +5,37 @@ What exists, how the parts talk, and what's next. Every later change reads this 
 ## The shape
 
 ```
-Claude Code ──hooks──▶ clients/claude-code ──HTTPS + bearer key──▶ apps/web (API) ──▶ MongoDB (atlas-local / Atlas)
-OpenCode    ──plugin─▶ .opencode/plugins/memory (next) ──────────▶        │
-                                                                          └──▶ the web pages (Better Auth sessions)
+Claude Code ──hooks──▶ clients/claude-code ──▶ local store (events, summaries, drafts, overview)
+                          │  └─ claude -p ──▶ one session summary, written locally
+                          └──HTTPS + device token──▶ apps/web
+                                                      ├─ /api/memory/*  (contract v1)
+                                                      ├─ /api/records   (drafted, reviewed)
+                                                      ├─ /v1/*          (approved summaries)
+                                                      └─▶ MongoDB (atlas-local / Atlas)
+OpenCode    ──adapter─▶ clients/claude-code/adapters/opencode (unverified)
+apps/web pages: Better Auth sessions, Overview, Memories, People, Connect, Audit log
 ```
 
-One deployable (`apps/web`) and one database. Only the API touches MongoDB. Both clients share
-`packages/contracts`: the zod schemas for every wire shape, `redact` and `renderFrozen`/`renderRecall`.
+One deployable (`apps/web`) and one database. Only the API touches MongoDB. `packages/contracts` defines the memory
+event contract and the record shapes; the plugin carries its own summary schema and an event outbox for now.
 
 ## The data
 
-| Collection                                   | What                                                                                    | Key indexes                                     |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days   | `id` unique (the idempotency key), TTL          |
-| `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status | scope+status, text index, vector index, textKey |
-| `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                       | sessionID, sourceIds                            |
-| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what; invites, roles, suspensions, teams | ts, actor, targetIds, action                    |
-| `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                     | hash unique                                     |
-| `members`                                    | A person's role (engineer, manager, exec, admin) and whether they're suspended          | `_id` is the account id                         |
-| `teams`                                      | A name, its members and its managers                                                    | name unique (any case), memberIds, managerIds   |
-| `invites`                                    | Email, role, teams, SHA-256 of the token, expiry, who made it, when it was used         | hash unique, email                              |
-| `user`, `session`, `account`, `verification` | Better Auth                                                                             | Better Auth's own                               |
+| Collection                                   | What                                                                                        | Key indexes                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days       | `id` unique (the idempotency key), TTL          |
+| `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status     | scope+status, text index, vector index, textKey |
+| `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                           | sessionID, sourceIds                            |
+| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what; invites, roles, suspensions, teams     | ts, actor, targetIds, action                    |
+| `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                         | hash unique                                     |
+| `members`                                    | A person's role (engineer, manager, exec, admin) and whether they're suspended              | `_id` is the account id                         |
+| `teams`                                      | A name, its members and its managers                                                        | name unique (any case), memberIds, managerIds   |
+| `invites`                                    | Email, role, teams, SHA-256 of the token, expiry, who made it, when it was used             | hash unique, email                              |
+| `records`                                    | Drafted summaries, insights, workflow findings, pain points and gaps; approved or discarded | author/status, session, dedupe key              |
+| `projects`, `project_members`                | The `/v1` summary API's projects; one personal default per person                           | one default per user, membership unique         |
+| `summary_revisions`                          | Approved session summaries, one document per revision; the highest is current               | idempotency, (user, session, revision), project |
+| `deviceCode`                                 | Better Auth's device-authorization codes for `/strata:login`                                | Better Auth's own                               |
+| `user`, `session`, `account`, `verification` | Better Auth                                                                                 | Better Auth's own                               |
 
 The vector index (`memories_embedding`) is an Atlas Search index filtered on `scope.org`, `scope.project`,
 `scope.user` and `status`. `pnpm db:indexes` creates everything and waits until the vector index is queryable.
@@ -83,22 +93,25 @@ Recall uses it where it's ready and the text index otherwise.
 Still to build, in the brief's order: dedupe beyond identical text, real embeddings, summarize, score and policy as
 scheduled jobs (`POST /api/jobs/run`), and the real AI providers behind `server/ai/provider.ts`.
 
-## The Claude Code client, and the cache
+## The Claude Code client
 
-| Hook                            | What it does                                                             | Network                    |
-| ------------------------------- | ------------------------------------------------------------------------ | -------------------------- |
-| `SessionStart` (startup, clear) | Fetches the frozen block once, keeps it per session, sends it as context | 800 ms, else freezes empty |
-| `SessionStart` (resume, fork)   | Sends the kept block byte for byte; none kept means none sent            | none                       |
-| `SessionStart` (compact)        | Fetches again: the cache rebuilds at a compaction anyway                 | 800 ms                     |
-| `UserPromptSubmit`              | Captures the prompt; adds what recall finds to this prompt only          | 800 ms, fails open         |
-| `PostToolUse(Failure)`          | Captures the tool's name and whether it worked, never its content        | none (async)               |
-| `PreCompact`                    | Captures the transcript; asks the API to summarize                       | 5 s                        |
-| `Stop`, `SessionEnd`            | Captures Claude's last reply; starts the outbox flush in the background  | none                       |
+The client has two write paths. It emits contract-v1 events to the memory API (prompt, assistant, tool, transcript,
+session and finding), from which the server drafts records for review. It also keeps the local summary path: the
+engineer's own Claude folds each turn into one summary, and only the approved summary goes to `/v1`.
 
-The outbox is one file per event under the plugin's data folder, sent in batches by a detached flusher that holds a
-lock, deletes only what the API acknowledged, and backs off on failure. Proven by `pnpm test:acceptance` (the hooks as
-real processes), and by a real `claude -p` session on 2026-11-14: the block arrived, the prompt and tools were
-captured, `memory_save` worked, and the next session answered from memory.
+| Hook                                | What it does                                                                      | Network              |
+| ----------------------------------- | --------------------------------------------------------------------------------- | -------------------- |
+| `SessionStart`                      | Marks the session active; queues the session start with git/refs; builds overview | none                 |
+| `UserPromptSubmit`                  | Redacts the prompt, queues it as a prompt event, keeps it for `Stop`              | none                 |
+| `PostToolUse`, `PostToolUseFailure` | Queues the tool name, status, duration and command signal; never its content      | none (async)         |
+| `Stop`                              | Queues the assistant reply and any context change; starts the local summarizer    | none                 |
+| `PreCompact`                        | Queues the transcript; summarizes whatever is still queued                        | none                 |
+| `PostCompact`                       | Queues the compaction summary                                                     | none                 |
+| `SessionEnd`                        | Queues the session end; flushes events and approved summaries                     | upload, if signed in |
+
+Events go to a durable outbox (`events/`), one file each, stamped `v: 1`; a detached flusher sends them in batches
+and deletes only what the server accepted. `events/` is separate from the local summary store, so either path can
+fail without losing the other. Proven by `pnpm test:acceptance` (the hooks as real processes).
 
 ## The contract, and how it changes
 
@@ -129,8 +142,8 @@ day. The rules:
    change.
 
 `parseEvent` applies rules 1 to 7, and both sides use it. The example events (`@strata/contracts/examples`) are one of
-each kind as a version-1 client writes them: the contract's tests and the API's tests accept them all, and the
-plugin's tests check that every event its hooks queue parses as known, so neither side can drift alone.
+each kind as a version-1 client writes them: the contract's tests and the API's tests accept them all. The plugin
+emits v1 events and its tests check their shape; a shared `parseEvent` test waits on bundling the contracts into it.
 
 | Kind         | Payload                                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------------------------- |
@@ -158,18 +171,19 @@ later, against the projects an organisation actually has.
 
 ## Drafting, and what's kept
 
-Decided on 14 November 2026: **session records are drafted on the server**, from the redacted text the plugin already
-sends, and a draft is visible to its author alone until they approve it. Once a session is drafted, the text of its
-prompts, replies and transcripts is deleted; until drafting exists, the 30-day TTL on `memory_events` is what limits
-it. The promise to the people whose sessions these are is "nothing is shared without your review", not "nothing
-leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until
-its author approves it.
+Decided on 14 November 2026: **session records are drafted on the server**, from the redacted text the plugin sends,
+and a draft is visible to its author alone until they approve it. `server/records/draft.ts` runs when a session's end
+event arrives: it builds the records and dedupes them by text. The raw prompt, reply and transcript events stay in
+`memory_events` until the 30-day TTL, matching my-day; deleting them at drafting is a later policy decision. The
+promise to the people whose sessions these are is "nothing is shared without your review", not "nothing leaves your
+machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until its author
+approves it. The provider is the deterministic stub today; the Anthropic drafter is next.
 
-## The OpenCode plugin (next)
+## The OpenCode adapter
 
-The brief fixes its files and rules. Its sketch (`Plugin.define`, `ctx.session.hook`, `ctx.storage`) is shorthand:
-map each piece onto the real `@opencode-ai/plugin` API and record the mapping here before building. The Claude Code
-client is the reference for behaviour; the contracts are shared.
+`clients/claude-code/adapters/opencode/strata.js` maps opencode events (`session.created`, `message.updated`,
+`session.idle`, `session.compacted`, `session.deleted`) onto the same hook entrypoint. The event names are unverified
+against a live opencode and are the first thing to check. The Claude Code client is the reference for behaviour.
 
 ## Running it
 

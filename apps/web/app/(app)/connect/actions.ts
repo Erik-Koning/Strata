@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { indexesReady } from "../../../server/indexes.ts";
+import { input, RefId } from "../../../server/inputs.ts";
 import { createKey, revokeKey } from "../../../server/keys.ts";
 import { requireViewer } from "../../../server/viewer.ts";
 
@@ -21,7 +22,7 @@ export async function makeKey(_: KeyState, form: FormData): Promise<KeyState> {
 
 export async function revoke(id: string): Promise<void> {
   const viewer = await requireViewer();
-  await revokeKey(viewer.userId, id);
+  await revokeKey(viewer.userId, input(RefId, id));
   revalidatePath("/connect");
   revalidatePath("/");
 }

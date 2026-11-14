@@ -7,6 +7,7 @@
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { bearer, deviceAuthorization } from "better-auth/plugins";
 import { invites, members } from "./collections.ts";
 import { config } from "./config.ts";
 import { db, mongo } from "./db.ts";
@@ -46,7 +47,13 @@ function makeAuth() {
         },
       },
     },
-    plugins: [nextCookies()],
+    plugins: [
+      nextCookies(),
+      // The Claude Code plugin signs in with a device code: the engineer approves it in the browser, then the
+      // plugin polls for a token. `bearer()` lets the token exchange read the resulting session.
+      deviceAuthorization({ verificationUri: "/activate", expiresIn: "30m", interval: "5s" }),
+      bearer(),
+    ],
   });
 }
 

@@ -12,3 +12,6 @@ playwright-report/
 demo/relay/.demo-run/
 .claude/worktrees/
 demo/relay/.demo-logs/
+.commandcode
+.sst/
+sst-env.d.ts

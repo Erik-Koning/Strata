@@ -37,7 +37,7 @@
 <text x="780" y="647.0" font-size="16" fill="#495057" xml:space="preserve">Approved records, linked to tickets, PRs and</text>
 <text x="780" y="667.0" font-size="16" fill="#495057" xml:space="preserve">code areas (the knowledge graph), plus the</text>
 <text x="780" y="687.0" font-size="16" fill="#495057" xml:space="preserve">memory agents start with. The session&#x27;s raw</text>
-<text x="780" y="707.0" font-size="16" fill="#495057" xml:space="preserve">text is deleted once it&#x27;s drafted.</text>
+<text x="780" y="707.0" font-size="16" fill="#495057" xml:space="preserve">text expires after 30 days.</text>
 <rect x="1360" y="205" width="460" height="128" rx="12" fill="#ffffff" stroke="#1e1e1e" stroke-width="2"/>
 <text x="1380" y="241.0" font-size="20" fill="#1e1e1e" xml:space="preserve">Product pages</text>
 <text x="1380" y="272.0" font-size="16" fill="#495057" xml:space="preserve">What&#x27;s new and what&#x27;s in progress, per</text>

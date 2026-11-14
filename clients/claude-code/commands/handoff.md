@@ -2,7 +2,7 @@
 
 description: Hand the current task to another engineer with Strata Relay (drafts a checkpoint for you to review and approve)
 argument-hint: "[who it's for, or anything to stress]"
-allowed-tools: Bash(git status:_), Bash(git diff:_), Bash(git log:_), Bash(git branch:_), Bash(git rev-parse:*), mcp__plugin_strata_strata__strata_handoff_create
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git branch:*), Bash(git rev-parse:*), mcp__plugin_strata_strata__strata_handoff_create
 ---
 
 Draft a Strata Relay handoff of the task we've been working on, so another engineer's fresh Claude Code session can

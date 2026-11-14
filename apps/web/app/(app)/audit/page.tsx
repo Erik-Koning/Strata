@@ -54,6 +54,30 @@ function describe(entry: AuditDoc): { icon: typeof Trash2; text: string; tone: s
       return { icon: KeyRound, tone: "text-accent-text", text: `Made the API key “${String(d.name ?? "")}”` };
     case "key.revoke":
       return { icon: KeyRound, tone: "text-danger", text: "Revoked an API key" };
+    case "summary.receive":
+      return {
+        icon: Sparkles,
+        tone: "text-accent-text",
+        text: `Received an approved session summary (revision ${Number(d.revision ?? 1)})`,
+      };
+    case "summary.retract":
+      return {
+        icon: Trash2,
+        tone: "text-danger",
+        text: `Retracted a session summary (${n(Number(d.revisions ?? 1), "revision")})`,
+      };
+    case "record.draft":
+      return { icon: Sparkles, tone: "text-ink-2", text: `Drafted ${n(Number(d.records ?? 0), "record")} for review` };
+    case "record.edit":
+      return { icon: Archive, tone: "text-ink-2", text: "Edited a drafted record" };
+    case "record.approve":
+      return {
+        icon: UserCheck,
+        tone: "text-accent-text",
+        text: `Approved a ${String(d.kind ?? "record")}${d.memoryId ? ", and added it to memory" : ""}`,
+      };
+    case "record.discard":
+      return { icon: Trash2, tone: "text-danger", text: `Discarded a ${String(d.kind ?? "record")}` };
     case "invite.create":
       return { icon: MailPlus, tone: "text-accent-text", text: `Invited ${String(d.email)} as ${role(d.role)}` };
     case "invite.revoke":
@@ -119,7 +143,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/audit">) {
         lede={
           everyone
             ? "Every change to who has access: invitations, roles, suspensions and teams. What people save, forget or connect in their own memory is theirs, and isn't shown here."
-            : "Every memory saved or forgotten, every summary made at a compaction, every key made or revoked, and any change an admin made to your access."
+            : "Every record drafted, approved or discarded, every memory saved or forgotten, every summary made at a compaction, every key made or revoked, and any change an admin made to your access."
         }
         actions={
           viewer.role === "admin" ? (

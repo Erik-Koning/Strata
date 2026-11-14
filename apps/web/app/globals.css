@@ -1,64 +1,73 @@
 @import "tailwindcss";
 
-/* Strata. A ledger of what agents should remember: graphite paper, one jade accent for what's live and
-   trusted, amber for what's only a candidate. IBM Plex for an engineered, readable voice; Plex Mono wherever the
-   exact bytes matter. */
+/* Strata, in violet. The colour is the explainer video's (docs/explainer): one violet for what's live and the one
+   commit per view, fuchsia only in the mark. The material is quiet: dark-first graphite with a violet cast, surfaces
+   told apart by hairlines rather than shadow, amber for what's only a candidate, a cool blue for "handed on".
+
+   Type: Geist for reading, Geist Mono wherever the exact bytes matter, Martian Mono for part labels (`01 / RECALL`),
+   Saira wide caps kept for legends that want them. Every class name and token name is the one the pages already use. */
+
 :root {
-  /* Dark-first. A graphite ground, near-neutral surfaces separated by hairlines rather than shadows, one jade
-     accent for what's live and trusted, amber for what's only a candidate, a cool blue for "handed on". */
-  --bg: #0a0b0b;
-  --surface: #111312;
-  --surface-2: #171a19;
-  --surface-3: #1d2120;
-  --sunk: #0c0e0d;
-  --ink: #e9ecea;
-  --ink-2: #aab2ae;
-  --ink-3: #7a8480;
-  --line: rgb(233 236 234 / 7.5%);
-  --line-strong: rgb(233 236 234 / 13%);
-  --accent: #3ccf9b;
-  --accent-hover: #63dcb1;
-  --accent-ink: #04140e;
-  --accent-soft: rgb(60 207 155 / 11%);
-  --accent-text: #63dcb1;
-  --amber: #e9ac52;
-  --amber-soft: rgb(233 172 82 / 11%);
-  --danger: #f2786c;
-  --danger-soft: rgb(242 120 108 / 11%);
-  --focus: #63dcb1;
+  --bg: #0c0b10;
+  --surface: #121118;
+  --surface-2: #18171f;
+  --surface-3: #201e28;
+  --sunk: #0e0d13;
+  --ink: #ecebf2;
+  --ink-2: #aeabbe;
+  --ink-3: #807c92;
+  --line: rgb(236 232 247 / 7.5%);
+  --line-strong: rgb(236 232 247 / 13%);
+  --rule: rgb(236 232 247 / 4.5%);
+
+  /* Violet: what's live, and the one commit per view */
+  --accent: #7c3aed;
+  --accent-hover: #8b5cf6;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(139 92 246 / 14%);
+  --accent-text: #c4b5fd;
+  --fuchsia: #e879f9;
+
+  /* Caution and danger: legends and pips, never fills */
+  --amber: #f0b45a;
+  --amber-soft: rgb(240 180 90 / 11%);
+  --danger: #ff8a9b;
+  --danger-soft: rgb(255 122 145 / 12%);
+  --focus: #c4b5fd;
+
   --shadow: 0 1px 0 rgb(0 0 0 / 35%);
-  --shadow-pop: 0 24px 64px -24px rgb(0 0 0 / 80%), 0 0 0 1px rgb(233 236 234 / 8%);
-  --rule: rgb(233 236 234 / 4.5%);
+  --shadow-pop: 0 24px 64px -24px rgb(0 0 0 / 80%), 0 0 0 1px rgb(236 232 247 / 8%);
   --radius: 10px;
   --radius-sm: 7px;
   color-scheme: dark;
 }
 
-/* Opt-in light theme, kept for anyone who sets data-theme="light". */
+/* Opt-in light theme (data-theme="light"): the explainer's lavender paper. */
 :root[data-theme="light"] {
-  --bg: #f4f5f3;
-  --surface: #ffffff;
-  --surface-2: #eef0ed;
-  --surface-3: #e6e9e5;
-  --sunk: #eceee9;
-  --ink: #111614;
-  --ink-2: #3b4541;
-  --ink-3: #5f6a66;
-  --line: rgb(17 22 20 / 9%);
-  --line-strong: rgb(17 22 20 / 16%);
-  --accent: #0a7558;
-  --accent-hover: #086247;
+  --bg: #eeebf7;
+  --surface: #f8f6fd;
+  --surface-2: #ebe6f6;
+  --surface-3: #e1daf1;
+  --sunk: #e6e0f3;
+  --ink: #15121f;
+  --ink-2: #3b3750;
+  --ink-3: #5e5a76;
+  --line: rgb(36 22 84 / 11%);
+  --line-strong: rgb(36 22 84 / 20%);
+  --rule: rgb(36 22 84 / 7%);
+  --accent: #6d28d9;
+  --accent-hover: #7c3aed;
   --accent-ink: #ffffff;
-  --accent-soft: #dcefe7;
-  --accent-text: #08634a;
-  --amber: #9a5800;
-  --amber-soft: #f6ead8;
-  --danger: #b42318;
-  --danger-soft: #fbe5e2;
-  --focus: #0a7558;
-  --shadow: 0 1px 0 rgb(17 22 20 / 4%);
-  --shadow-pop: 0 24px 64px -24px rgb(17 22 20 / 35%), 0 0 0 1px rgb(17 22 20 / 8%);
-  --rule: rgb(17 22 20 / 6%);
+  --accent-soft: #e9e0fd;
+  --accent-text: #5b21b6;
+  --fuchsia: #c026d3;
+  --amber: #8f4a04;
+  --amber-soft: #fbedd2;
+  --danger: #b4123a;
+  --danger-soft: #fde3e8;
+  --focus: #5b21b6;
+  --shadow: 0 1px 0 rgb(36 22 84 / 5%);
+  --shadow-pop: 0 24px 64px -24px rgb(36 22 84 / 35%), 0 0 0 1px rgb(36 22 84 / 8%);
   color-scheme: light;
 }
 
@@ -77,12 +86,15 @@
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
+  --color-fuchsia: var(--fuchsia);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-label: var(--font-saira), "Eurostile", ui-sans-serif, system-ui, sans-serif;
+  --font-part: var(--font-martian), ui-monospace, SFMono-Regular, monospace;
 }
 
 html,
@@ -112,10 +124,11 @@ h3 {
 }
 
 @layer components {
+  /* Part labels: Martian Mono caps, `01 / RECALL`. */
   .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
+    font-family: var(--font-part);
+    font-size: 10.5px;
+    font-weight: 400;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--ink-3);
@@ -141,18 +154,30 @@ h3 {
     letter-spacing: -0.005em;
     white-space: nowrap;
     cursor: pointer;
-    transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
   }
   .btn:hover {
     background: var(--surface-2);
     border-color: color-mix(in srgb, var(--ink) 20%, transparent);
   }
-  .btn:active {
+  .btn:active:not(:disabled, [aria-disabled="true"]) {
     transform: translateY(1px);
   }
-  .btn:disabled {
+  /* Latched: a key that's on (the chosen tab, the current page). */
+  .btn:is([aria-pressed="true"], [aria-current="page"]) {
+    background: var(--surface-3);
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
     opacity: 0.55;
     cursor: not-allowed;
+  }
+  .btn svg {
+    flex: none;
   }
   .btn-primary {
     background: var(--accent);
@@ -162,13 +187,14 @@ h3 {
   .btn-primary:hover {
     background: var(--accent-hover);
   }
+  /* Destructive: its legend in danger. Danger is never a fill. */
   .btn-danger {
-    background: var(--danger);
-    border-color: transparent;
-    color: #fff;
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
   }
   .btn-danger:hover {
-    background: color-mix(in srgb, var(--danger) 88%, black);
+    background: var(--danger-soft);
+    border-color: color-mix(in srgb, var(--danger) 55%, transparent);
   }
   .btn-quiet {
     border-color: transparent;
@@ -193,7 +219,9 @@ h3 {
     border: 1px solid var(--line-strong);
     background: var(--sunk);
     color: var(--ink);
+    font-family: var(--font-sans);
     font-size: 15px;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
   }
   .input:focus {
     border-color: color-mix(in srgb, var(--accent) 55%, transparent);
@@ -202,6 +230,18 @@ h3 {
   }
   .input::placeholder {
     color: var(--ink-3);
+    opacity: 1;
+  }
+  .input[aria-invalid="true"] {
+    border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  }
+  .input:disabled,
+  .input[readonly] {
+    background: var(--bg);
+    color: var(--ink-2);
+  }
+  select.input {
+    padding-right: 36px;
   }
   textarea.input {
     padding: 10px 12px;
@@ -316,8 +356,15 @@ h3 {
   }
 }
 
+@media (prefers-contrast: more) {
+  :root {
+    --ink-2: var(--ink);
+    --ink-3: var(--ink-2);
+  }
+}
+
 /* Relay: handoff statuses. One cool blue for "approved, waiting to be picked up"; amber for work in someone's hands;
-   jade for done; muted outlines for a private draft and a revoked one. Test evidence: verified is filled jade, a
+   violet (the accent) for done; muted outlines for a private draft and a revoked one. Test evidence: verified is filled violet, a
    claim is an amber outline. */
 :root {
   --relay-blue: #8fabf5;
