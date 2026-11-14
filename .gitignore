@@ -9,6 +9,9 @@ test-results/
 playwright-report/
 .DS_Store
 .cache/
+demo/relay/.demo-run/
+.claude/worktrees/
+demo/relay/.demo-logs/
 .commandcode
 .sst/
 sst-env.d.ts

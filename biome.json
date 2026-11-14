@@ -23,5 +23,11 @@
       "suspicious": { "noArrayIndexKey": "off" }
     }
   },
-  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } }
+  "assist": { "enabled": true, "actions": { "source": { "organizeImports": "on" } } },
+  "overrides": [
+    {
+      "includes": ["clients/claude-code/commands/*.md"],
+      "formatter": { "enabled": false }
+    }
+  ]
 }

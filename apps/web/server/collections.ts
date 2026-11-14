@@ -1,13 +1,18 @@
 // The documents the app keeps, and a typed handle on each collection. Only the API touches these.
 import type {
+  HandoffStatus,
   MemoryKind,
   MemoryStatus,
+  Person,
+  RecordedTest,
   RecordKind,
   RecordStatus,
   Ref,
+  RepoState,
   Scope,
   SummaryLinks,
   SummarySummary,
+  TimelineEntry,
   TrustLevel,
 } from "@strata/contracts";
 import type { Collection, ObjectId } from "mongodb";
@@ -52,6 +57,10 @@ export interface MemoryDoc {
   // The text, lower-cased with its spacing and end stops dropped, hashed: the same memory said twice is kept once.
   textKey: string;
   embedding: number[];
+  // Which model made `embedding`, as provider:model:dimensions. Recall compares only vectors from the active model;
+  // `pnpm db:reembed` brings the rest over. Missing on memories from before it was kept (stub vectors, stamped by
+  // `pnpm db:indexes`).
+  embeddingModel?: string;
   provenance: {
     sessionID: string | null;
     messageID: string | null;
@@ -85,6 +94,16 @@ export interface AuditDoc {
     | "memory.forget"
     | "memory.compress"
     | "memory.promote"
+    | "memory.correct"
+    | "handoff.create"
+    | "handoff.edit"
+    | "handoff.approve"
+    | "handoff.read"
+    | "handoff.claim"
+    | "handoff.test"
+    | "handoff.complete"
+    | "handoff.revoke"
+    | "handoff.denied"
     | "key.create"
     | "key.revoke"
     | "summary.receive"
@@ -233,6 +252,49 @@ export interface InviteDoc {
   revokedAt: Date | null;
 }
 
+// A Relay handoff: one task's checkpoint, from its sender to one recipient (packages/contracts/src/handoff.ts has the
+// lifecycle and the rules). Only the sender reads a draft; the recipient reads it once approved and until revoked.
+export interface HandoffDoc {
+  _id: ObjectId;
+  org: string;
+  project: string;
+  title: string;
+  summary: string;
+  completed: string[];
+  remaining: string[];
+  blockers: string[];
+  failedApproaches: string[];
+  decisions: string[];
+  changedFiles: string[];
+  nextAction: string;
+  testCommands: string[];
+  repo: RepoState | null;
+  sourceSessionID: string | null;
+  status: HandoffStatus;
+  sender: Person;
+  recipient: Person | null;
+  // Memories the sender shared with it, all theirs; re-checked on every read.
+  memoryIds: ObjectId[];
+  tests: (Omit<RecordedTest, "at"> & { at: Date })[];
+  continuation: {
+    sessionID: string | null;
+    summary: string;
+    completed: string[];
+    changedFiles: string[];
+    claimRepo: RepoState | null;
+    repo: RepoState | null;
+    verified: boolean;
+  } | null;
+  timeline: (Omit<TimelineEntry, "at"> & { at: Date })[];
+  createdAt: Date;
+  updatedAt: Date;
+  approvedAt: Date | null;
+  claimedAt: Date | null;
+  completedAt: Date | null;
+  revokedAt: Date | null;
+  revokeReason: string | null;
+}
+
 // The hub: what the team pages read, derived from approved work and from tool timings (server/hub/*).
 
 // A product: one or more repositories, each whole or one folder of it (a monorepo's part). Made automatically, one per
@@ -336,5 +398,7 @@ export const draftClaims = (): Collection<DraftClaimDoc> => db().collection<Draf
 export const products = (): Collection<ProductDoc> => db().collection<ProductDoc>("products");
 export const signalDaily = (): Collection<SignalDailyDoc> => db().collection<SignalDailyDoc>("signal_daily");
 export const gaps = (): Collection<GapDoc> => db().collection<GapDoc>("gaps");
+
+export const handoffs = (): Collection<HandoffDoc> => db().collection<HandoffDoc>("handoffs");
 
 export const VECTOR_INDEX = "memories_embedding";
