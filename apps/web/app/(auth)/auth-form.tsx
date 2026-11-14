@@ -4,15 +4,25 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { type AuthState, signIn, signUp } from "./actions.ts";
 
-export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next?: string }) {
+export function AuthForm({
+  mode,
+  next,
+  invite,
+}: {
+  mode: "sign-in" | "sign-up";
+  next?: string;
+  // Sign-up only: the invite's token, and the email it's for (which can't be changed).
+  invite?: { token: string; email: string };
+}) {
   const [state, action, pending] = useActionState<AuthState, FormData>(mode === "sign-in" ? signIn : signUp, {
     error: null,
-    email: "",
+    email: invite?.email ?? "",
     name: "",
   });
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
       {next ? <input type="hidden" name="next" value={next} /> : null}
+      {invite ? <input type="hidden" name="invite" value={invite.token} /> : null}
       {mode === "sign-up" ? (
         <div>
           <label className="label" htmlFor="name">
@@ -31,9 +41,16 @@ export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next?: s
           name="email"
           type="email"
           autoComplete="email"
-          defaultValue={state.email}
+          defaultValue={invite?.email ?? state.email}
+          readOnly={Boolean(invite)}
+          aria-describedby={invite ? "email-hint" : undefined}
           required
         />
+        {invite ? (
+          <p id="email-hint" className="mt-1.5 text-[13px] text-ink-3">
+            The invite is for this address.
+          </p>
+        ) : null}
       </div>
       <div>
         <label className="label" htmlFor="password">
@@ -67,12 +84,7 @@ export function AuthForm({ mode, next }: { mode: "sign-in" | "sign-up"; next?: s
       </button>
       <p className="text-center text-[14px] text-ink-3">
         {mode === "sign-in" ? (
-          <>
-            New here?{" "}
-            <Link className="font-medium text-accent-text underline-offset-4 hover:underline" href="/sign-up">
-              Create an account
-            </Link>
-          </>
+          <>New here? Accounts are by invitation: ask an admin for an invite link.</>
         ) : (
           <>
             Have an account?{" "}

@@ -128,12 +128,36 @@ export async function auditTrail(userId: string, limit = 100): Promise<AuditDoc[
       .find({ userId }, { projection: { _id: 1 } })
       .toArray()
   ).map((k) => k._id.toHexString());
+  // Their own changes, and any an admin made to their access (their role, a suspension, a team).
   return audits()
-    .find({ $or: [{ "scope.user": userId }, { "actor.id": userId }, { "actor.id": { $in: keyIds } }] })
+    .find({
+      $or: [{ "scope.user": userId }, { "actor.id": userId }, { "actor.id": { $in: keyIds } }, { targetIds: userId }],
+    })
     .sort({ ts: -1 })
     .limit(limit)
     .toArray();
 }
+
+// Changes to access, for admins: invitations, roles, suspensions and teams. What people save, forget or connect in
+// their own memory isn't an admin's to watch, so it stays out (docs/about.html: no activity logs).
+export const ACCESS_ACTIONS: AuditDoc["action"][] = [
+  "invite.create",
+  "invite.revoke",
+  "invite.accept",
+  "member.role",
+  "member.suspend",
+  "member.restore",
+  "team.create",
+  "team.delete",
+  "team.member",
+];
+
+export const orgAuditTrail = (limit = 200): Promise<AuditDoc[]> =>
+  audits()
+    .find({ action: { $in: ACCESS_ACTIONS } })
+    .sort({ ts: -1 })
+    .limit(limit)
+    .toArray();
 
 export async function setStatus(userId: string, id: string, status: "active" | "archived"): Promise<boolean> {
   if (!ObjectId.isValid(id)) return false;

@@ -3,6 +3,8 @@ import { APIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "../../server/auth.ts";
+import { signUpWithInvite } from "../../server/invites.ts";
+import { isSuspendedEmail, Refusal } from "../../server/people.ts";
 
 export interface AuthState {
   error: string | null;
@@ -28,21 +30,30 @@ export async function signIn(_: AuthState, form: FormData): Promise<AuthState> {
   try {
     await auth().api.signInEmail({ body: { email, password }, headers: await headers() });
   } catch (error) {
-    if (error instanceof APIError) return { error: "That email and password don't match an account.", email, name: "" };
+    if (error instanceof APIError) {
+      // Better Auth gets this far only with the right password: the session hook refused a suspended person.
+      if (error.body?.code === "FAILED_TO_CREATE_SESSION" && (await isSuspendedEmail(email)))
+        return { error: "An admin has suspended your access. Ask them to restore it.", email, name: "" };
+      return { error: "That email and password don't match an account.", email, name: "" };
+    }
     return { error: "Couldn't sign you in just now. Try again in a moment.", email, name: "" };
   }
   redirect(safeNext(form.get("next")));
 }
 
+// Sign-up is by invitation: the account is made for the invite's email, with the invite's role and teams.
 export async function signUp(_: AuthState, form: FormData): Promise<AuthState> {
   const name = field(form, "name");
   const email = field(form, "email").toLowerCase();
+  const token = field(form, "invite");
   const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
-  if (!name || !email) return { error: "Enter your name and your email.", email, name };
+  if (!token) return { error: "You need an invite link to make an account. Ask an admin for one.", email, name };
+  if (!name) return { error: "Enter your name.", email, name };
   if (password.length < 10) return { error: "Use a password of 10 characters or more.", email, name };
   try {
-    await auth().api.signUpEmail({ body: { name, email, password }, headers: await headers() });
+    await signUpWithInvite({ token, name, password, headers: await headers() });
   } catch (error) {
+    if (error instanceof Refusal) return { error: error.message, email, name };
     if (error instanceof APIError) {
       const exists = /exist/i.test(error.message);
       return {
