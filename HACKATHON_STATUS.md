@@ -28,10 +28,31 @@ Track: **Memory You Can Govern**. This file is updated as work lands, and only w
       embedding model, recall and frozen exclude expired memories and other models' vectors, `/api/health` reports
       `semantic`, and `pnpm --filter @strata/web atlas:check` passes against Atlas Local. **Not run against Atlas cloud
       or a real embeddings API: no credentials.**
-- [ ] Relay UI (agent C)
+- [x] Relay UI (agent C, `a593935`): `/relay` with an inbox and sent list, the checkpoint, VERIFIED/CLAIMED test
+      badges, an unpushed or uncommitted warning, shared memories with provenance, excluded memories, the timeline,
+      draft editing, picking a recipient and memories (none pre-ticked), approve, copy resume command, inline revoke.
+      Checked in Chrome with real data **at 756 px wide only**: the three-pane desktop layout (from 1380 px) hasn't been
+      looked at, because the browser window couldn't be resized wider on this machine.
 - [x] Plugin: `strata_handoff_*` MCP tools, `/strata:handoff`, `/strata:resume` (lead, `8799182`). Unit 43/43,
       acceptance 6/6. A real headless `claude --plugin-dir` session loaded both commands and all five tools.
-- [ ] Reproducible demo: a real failing test, handed off, continued in a fresh `claude` session (lead)
+- [x] Reproducible demo (`demo/relay/run.mjs`): **26/26 checks passed** against a production build (`next start`)
+      on Atlas Local, with two real headless Claude Code sessions: - Alice's session ran `/strata:handoff`. The plugin read git (branch, commit, pushed) and ran `npm test`
+      (fail, exit 1, recorded as verified). - Bob and Mallory got 404 on the draft. Alice approved it for Bob, sharing one memory. Mallory still got 404,
+      and Bob's resume carried the shared memory, never Alice's private one, framed as untrusted. - Bob's fresh session, in his own clone with his own key, ran `/strata:resume`. It hit the repository check
+      (on `main`, commit missing), fetched and switched, claimed, verified `npm test` (fail), implemented compound
+      parsing following Alice's shared decision ("round once at the end") and avoiding her failed `split`
+      approach, verified again (pass), committed `95450ed` and completed. - The script itself ran `npm test` in Bob's clone (exit 0) and confirmed the handoff is `completed`,
+      `verified: true`, with the final commit equal to Bob's HEAD. - Revocation: a second handoff was readable by Bob, then revoked by Alice, then 404 for get and resume. - Transcripts: `demo/relay/.demo-logs/{alice,bob}-session.jsonl` (git-ignored, local).
+- [x] Full gate on the integrated tree: typecheck OK, lint OK (185 files), unit 73+38+43, acceptance 6/6, DB 53/53,
+      `pnpm build` OK.
+
+## Found while integrating
+
+- `demo/relay` fixture: `node --test test/` fails on Node 22 (no directory argument); changed to `node --test`.
+- Running `pnpm build` (which rebuilds `clients/claude-code/dist`) while a Claude session starts the plugin makes
+  the MCP server fail, and Claude Code then caches the failure (`~/.claude/mcp-needs-auth-cache.json`, about 15
+  minutes) for later sessions. Don't rebuild the plugin during a demo. The stale entry was removed locally.
+- Cosmetic: on the timeline, a passing test's dot is grey rather than green.
 
 ## Blockers / needs the operator
 
