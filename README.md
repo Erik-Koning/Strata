@@ -1,68 +1,62 @@
 # Strata
 
-Engineer-reviewed session summaries for coding agents. Strata captures what happens in your Claude Code sessions,
-turns it into short summaries your team can search, and keeps the raw prompts and replies on your machine. Colleagues
-get what was built, why, the decisions behind it, and the gaps worth documenting, with the Jira ticket and GitHub PR
-attached.
+Long-term memory for coding agents. Strata captures what happens in your Claude Code sessions, keeps what's worth
+remembering, and gives it back to the next session without breaking the prompt cache. Compacted summaries sit on top,
+so a long history stays small.
 
-The web app serves both the memory API and the `/v1` summary API the new client uses: device sign-in, projects,
-approved session summaries, retraction, search and roll-ups. The memory API now speaks contract v1: versioned, typed
-events that grow without breaking older clients. The plugin still drafts locally; moving drafting onto the server is
-the next design step.
+![How Strata works: capture on the engineer's machine, a draft only its author sees, the engineer's review, then product pages, where engineering time goes, context gaps and an assistant for the team](docs/how-strata-works.svg)
+
+The diagram's source is [`docs/how-strata-works.excalidraw.json`](docs/how-strata-works.excalidraw.json). Open it at
+excalidraw.com or with the VS Code Excalidraw extension, and export it again as `docs/how-strata-works.svg` after a
+change.
 
 ## What's built so far
 
-**The web app** (Next.js 16, `apps/web`) has accounts with email and password, API keys you make per machine, and the
-memory API: capture, recall, the frozen block, compaction summaries, save and forget. Every route checks a bearer key
-first and validates its body against a shared contract. **MongoDB** (the Atlas-local image) holds events, memories,
-summaries, an audit log and the keys, with a vector index for recall and a text index behind it.
+**The web app** (Next.js 16, `apps/web`) has invite-only accounts with roles, teams and suspension, API keys you make per
+machine, and the memory API: capture, recall, the frozen block, compaction summaries, save and forget. It also serves
+the `/v1` summary API and the records review API. Every route checks a bearer key first and validates its body against a
+shared contract. **MongoDB** (the Atlas-local image) holds events, memories, summaries, records, projects, teams,
+invitations, an audit log and the keys, with a vector index for recall and a text index behind it.
 
-**The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API:
-prompt, assistant, tool signals (duration, command class, exit, fingerprint), the transcript at compaction, session
-context and findings. The server drafts records from them, and only their author sees a draft until they approve it.
-It also keeps the local summary path: your own `claude -p` folds each turn into a session summary, you review, edit
-and link it, and only approved summaries go to `/v1`. `strata_record`, `strata_search` and the per-repo overview
-remain; raw turn text is deleted once the local summary is written.
-
-**The pages** show what's remembered and where it came from, let you keep a candidate or forget a memory after seeing
-exactly what goes with it, connect a client step by step, and list every change in an audit log, in light and dark and
-on a phone.
-
-The client is covered by 39 tests that run the hooks, CLI, MCP server and dashboard as real processes against a mock
-server. The memory API, the `/v1` summary API and the records pipeline have unit and database tests. The rest is in
-the to-do below, which an
-[Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is working through.
+**The Claude Code plugin** (`clients/claude-code`) has two write paths. It emits contract-v1 events to the memory API
+(prompt, assistant, tool signals, transcript, session context and findings); the server drafts records from them, and
+only their author sees a draft until they approve it. It also keeps the local summary path: `claude -p` folds each turn
+into a summary, you review and approve it, and only approved summaries go to `/v1`. **The pages** show what's
+remembered, the People/admin view, what awaits review, and every change in the audit log, in light and dark and on a
+phone. It's covered by unit tests, database tests against the real engine, and acceptance tests that run the plugin's
+hooks as real processes. The rest is in the to-do below, which an
+[Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team is now working through.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   subgraph machine["Your machine"]
-    CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>Stop, PreCompact, SessionEnd" --> PL["Strata plugin<br/>clients/claude-code"]
+    CC["Claude Code"] -- "hooks: SessionStart, UserPromptSubmit,<br/>PostToolUse, Stop, PreCompact, PostCompact, SessionEnd" --> PL["Strata plugin<br/>clients/claude-code"]
     CC -- "MCP: strata_record / strata_search" --> PL
-    PL --- OB[("summary queue, drafts and<br/>the kept overview")]
+    PL --- OB[("event outbox, summary queue,<br/>drafts and the kept overview")]
     PL -- "claude -p, headless<br/>local summaries" --> CL["your Claude CLI"]
     OC["OpenCode"] -.-> OP["adapters/opencode<br/>(unverified)"]
     OP -.-> PL
   end
   subgraph server["Strata web app: apps/web"]
-    API["/api/memory/*<br/>/v1 summary API"]
-    UI["Pages: Overview, Memories,<br/>Connect, Audit log"]
-    AUTH["Better Auth<br/>accounts, sessions"]
-    JOBS["Extract (inline today)<br/>dedupe, embed, summarize, score: to do"]
+    API["/api/memory/*<br/>/v1 summaries<br/>/api/records"]
+    UI["Pages: Overview, Memories, People,<br/>Connect, Audit log"]
+    AUTH["Better Auth<br/>invite-only accounts, roles, teams"]
+    JOBS["Draft records on session end<br/>dedupe, embed, summarize, score: to do"]
   end
-  DB[("MongoDB<br/>memory_events, memories, memory_summaries,<br/>memory_audit, api_keys, auth")]
+  DB[("MongoDB<br/>memory_events, memories, records,<br/>summary_revisions, teams, invites, auth")]
   PL -- "HTTPS + device token" --> API
   UI --- AUTH
   API --> JOBS
   API --> DB
   JOBS --> DB
   UI --> DB
-  CT["packages/contracts<br/>schemas, signals, summary,<br/>redact, render"] -.- API
+  CT["packages/contracts<br/>schemas, signals, records,<br/>summary, redact, render"] -.- API
 ```
 
-Only the API touches the database. The summary client talks to `/v1`. The memory API and its pages use
-`packages/contracts`; the plugin carries its own summary schema and redaction for now.
+Only the API touches the database. The memory API uses `packages/contracts`; the plugin carries its own summary schema
+and an event outbox for now.
 
 **One session, as the plugin sees it:**
 
@@ -71,25 +65,26 @@ sequenceDiagram
   participant C as Claude Code
   participant P as Strata plugin
   participant L as local claude -p
-  participant D as review dashboard
-  participant A as Strata /v1
+  participant A as Strata API
   C->>P: SessionStart
-  P->>P: build the repo overview from earlier summaries
+  P->>A: session start event (git, refs)
+  P->>P: keep the repo overview from earlier summaries
   P-->>C: overview as context, kept for this session
   loop every turn
     C->>P: UserPromptSubmit
-    P->>P: redact and keep the prompt until Stop
+    P->>A: prompt event (redacted, promptID)
+    C->>P: PostToolUse / Failure
+    P->>A: tool signal (name, status, duration, command class)
     C->>P: Stop
-    P->>P: queue the redacted turn; delete the prompt file
+    P->>A: assistant event; starts the local summarizer
     P->>L: fold the turn into the session summary
-    L-->>P: updated summary
     P->>P: delete the raw turn text
   end
-  C->>P: PreCompact / SessionEnd
-  P->>L: summarize anything still queued
-  D->>P: edit, link Jira/PR, approve
-  P->>A: POST /v1/events (approved session_summary, idempotent)
-  A-->>P: { ok: true }
+  C->>P: PreCompact / PostCompact
+  P->>A: transcript and compaction summary events
+  C->>P: SessionEnd
+  P->>A: session end; server drafts records for review
+  P->>A: flush approved summaries to /v1
 ```
 
 **The rule both paths follow:** nothing is shared with a teammate without the engineer's review. The event path sends
@@ -106,18 +101,17 @@ author's alone until approved. The summary path sends only a summary the enginee
 - the `SessionStart` overview is built from local summaries and kept for the session, so a resume gets the same bytes;
 - every event and every approved revision is uploaded with an idempotency key, and a retry never stores it twice.
 
-The memory API's data model, who can do what, and how each hook maps to the client are in
-[`docs/architecture.md`](docs/architecture.md).
+The data model, who can do what, and how each hook maps to the client are in [`docs/architecture.md`](docs/architecture.md).
 
-| Part                     | Where                    | What it is                                                                              |
-| ------------------------ | ------------------------ | --------------------------------------------------------------------------------------- |
-| Web app and API          | `apps/web`               | Next.js 16, App Router, Better Auth, the MongoDB driver, Tailwind                       |
-| Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                                 |
-| AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                      |
-| Claude Code plugin       | `clients/claude-code`    | hooks, session summaries, review dashboard, MCP server, OpenCode adapter; no build step |
-| Contracts                | `packages/contracts`     | contract version, zod schemas, signals, summary, `redact`, render                       |
-| Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                                |
-| The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                                 |
+| Part                     | Where                    | What it is                                                                         |
+| ------------------------ | ------------------------ | ---------------------------------------------------------------------------------- |
+| Web app and API          | `apps/web`               | Next.js 16, App Router, Better Auth, the MongoDB driver, Tailwind                  |
+| Memory logic             | `apps/web/server/memory` | ingest, extract, recall, frozen, compress, forget, save                            |
+| AI provider              | `apps/web/server/ai`     | one interface; `stub` (deterministic, offline) is the only one yet                 |
+| Claude Code plugin       | `clients/claude-code`    | hooks, event outbox, records capture, summary dashboard, MCP server; no build step |
+| Contracts                | `packages/contracts`     | contract version, schemas, signals, records, summary, `redact`, render             |
+| Plugin marketplace       | `.claude-plugin`         | lets Claude Code install the plugin from this repository                           |
+| The factory team's rules | `.a6g`                   | the brief, notes, rubric and adapters the team works to                            |
 
 ## To-do
 
@@ -134,35 +128,26 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 - [x] MongoDB collections, indexes and the vector index, created by `pnpm db:indexes`
 - [x] The memory API: events, recall, frozen, compress, forget (with a preview), save
 - [x] Extraction: what the user says to remember becomes an active memory; anything else is a candidate
-- [x] The Claude Code plugin: local capture, session summaries, review dashboard, redaction, MCP tools, marketplace
+- [x] The Claude Code plugin: event capture, local summaries, review, redaction, MCP tools, marketplace
 - [x] The pages: Overview, Memories, Connect, Audit log
-
-**Summary backend**
-
-- [x] `/v1/auth/device`, `/v1/auth/token`, `/v1/me`: device-code sign-in for the plugin
-- [x] `/v1/projects`: projects and team membership
-- [x] `/v1/events`: approved `session_summary` revisions only, idempotent, author from the token
-- [x] `DELETE /v1/sessions/:id`, `/v1/search`, `/v1/rollups`
-- [x] MongoDB collections for summaries, revisions, projects and the audit log
-- [ ] The web pages read the summary store; Connect issues a plugin sign-in
 
 **Test harness**
 
 - [ ] Playwright suite and page checks (axe, overflow, touch targets) at desktop, laptop and phone, light and dark
 - [ ] End-to-end journeys: sign up, make a key, a session's memory shown, keep a candidate, forget with its cascade
 
-**OpenCode adapter**
+**OpenCode plugin**
 
-- [ ] Verify the real `@opencode-ai/plugin` event names and fields against `adapters/opencode/strata.js`
-- [ ] Install the adapter in a live OpenCode session and confirm a turn becomes a summary
-- [ ] Acceptance through a fake OpenCode host, alongside the Claude Code hook tests
-- [ ] Bundle `@strata/contracts` into the plugin if it adopts the versioned event contract: once installed outside
-      this repository it can't import the workspace package
+- [ ] Verify the real `@opencode-ai/plugin` API against the brief's sketch: hook names, event fields, timeouts,
+      storage, whether a prompt edit shows in the TUI
+- [ ] `.opencode/plugins/memory`: `index.ts`, `api.ts`, `outbox.ts`, `freeze.ts`, `render.ts`, `redact.ts`, `tools.ts`
+- [ ] The OpenCode sandbox (`scripts/oc-sandbox.sh`) and the stub OpenAI-compatible provider on port 9318
+- [ ] Acceptance through a fake plugin host: the same system bytes across requests and restarts; with the API down,
+      prompts go on and the outbox drains with no duplicates
+- [ ] Bundle `@strata/contracts` into the plugin, as the Claude Code client does: once installed outside this
+      repository it can't import the workspace package
 
 **Memory pipeline**
-
-These belong to the memory API. The summary client no longer uses them; decide whether to keep or retire them when the
-backend changes.
 
 - [ ] Jobs on a schedule (`POST /api/jobs/run`): extract > dedupe > embed > summarize > score > policy
 - [ ] Dedupe beyond identical text: near-duplicates, and `supersedes` when a memory replaces another
@@ -172,6 +157,11 @@ backend changes.
 
 **Governance**
 
+- [x] Invite-only accounts; roles (engineer, manager, executive, admin), teams, suspension; the People page and the
+      admins' log of access changes (`pnpm invite <email>` makes the first admin)
+- [ ] Home views by role, over approved records (everyone sees those; private memory stays its owner's): pain points
+      and context gaps for engineers; features and who worked on them for managers; progress for executives. Who,
+      never how much: no counts, rankings or activity about people
 - [ ] Summaries shown and forgettable, with what they were made from
 - [ ] Provenance one click away: the session, the message and the event behind a memory
 - [ ] Memories for every project (`*`) set from the page; editing a memory as a superseding one
@@ -190,8 +180,6 @@ backend changes.
       outbox and copies the signals, so this needs `@strata/contracts` bundled into it first
 
 **Records and review**
-
-The event path drafts records on the server when a session ends; the local summary path still runs beside it.
 
 - [x] A `records` collection: kinds `summary`, `insight`, `workflow`, `pain_point`, `context_gap`; statuses `draft`,
       `approved`, `discarded`; an edited flag; the session and links; the events each record came from
@@ -214,8 +202,8 @@ The event path drafts records on the server when a session ends; the local summa
 
 **Teams and products**
 
-- [ ] Organisations, teams and members, in place of the single `default` organisation
-- [ ] Roles: engineer, viewer (managers and PMs), admin, with a permission filter on every read
+- [ ] Organisations, in place of the single `default` organisation
+- [x] Roles (engineer, manager, exec, admin), teams, invites and suspension, with a permission filter on every read
 - [ ] A `products` collection mapping repositories to products
 - [ ] `/api/products/:id`: the overview, tickets and PRs, and approved records
 
@@ -244,43 +232,36 @@ The event path drafts records on the server when a session ends; the local summa
 
 ## Run it
 
-You need Node 24, pnpm and Docker.
+You need Node 24 and pnpm. Local development runs on the team's MongoDB Atlas cluster, so there's no database to start:
+put its address in `.env.local` at the repository root, once (it's gitignored).
 
 ```sh
 pnpm install
-docker run -d --name strata-mongo -p 127.0.0.1:27017:27017 mongodb/mongodb-atlas-local:8.0
-cp .env.example apps/web/.env.local   # then set MONGODB_URI=mongodb://localhost:27017/strata?directConnection=true
-pnpm db:indexes
-pnpm dev                              # http://localhost:9316 by default (PORT)
+echo 'MONGODB_URI=<the cluster address>' >> .env.local
+pnpm invite you@example.com           # no account yet? prints a sign-up link (an admin's, by default)
+pnpm dev                              # http://localhost:9316 (set PORT in the shell to change it)
 ```
 
-Install the plugin, then open its dashboard with `/strata:dashboard`:
+The app, the scripts and `pnpm test:db` read `.env.local` from `apps/web`, then the repository root, then, in a git
+worktree, the main checkout, so a new worktree runs with nothing to copy; a variable set in the shell wins. The
+cluster is production: `pnpm test:db` works in a throwaway database it removes afterwards, but `pnpm invite` and
+`pnpm db:seed` write to the real one.
+
+Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
+**Connect**: make an API key, install the plugin, and start a Claude Code session.
 
 ```
 /plugin marketplace add Erik-Koning/Strata
 /plugin install strata@strata
 ```
 
-The plugin writes summaries locally, keeps a per-repo overview, and lets you review, edit and link work. Start the app,
-then run `/strata:login` in Claude Code: it opens `/activate`, and after you approve the code the plugin can send
-approved summaries. Settings, sign-in and review live in the dashboard; `STRATA_URL` and `STRATA_HOME` are optional
-environment overrides. More in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
+Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
+plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
 
 ## The API
 
-The web app serves two APIs. The memory API uses contract v1 (versioned events; below). The summary API is what the
-Claude Code plugin uses: [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
-
-| Route                                         | Body / query                    | Answer                                   |
-| --------------------------------------------- | ------------------------------- | ---------------------------------------- |
-| `POST /v1/auth/device`, `POST /v1/auth/token` | `{ client }`, `{ device_code }` | device sign-in; the token is an API key  |
-| `GET /v1/me`, `GET /v1/projects`              |                                 | the person, their projects               |
-| `POST /v1/events`                             | approved `session_summary`      | 201 first, 200 duplicate, `{ ok: true }` |
-| `DELETE /v1/sessions/:id`                     |                                 | retract every revision                   |
-| `GET /v1/search`, `GET /v1/rollups`           | `q`, `projectId`                | teammates' approved summaries            |
-
-The memory API's routes take `Authorization: Bearer <key>` and answer `{ error: { code, message } }` when they fail.
-The scope is `{ project }`; the organisation and the person come from the key.
+Every route takes `Authorization: Bearer <key>` and answers `{ error: { code, message } }` when it fails. The scope
+is `{ project }`; the organisation and the person come from the key.
 
 Every event carries the contract version it was written to (`v`). The contract only grows within a version, and the API
 keeps what it doesn't understand yet rather than refusing it: the rules are in
@@ -296,18 +277,32 @@ keeps what it doesn't understand yet rather than refusing it: the rules are in
 | `POST /api/memory/save`     | `{ scope, text, kind }`                                                  | 201 `{ memory }`                                          |
 | `GET /api/health`           |                                                                          | `{ ok, db, search, contract: { min, max } }`              |
 
+The Claude Code client also uses the summary and review APIs:
+
+| Route                                         | Body / query                    | Answer                                     |
+| --------------------------------------------- | ------------------------------- | ------------------------------------------ |
+| `POST /v1/auth/device`, `POST /v1/auth/token` | `{ client }`, `{ device_code }` | device sign-in; the token is an API key    |
+| `GET /v1/me`, `GET /v1/projects`              |                                 | the person, their projects                 |
+| `POST /v1/events`                             | approved `session_summary`      | 201 first, 200 duplicate, `{ ok: true }`   |
+| `DELETE /v1/sessions/:id`                     |                                 | retract every summary revision             |
+| `GET /v1/search`, `GET /v1/rollups`           | `q`, `projectId`                | approved summaries                         |
+| `GET /api/records`                            | `status`, `kind`, `project`     | records the caller may see                 |
+| `GET/PATCH /api/records/:id`                  | `title`, `text`                 | read or edit a draft                       |
+| `POST /api/records/:id/approve`               |                                 | approve it; insights/workflow go to memory |
+| `POST /api/records/:id/discard`               |                                 | discard it                                 |
+
 ## Develop
 
-| Command                | What it runs                                                       |
-| ---------------------- | ------------------------------------------------------------------ |
-| `pnpm typecheck`       | TypeScript across the web app and contracts                        |
-| `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes            |
-| `pnpm test`            | Unit tests and the client suite: no database, no external network  |
-| `pnpm test:db`         | API and database tests on a database of their own on `MONGODB_URI` |
-| `pnpm test:acceptance` | The client's hooks, CLI and dashboard as real processes            |
-| `pnpm build`           | `next build` (the plugin has no build step)                        |
-| `pnpm db:indexes`      | Every index, the vector index included, idempotently               |
-| `pnpm db:seed`         | Made-up memories for the pages                                     |
+| Command                | What it runs                                                      |
+| ---------------------- | ----------------------------------------------------------------- |
+| `pnpm typecheck`       | TypeScript across the web app and contracts                       |
+| `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes           |
+| `pnpm test`            | Unit tests and the client suite: no database, no external network |
+| `pnpm test:db`         | API, records and database tests on throwaway databases            |
+| `pnpm test:acceptance` | The client's hooks, CLI and dashboard as real processes           |
+| `pnpm build`           | `next build` (the plugin has no build step)                       |
+| `pnpm db:indexes`      | Every index, the vector index included, idempotently              |
+| `pnpm db:seed`         | Made-up memories for a made-up user, on `MONGODB_URI`'s database  |
 
 Embeddings and summaries go through one interface (`apps/web/server/ai/provider.ts`). The default, `stub`, is
 deterministic and offline, so every test runs without a key.

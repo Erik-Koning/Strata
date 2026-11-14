@@ -1,8 +1,10 @@
 // The app's settings, read once from the environment and checked. Every name is in .env.example with no value.
+// The environment comes first, then .env.local (local-env.ts); tests (NODE_ENV=test) get only what they set.
 import { z } from "zod";
+import { localEnv } from "./local-env.ts";
 
 const Settings = z.object({
-  MONGODB_URI: z.string().min(1, "MONGODB_URI is required (the team's is in .a6g/run/env/app.env)"),
+  MONGODB_URI: z.string().min(1, "MONGODB_URI is required: put it in .env.local at the repository root"),
   // A service token with every scope: tests, scripts, the OpenCode sandbox. Optional: people use API keys.
   MEMORY_API_TOKEN: z.string().min(24).optional(),
   MEMORY_AI_PROVIDER: z.enum(["stub", "openai", "anthropic"]).default("stub"),
@@ -23,7 +25,7 @@ let cached: Config | null = null;
 
 export function config(): Config {
   if (cached) return cached;
-  const parsed = Settings.safeParse(process.env);
+  const parsed = Settings.safeParse(process.env.NODE_ENV === "test" ? process.env : { ...localEnv(), ...process.env });
   if (!parsed.success)
     throw new Error(`Settings: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`);
   const env = parsed.data;

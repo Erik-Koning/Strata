@@ -17,7 +17,8 @@
     "test:db": "pnpm --filter @strata/web run test:db",
     "test:acceptance": "pnpm --filter @strata/claude-code run test:acceptance",
     "db:indexes": "pnpm --filter @strata/web run db:indexes",
-    "db:seed": "pnpm --filter @strata/web run db:seed"
+    "db:seed": "pnpm --filter @strata/web run db:seed",
+    "invite": "pnpm --filter @strata/web run invite"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",

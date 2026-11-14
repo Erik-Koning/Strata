@@ -5,16 +5,19 @@ What exists, how the parts talk, and what's next. Every later change reads this 
 ## The shape
 
 ```
-Claude Code ──hooks──▶ clients/claude-code ──▶ local store (queue, summaries, drafts, overview)
+Claude Code ──hooks──▶ clients/claude-code ──▶ local store (events, summaries, drafts, overview)
                           │  └─ claude -p ──▶ one session summary, written locally
-                          └──HTTPS + device token──▶ apps/web /v1 ──▶ MongoDB
-OpenCode    ──adapter─▶ clients/claude-code/adapters/opencode (unverified) ─┘
-apps/web: /api/memory/* (contract v1), /v1 summaries, Better Auth, the web pages
+                          └──HTTPS + device token──▶ apps/web
+                                                      ├─ /api/memory/*  (contract v1)
+                                                      ├─ /api/records   (drafted, reviewed)
+                                                      ├─ /v1/*          (approved summaries)
+                                                      └─▶ MongoDB (atlas-local / Atlas)
+OpenCode    ──adapter─▶ clients/claude-code/adapters/opencode (unverified)
+apps/web pages: Better Auth sessions, Overview, Memories, People, Connect, Audit log
 ```
 
-One deployable (`apps/web`) and one database. Only the API touches MongoDB. The web app serves the memory API and its
-versioned event contract (below), plus the `/v1` summary API the new client targets. `packages/contracts` defines the
-memory event contract; the plugin carries its own summary schema for now.
+One deployable (`apps/web`) and one database. Only the API touches MongoDB. `packages/contracts` defines the memory
+event contract and the record shapes; the plugin carries its own summary schema and an event outbox for now.
 
 ## The data
 
@@ -23,11 +26,14 @@ memory event contract; the plugin carries its own summary schema for now.
 | `memory_events`                              | Raw capture, redacted on the way in, with its contract version; expires after 30 days       | `id` unique (the idempotency key), TTL          |
 | `memories`                                   | `scope{org,project,user}`, kind, text, embedding, provenance, trust, confidence, status     | scope+status, text index, vector index, textKey |
 | `memory_summaries`                           | Rollups made at a compaction, with the `sourceIds` they came from                           | sessionID, sourceIds                            |
-| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what                                         | ts                                              |
+| `memory_audit`                               | Who saved, forgot, compressed, made or revoked what; invites, roles, suspensions, teams     | ts, actor, targetIds, action                    |
 | `api_keys`                                   | A person's keys: name, prefix, SHA-256 only, last used, last client                         | hash unique                                     |
-| `projects`, `project_members`                | The summary API's projects and who belongs to them; one personal default per person         | one default per user, membership unique         |
-| `summary_revisions`                          | Approved session summaries, one document per revision; the highest is current               | idempotency, (user, session, revision), project |
+| `members`                                    | A person's role (engineer, manager, exec, admin) and whether they're suspended              | `_id` is the account id                         |
+| `teams`                                      | A name, its members and its managers                                                        | name unique (any case), memberIds, managerIds   |
+| `invites`                                    | Email, role, teams, SHA-256 of the token, expiry, who made it, when it was used             | hash unique, email                              |
 | `records`                                    | Drafted summaries, insights, workflow findings, pain points and gaps; approved or discarded | author/status, session, dedupe key              |
+| `projects`, `project_members`                | The `/v1` summary API's projects; one personal default per person                           | one default per user, membership unique         |
+| `summary_revisions`                          | Approved session summaries, one document per revision; the highest is current               | idempotency, (user, session, revision), project |
 | `deviceCode`                                 | Better Auth's device-authorization codes for `/strata:login`                                | Better Auth's own                               |
 | `user`, `session`, `account`, `verification` | Better Auth                                                                                 | Better Auth's own                               |
 
@@ -39,15 +45,42 @@ Recall uses it where it's ready and the text index otherwise.
 
 ## Who's who
 
-- **People** sign up with an email and a password (Better Auth). A session cookie, `strata.session_token`. Each
-  person sees and governs only their own memory.
-- **Memory clients** send an API key made on the Connect page (`am_…`, shown once, kept as a SHA-256). A key covers
-  its own person in the one organisation (`default`) and any project; naming another person or organisation is a 403.
-  The summary client uses a device-code sign-in and a bearer token from `/v1/auth/*`.
+- **People** get an account only from an invite link (`/sign-up?invite=inv_…`): an admin makes one on the People page,
+  for an email, a role and teams; the first admin's comes from `pnpm invite <email>`, which only someone holding the
+  database's credentials can run. A link works once, for that email, for 7 days; only its SHA-256 is kept. Better
+  Auth's own sign-up route is closed to HTTP (`disabledPaths`), and a database hook refuses any account no open invite
+  was made for. A session cookie, `strata.session_token`, after that.
+- **Visibility into the work, not the worker** (`server/access.ts`, from `docs/about.html`):
+  - **Private stays private.** A person's memories, events, summaries and draft records are theirs alone. No role,
+    admins included, reads them.
+  - **Approved records are for everyone with access.** A person's approval is what shares a record; after that, every
+    member of the organisation can see it.
+  - **A role decides what a person's home view leads with**, not what they may see:
+
+    | Role      | Home view leads with                                                            |
+    | --------- | ------------------------------------------------------------------------------- |
+    | Engineer  | Pain points and context gaps in their products                                  |
+    | Manager   | The teams they manage: features and who worked on them, from approved summaries |
+    | Executive | Progress and updates across every product                                       |
+    | Admin     | Progress, and the People page: people, roles, teams and invitations             |
+
+  - **Who, never how much.** Views show who worked on an area, never counts, rankings or comparisons of people, and
+    no activity: no time, no last-seen, no prompt history. The People page shows who has access, not when they last
+    used it; the admins' audit log shows changes to access, not what anyone did in their own memory.
+
+  Only someone whose role is Manager can manage a team. An install always keeps one admin who can act: the last one
+  can't be demoted or suspended, and no one can suspend themselves.
+- **Suspending** someone ends their sessions, revokes their API keys and stops them signing in until an admin restores
+  them; restoring doesn't bring the keys back.
+- **Every check is on the server**: admin pages answer 404 to anyone else, and every admin server action checks the
+  caller again, whatever the page showed. Every change to access is in the audit log, and a person sees any change an
+  admin made to theirs.
+- **Clients** send an API key made on the Connect page (`am_…`, shown once, kept as a SHA-256). A key covers its own
+  person in the one organisation (`default`) and any project; naming another person or organisation is a 403.
 - **The service token** (`MEMORY_API_TOKEN` in the app's environment) covers every scope: tests, scripts, the
   OpenCode sandbox.
 
-## How memory is made (the memory API)
+## How memory is made
 
 1. A client sends events (`prompt`, `assistant`, `tool`, `transcript`, `session`, `event`, `finding`). The API checks
    each on its own, stores each once and redacts it again. What each kind carries is below, under the contract.
@@ -78,13 +111,7 @@ engineer's own Claude folds each turn into one summary, and only the approved su
 
 Events go to a durable outbox (`events/`), one file each, stamped `v: 1`; a detached flusher sends them in batches
 and deletes only what the server accepted. `events/` is separate from the local summary store, so either path can
-fail without losing the other.
-
-**How a summary is made.** `summarize.mjs` runs `claude -p` with a small model, no tools, no MCP, no slash commands,
-no session persistence, its own empty working directory and a budget cap. The new work is fenced between random
-`BEGIN`/`END` lines so prompt text cannot instruct the model. The reply must be one JSON object; `schema.mjs` then
-enforces the field limits and strips tags, code fences, long inline code and secrets no matter what the model said.
-Raw queue files are deleted on success, after three attempts, or after three days. A daily cap stops runaway cost.
+fail without losing the other. Proven by `pnpm test:acceptance` (the hooks as real processes).
 
 ## The contract, and how it changes
 
@@ -115,7 +142,8 @@ day. The rules:
    change.
 
 `parseEvent` applies rules 1 to 7, and both sides use it. The example events (`@strata/contracts/examples`) are one of
-each kind as a version-1 client writes them: the contract's tests and the API's tests accept them all.
+each kind as a version-1 client writes them: the contract's tests and the API's tests accept them all. The plugin
+emits v1 events and its tests check their shape; a shared `parseEvent` test waits on bundling the contracts into it.
 
 | Kind         | Payload                                                                                                     |
 | ------------ | ----------------------------------------------------------------------------------------------------------- |
@@ -143,39 +171,21 @@ later, against the projects an organisation actually has.
 
 ## Drafting, and what's kept
 
-Decided on 14 November 2026: **session records are drafted on the server**, from the redacted text the plugin already
-sends, and a draft is visible to its author alone until they approve it. Once a session is drafted, the text of its
-prompts, replies and transcripts is deleted; until drafting exists, the 30-day TTL on `memory_events` is what limits
-it. The promise to the people whose sessions these are is "nothing is shared without your review", not "nothing
-leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees anything until
-its author approves it.
-
-The plugin now emits the events this section describes, and `apps/web/server/records/draft.ts` drafts records when a
-session ends. It also keeps the local summary path with `claude -p`; the two run side by side until the summary path
-is retired. The Anthropic drafting provider is still the stub, so `draftRecords` is deterministic for now.
-
-**The approval gate.** `records.mjs` keeps `session.json`, `summary.json`, `review.json` and `upload.json` per session;
-one writer per file and short locks keep the hooks, summarizer, syncer and dashboard from overwriting each other.
-Status moves `summarizing → needs-link → draft/updated → ready → synced`, with `rejected` and `local` beside it. A
-summary needs a Jira key, a PR, or an explicit "no ticket", and an approval of the exact revision, before it is sent.
-
-**What the client needs from the backend.** The `/v1` contract is in `clients/claude-code/docs/api-contract.md`:
-device-code auth, projects and membership, `POST /v1/events` for approved `session_summary` revisions,
-`DELETE /v1/sessions/:id` to retract, and `GET /v1/search` / `GET /v1/rollups` for teammates' approved summaries.
-The event path uses `POST /api/memory/events` (contract v1) and `GET/PATCH /api/records`, `POST /api/records/:id/approve`
-and `/discard`. `apps/web` implements all of it; the mock server covers both surfaces for the plugin's tests, and the
-`*.db.test.ts` files cover the server.
+Decided on 14 November 2026: **session records are drafted on the server**, from the redacted text the plugin sends,
+and a draft is visible to its author alone until they approve it. `server/records/draft.ts` runs when a session's end
+event arrives: it builds the records, dedupes them by text, and clears the text of that session's prompt, reply and
+transcript events. The promise to the people whose sessions these are is "nothing is shared without your review",
+not "nothing leaves your machine": secrets are redacted on the machine and again on the server, and nobody else sees
+anything until its author approves it. The provider is the deterministic stub today; the Anthropic drafter is next.
 
 ## The OpenCode adapter
 
 `clients/claude-code/adapters/opencode/strata.js` maps opencode events (`session.created`, `message.updated`,
-`session.idle`, `session.compacted`, `session.deleted`) onto the same hook entrypoint, so capture, redaction,
-summarizing, review and sync are shared. The event names are unverified against a live opencode and are the first thing
-to check. The Claude Code client is the reference for behaviour.
+`session.idle`, `session.compacted`, `session.deleted`) onto the same hook entrypoint. The event names are unverified
+against a live opencode and are the first thing to check. The Claude Code client is the reference for behaviour.
 
 ## Running it
 
 The team's environment (`.a6g/adapters/env.sh`): the app on 9316, MongoDB (`mongodb/mongodb-atlas-local:8.0`) on 9317,
-the stub provider (`MEMORY_AI_PROVIDER=stub`). `pnpm test:acceptance` runs the client's hooks, CLI and dashboard as
-real processes against its mock server. Production: one container of `apps/web` and MongoDB Atlas (vector and text
-search are Atlas features). A Dockerfile and CI are still to write.
+the stub provider (`MEMORY_AI_PROVIDER=stub`). Production: one container of `apps/web` and MongoDB Atlas (vector and
+text search are Atlas features). A Dockerfile and CI are still to write.
