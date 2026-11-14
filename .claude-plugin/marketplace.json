@@ -1,0 +1,12 @@
+{
+  "name": "strata",
+  "description": "Strata's clients for coding agents.",
+  "owner": { "name": "Strata" },
+  "plugins": [
+    {
+      "name": "strata",
+      "source": "./clients/claude-code",
+      "description": "Long-term memory for Claude Code, without breaking the prompt cache."
+    }
+  ]
+}

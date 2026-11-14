@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+/* Strata. A ledger of what agents should remember: graphite paper, one jade accent for what's live and
+   trusted, amber for what's only a candidate. IBM Plex for an engineered, readable voice; Plex Mono wherever the
+   exact bytes matter. */
+:root {
+  --bg: #f3f4f1;
+  --surface: #ffffff;
+  --surface-2: #eceee9;
+  --sunk: #e6e8e3;
+  --ink: #111614;
+  --ink-2: #3b4541;
+  --ink-3: #5f6a66;
+  --line: rgb(17 22 20 / 10%);
+  --line-strong: rgb(17 22 20 / 18%);
+  --accent: #0a7558;
+  --accent-hover: #086247;
+  --accent-ink: #ffffff;
+  --accent-soft: #dcefe7;
+  --accent-text: #08634a;
+  --amber: #9a5800;
+  --amber-soft: #f6ead8;
+  --danger: #b42318;
+  --danger-soft: #fbe5e2;
+  --focus: #0a7558;
+  --shadow: 0 1px 0 rgb(17 22 20 / 4%), 0 8px 24px -16px rgb(17 22 20 / 18%);
+  --rule: rgb(17 22 20 / 6%);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0e0d;
+    --surface: #121715;
+    --surface-2: #171d1b;
+    --sunk: #0e1211;
+    --ink: #e8eeeb;
+    --ink-2: #b3bfba;
+    --ink-3: #8a9792;
+    --line: rgb(232 238 235 / 9%);
+    --line-strong: rgb(232 238 235 / 16%);
+    --accent: #37d39f;
+    --accent-hover: #5fe0b5;
+    --accent-ink: #03140e;
+    --accent-soft: rgb(55 211 159 / 13%);
+    --accent-text: #5fe0b5;
+    --amber: #f0b04d;
+    --amber-soft: rgb(240 176 77 / 12%);
+    --danger: #ff7b6f;
+    --danger-soft: rgb(255 123 111 / 12%);
+    --focus: #5fe0b5;
+    --shadow: 0 1px 0 rgb(0 0 0 / 30%), 0 12px 32px -18px rgb(0 0 0 / 70%);
+    --rule: rgb(232 238 235 / 5%);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-sunk: var(--sunk);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+::selection {
+  background: var(--accent-soft);
+}
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@layer components {
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 120ms ease, border-color 120ms ease, transform 80ms ease;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--accent);
+    border-color: transparent;
+    color: var(--accent-ink);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+  .btn-danger {
+    background: var(--danger);
+    border-color: transparent;
+    color: #fff;
+  }
+  .btn-danger:hover {
+    background: color-mix(in srgb, var(--danger) 88%, black);
+  }
+  .btn-quiet {
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-2);
+  }
+  .btn-quiet:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .btn-sm {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: 8px;
+  }
+  .input {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 15px;
+  }
+  .input::placeholder {
+    color: var(--ink-3);
+  }
+  textarea.input {
+    padding: 10px 12px;
+    min-height: 96px;
+    resize: vertical;
+  }
+  .label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-2);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    padding: 0 8px;
+    border-radius: 7px;
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .chip-mono {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 400;
+  }
+  .status-active {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+  }
+  .status-candidate {
+    background: transparent;
+    color: var(--amber);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 55%, transparent);
+    border: 0;
+  }
+  .status-archived,
+  .status-superseded {
+    background: transparent;
+    color: var(--ink-3);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .dot-hollow {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px currentColor;
+  }
+  .ledger {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 22px;
+    background-color: var(--sunk);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 21px, var(--rule) 21px 22px);
+    background-position: 0 10px;
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .kbd {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

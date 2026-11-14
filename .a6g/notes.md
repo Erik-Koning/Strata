@@ -3,9 +3,10 @@
 <!-- What any member needs to know to work in this repository: the team's environment and ports, the commands that
 matter, conventions and traps. Facts about rules (limits, lanes, policies) live in team.json, not here. -->
 
-Nothing was built when the team was set up. `brief.md` holds the goal and the foundation (what the operator fixed,
-what the team proposes); the scaffolder builds the skeleton to the contract below and records the design in
-`docs/architecture.md`, which every later member reads first once it exists.
+The product is **Strata**. The skeleton exists: read `docs/architecture.md` first, then the operator's decisions at
+the end of `brief.md`. Workspace: `apps/web` (`@strata/web`: the API, Better Auth, the pages), `packages/contracts`
+(`@strata/contracts`), `clients/claude-code` (`@strata/claude-code`: the Claude Code plugin; `dist/` is built by
+`pnpm build` and committed, so rebuild it with any change to its `src/`). The OpenCode plugin is still to build.
 
 ## The team's environment (`a6g env up`, planner only)
 

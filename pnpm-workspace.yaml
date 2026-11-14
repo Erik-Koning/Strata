@@ -1,0 +1,8 @@
+packages:
+  - apps/*
+  - packages/*
+  - clients/*
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - lucide-react@1.73.0

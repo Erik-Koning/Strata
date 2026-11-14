@@ -1,0 +1,19 @@
+{
+  "name": "@strata/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The wire shapes both sides share, and the two pure functions both must agree on: redaction and rendering.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./redact": "./src/redact.ts",
+    "./render": "./src/render.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  }
+}

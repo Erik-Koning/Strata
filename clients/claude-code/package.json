@@ -1,0 +1,18 @@
+{
+  "name": "@strata/claude-code",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Strata for Claude Code: a plugin that captures sessions, injects recalled memory without breaking the prompt cache, and gives Claude memory tools.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run",
+    "test:acceptance": "vitest run --config vitest.acceptance.config.ts"
+  },
+  "devDependencies": {
+    "@strata/contracts": "workspace:*",
+    "esbuild": "0.28.2",
+    "vitest": "5.1.0"
+  }
+}

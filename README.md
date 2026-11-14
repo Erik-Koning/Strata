@@ -1,85 +1,81 @@
-# Agentic Memory
+# Strata
 
-We need to make opencode extension, latest version, backend full stack nextjs app, MongoDB connected for agentic memory! 
+Long-term memory for coding agents. Strata captures what happens in your Claude Code sessions, keeps what's worth
+remembering, and gives it back to the next session without breaking the prompt cache. Compacted summaries sit on top,
+so a long history stays small.
 
-# opencode-memory: OpenCode V2 plugin
+- **The web app** (`apps/web`): the API every client talks to, the only thing that touches MongoDB, and the place you
+  see what's remembered, keep or forget it, and connect your clients. Next.js 16, Better Auth, MongoDB.
+- **The Claude Code plugin** (`clients/claude-code`): hooks that capture each session into a durable outbox, give
+  Claude a frozen block of memory when a session starts, recall what matches each prompt, and three tools
+  (`memory_search`, `memory_save`, `memory_forget`).
+- **The contracts** (`packages/contracts`): every wire shape (zod), and the two pure functions both sides must agree
+  on, redaction and rendering.
+- **The OpenCode plugin** (`.opencode/plugins/memory`): next, on the same API. See `.a6g/brief.md`.
 
-GOAL
-Thin V2 server plugin: capture session activity, send it to our web app API, inject recalled memory without breaking prompt cache. Only the API touches MongoDB.
+## The rule everything follows
 
-RULES
-1. Cache: bytes already sent in a session never change.
- - Frozen block: fetched once per session, persisted in ctx.storage, pushed as LAST system entry, byte-identical every request. Render sorted by _id, no timestamps. On fetch failure or existing history: freeze empty.
- - Per-turn recall is appended only to the new prompt text. Never edit system, old messages or tool list mid-session.
- - Re-fetch frozen block only in the compaction hook (cache rebuilds there).
-2. Network only in prompt (800ms, fail open) and compaction (5s, else default). context reads ctx.storage only.
-3. Writes go through a durable outbox with idempotency keys.
-4. Redact secrets before enqueue and again on server. Token from env.
+**Bytes already sent in a session never change.** The frozen block is fetched once when a session starts, rendered
+sorted by id with no timestamps, and kept byte for byte until the session compacts. Each prompt's recall is added to
+that prompt only. Nothing already sent is edited. So the provider's prompt cache holds, turn after turn.
 
-FILES .opencode/plugins/memory/
-index.ts, api.ts, outbox.ts (ctx.storage "ob:<ulid>", batch, backoff), freeze.ts ("fz:<sessionID>"), render.ts, redact.ts, tools.ts (memory_search/save/forget)
+The other rules: a prompt never waits more than 800 ms for memory, and goes ahead without it. Every capture goes
+through an outbox, keyed so a retry never stores anything twice. Secrets are redacted before anything is queued, and
+again on the server. Only what you said in your own turn becomes an active memory on its own. Anything else is a
+candidate until you keep it.
 
-index.ts
-import { Plugin } from "@opencode/plugin"
-export default Plugin.define({
- id: "memory",
- async setup(ctx) {
-  const api = makeApi(ctx.options)
-  const ob = makeOutbox(ctx.storage, api)
-  const fz = makeFreeze(ctx.storage, api)
-  await ctx.session.hook("prompt", async (e) => {
-   await fz.ensure(e.sessionID)
-   const hits = await api.recall(e.sessionID, e.prompt.text, 800)
-   if (hits.length) e.prompt.text += "\n\n<memory>\n" + render(hits) + "\n</memory>"
-  })
-  await ctx.session.hook("context", async (e) => {
-   const b = await fz.get(e.sessionID) // no network
-   if (b) e.system.push({ type: "text", text: b })
-  })
-  await ctx.session.hook("compaction", async (e) => {
-   ob.enqueue({ kind: "transcript", sessionID: e.sessionID, messages: e.messages })
-   const s = await api.compress(e.sessionID, e.messages, 5000)
-   if (s) e.result = { summary: s }
-   await fz.refresh(e.sessionID)
-  })
-  await ctx.tool.hook("execute.after", (e) =>
-   ob.enqueue({ kind: "tool", tool: e.tool, status: e.status }))
-  await ctx.tool.transform((ed) => registerTools(ed, api))
-  const ac = new AbortController()
-  void (async () => {
-   for await (const ev of ctx.event.subscribe({ types: MSG_TYPES, signal: ac.signal }))
-    ob.enqueue({ kind: "event", ev })
-  })()
-  const t = setInterval(() => ob.flush(), 5000)
-  return () => { ac.abort(); clearInterval(t) }
- },
-})
+## Run it
 
-API
-POST /memory/events {batch:[{id,sessionID,scope,kind,payload,ts}]} -> 202, dedupe on id
-POST /memory/recall {sessionID,scope,query,k} -> {memories:[{_id,kind,text}]}
-GET /memory/frozen ?sessionID&scope -> {memories}
-POST /memory/compress {sessionID,messages} -> {summary}
-POST /memory/forget {ids|query,scope}, cascades to summaries
+You need Node 24, pnpm and Docker.
 
-MONGO
-memory_events: raw, unique id, TTL
-memories: scope{org,project,user}, kind, text, embedding, provenance{sessionID,messageID,source}, trust, confidence, status(candidate|active|superseded|archived), supersedes, expiresAt
-memory_summaries: rollups, sourceIds[]
-memory_audit: actor, action, targetIds, ts
-Indexes: vector on embedding filtered by scope+status; text on text
+```sh
+pnpm install
+docker run -d --name strata-mongo -p 127.0.0.1:27017:27017 mongodb/mongodb-atlas-local:8.0
+cp .env.example apps/web/.env.local   # then set MONGODB_URI=mongodb://localhost:27017/strata?directConnection=true
+pnpm db:indexes
+pnpm dev                              # http://localhost:9316 by default (PORT)
+```
 
-BUILD ORDER
-1 schemas + API stubs 2 outbox + capture + ingest 3 freeze + context inject 4 prompt recall 5 compaction 6 tools 7 workers: extract > dedupe > embed > summarize > score > policy 8 governance UI + forget cascade
+Create an account, then open **Connect**: make an API key, install the plugin, and start a Claude Code session.
 
-VERIFY IN SOURCE FIRST
-- hook event field names (sessionID, messages)
-- do prompt.text edits show in the TUI? if so use a hidden part
-- event type names for MSG_TYPES; hook timeouts
-- editor.add input schema, execute return shape
+```
+/plugin marketplace add Erik-Koning/Strata
+/plugin install strata@strata
+```
 
-ACCEPTANCE
-- cache-read tokens do not drop after turn 2
-- system bytes identical across requests and restart
-- API down: prompts proceed, outbox drains later, no dupes
-- only user-turn content auto-promotes to active
+Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
+plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+
+## The API
+
+Every route takes `Authorization: Bearer <key>` and answers `{ error: { code, message } }` when it fails. The scope
+is `{ project }`; the organisation and the person come from the key.
+
+| Route                       | Body                                                       | Answer                                          |
+| --------------------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `POST /api/memory/events`   | `{ batch: [{ id, sessionID, scope, kind, payload, ts }] }` | 202 `{ accepted, duplicates }`, deduped on `id` |
+| `POST /api/memory/recall`   | `{ sessionID, scope, query, k }`                           | `{ memories: [{ _id, kind, text }] }`           |
+| `GET /api/memory/frozen`    | `?sessionID&project`                                       | `{ memories }`, the same for the same data      |
+| `POST /api/memory/compress` | `{ sessionID, scope, messages }`                           | `{ summary }`                                   |
+| `POST /api/memory/forget`   | `{ scope, ids \| query, dryRun? }`                         | what went: memories, summaries, events          |
+| `POST /api/memory/save`     | `{ scope, text, kind }`                                    | 201 `{ memory }`                                |
+| `GET /api/health`           |                                                            | `{ ok, db, search }`                            |
+
+## Develop
+
+| Command                | What it runs                                                         |
+| ---------------------- | -------------------------------------------------------------------- |
+| `pnpm typecheck`       | TypeScript across the workspace                                      |
+| `pnpm lint`            | Biome (lint and format), read-only. `pnpm format` fixes              |
+| `pnpm test`            | Unit tests: no database, no network                                  |
+| `pnpm test:db`         | API and database tests on a database of their own on `MONGODB_URI`   |
+| `pnpm test:acceptance` | The plugin's hooks as real processes against a fake API              |
+| `pnpm build`           | The plugin's bundles (`clients/claude-code/dist`), then `next build` |
+| `pnpm db:indexes`      | Every index, the vector index included, idempotently                 |
+| `pnpm db:seed`         | Made-up memories for the pages                                       |
+
+Embeddings and summaries go through one interface (`apps/web/server/ai/provider.ts`). The default, `stub`, is
+deterministic and offline, so every test runs without a key. How it fits together: [`docs/architecture.md`](docs/architecture.md).
+
+Built by an [Anything Factory](https://github.com/Erik-Koning/Anything-Factory) team; its rules and brief are in
+`.a6g/`.

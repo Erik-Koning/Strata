@@ -89,6 +89,22 @@ ACCEPTANCE
 - API down: prompts proceed, outbox drains later, no dupes
 - only user-turn content auto-promotes to active
 
+## The operator's decisions, 2026-11-14
+
+These come after everything above and win where they differ.
+
+- **The product is called Strata.** The GitHub repository is `Erik-Koning/Strata`; the team's name and folders keep
+  `agentic-memory`.
+- **A Claude Code client, alongside the OpenCode plugin:** `clients/claude-code`, a Claude Code plugin (hooks, an MCP
+  server for the three tools, a marketplace at the repository's root). It is built and tested; it's the reference for
+  how a client keeps the cache rules. The OpenCode plugin is still to build, on the same API and contracts.
+- **People have accounts** (Better Auth, email and password) and **API keys** made on the Connect page. Each person
+  governs their own memory. This replaces the proposal of one admin role signing in with a token.
+- **The foundation is agreed:** the operator asked for the scaffold (auth, the MongoDB connection, the API, the Claude
+  Code client) and it was built to `docs/architecture.md`, which the team keeps true. There is no design check-in to
+  hold (`operator.designCheckIn` is off); features start from here.
+- **The operator pushes to GitHub themselves.** The team still pushes nothing (`push: null`).
+
 ## How done is proven
 
 `.a6g/adapters/finish.sh done` (team.json `finish`), all of it together:

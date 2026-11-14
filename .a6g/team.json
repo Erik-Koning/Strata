@@ -1,12 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/Erik-Koning/Anything-Factory/main/schema/team.schema.json",
   "name": "agentic-memory",
-  "title": "Agentic Memory",
+  "title": "Strata",
   "factory": "0.8.2",
   "owner": "erik@ridenet.ca",
   "operator": {
     "technical": true,
-    "designCheckIn": true
+    "designCheckIn": false
   },
   "branch": "a6g/next",
   "base": "main",
