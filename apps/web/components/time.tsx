@@ -1,5 +1,6 @@
 "use client";
-// A time as people read it ("3 h ago"), with the exact time, in the viewer's zone, on hover or focus.
+// A time as people read it ("3 h ago"), with the exact time, in the viewer's zone, on hover or focus. The first render
+// formats the exact time on the server, in the server's locale, so it may differ from the browser's until the effect runs.
 import { useEffect, useState } from "react";
 
 function relative(then: number, now: number): string {
@@ -25,7 +26,9 @@ export function Ago({ at, className }: { at: string; className?: string }) {
   const exact = new Date(at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   return (
     <time dateTime={at} title={exact} className={className} suppressHydrationWarning>
-      <span aria-hidden={now !== null}>{now === null ? exact : relative(then, now)}</span>
+      <span aria-hidden={now !== null} suppressHydrationWarning>
+        {now === null ? exact : relative(then, now)}
+      </span>
       {now === null ? null : <span className="sr-only">{exact}</span>}
     </time>
   );
