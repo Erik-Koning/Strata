@@ -51,6 +51,7 @@ async function fake(handoff) {
         method: req.method,
         url: req.url,
         auth: req.headers.authorization,
+        session: req.headers["x-strata-session"] ?? null,
         body: raw ? JSON.parse(raw) : null,
       });
       res.setHeader("content-type", "application/json");
@@ -157,6 +158,23 @@ describe("the Relay tools", () => {
     const answer = await callRelayTool("strata_handoff_claim", { handoffId: "b".repeat(24) }, deps(api.url, a));
     assert.equal(answer.isError, true);
     assert.ok(!api.seen.some((s) => s.url.endsWith("/claim")));
+  });
+
+  it("name the reading session when they fetch a handoff to resume, and nothing when there's none", async () => {
+    const { a } = repos();
+    const api = await fake({ _id: "a".repeat(24), testCommands: [], repo: repoState(a) });
+    const path = `/api/handoffs/${"a".repeat(24)}/resume`;
+    await callRelayTool(
+      "strata_handoff_get",
+      { handoffId: "a".repeat(24) },
+      { ...deps(api.url, a), sessionID: "sess-9" },
+    );
+    await callRelayTool("strata_handoff_get", { handoffId: "a".repeat(24) }, deps(api.url, a));
+    const gets = api.seen.filter((s) => s.url === path);
+    assert.deepEqual(
+      gets.map((g) => g.session),
+      ["sess-9", null],
+    );
   });
 
   it("say how to sign in when it isn't", async () => {

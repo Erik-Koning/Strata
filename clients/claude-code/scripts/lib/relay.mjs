@@ -136,7 +136,7 @@ function checkTransport(base) {
   throw new RelayError(0, `refusing to send credentials to ${url.origin} over plain http; use https`);
 }
 
-async function call(deps, method, path, body) {
+async function call(deps, method, path, body, extraHeaders = {}) {
   checkTransport(deps.apiUrl);
   const response = await fetch(`${deps.apiUrl}${path}`, {
     method,
@@ -144,6 +144,7 @@ async function call(deps, method, path, body) {
     headers: {
       authorization: `Bearer ${deps.token}`,
       "x-memory-client": CLIENT,
+      ...extraHeaders,
       ...(body === undefined ? {} : { "content-type": "application/json" }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -388,7 +389,14 @@ export async function callRelayTool(name, args, deps) {
       };
     }
     case "strata_handoff_get": {
-      const resume = await call(deps, "GET", `/api/handoffs/${handoffId}/resume`);
+      // The server's audit names which session retrieved which shared memories.
+      const resume = await call(
+        deps,
+        "GET",
+        `/api/handoffs/${handoffId}/resume`,
+        undefined,
+        deps.sessionID ? { "x-strata-session": deps.sessionID } : {},
+      );
       const check = checkRepo(deps.cwd, resume.handoff);
       const excluded = resume.excluded?.length
         ? `\nShared memories no longer available (not returned): ${resume.excluded.map((e) => `${e._id} (${e.reason})`).join(", ")}`

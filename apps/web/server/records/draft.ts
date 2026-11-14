@@ -165,17 +165,17 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
   );
 
   // A finding the agent or engineer logged live is already a record: carry it through with the drafted ones.
-  const findings: DraftRecord[] = undrafted
+  const findings: (DraftRecord & { eventId?: string })[] = undrafted
     .filter((event) => event.known && event.kind === "finding")
     .flatMap((event) => {
       const type = typeof event.payload.type === "string" ? event.payload.type : "";
       const kind = FINDING_KINDS[type as keyof typeof FINDING_KINDS];
       const text = textOf(event);
       if (!kind || !text.trim()) return [];
-      return [{ kind, text, refs: asRefs(event.payload.refs) }];
+      return [{ kind, text, refs: asRefs(event.payload.refs), eventId: event.id }];
     });
 
-  const drafts = [
+  const drafts: (DraftRecord & { eventId?: string })[] = [
     ...findings,
     ...(await provider().draftRecords({
       sessionID,
@@ -206,7 +206,10 @@ async function draftUnclaimed(scope: Scope, sessionID: string): Promise<{ create
         text,
         textKey,
         refs: draft.refs?.length ? asRefs(draft.refs) : refs,
-        eventIds: sessionEvents.map((event) => event.id),
+        // A finding's own event first: the memory its approval makes names it as where it came from.
+        eventIds: draft.eventId
+          ? [draft.eventId, ...sessionEvents.map((event) => event.id).filter((id) => id !== draft.eventId)]
+          : sessionEvents.map((event) => event.id),
         edited: false,
         createdAt: now,
         updatedAt: now,

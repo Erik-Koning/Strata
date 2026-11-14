@@ -4,7 +4,7 @@
 import type { ForgetResponse, Scope } from "@strata/contracts";
 import { ObjectId } from "mongodb";
 import { audit } from "../audit.ts";
-import { type AuditDoc, events, memories, summaries } from "../collections.ts";
+import { type AuditDoc, events, memories, records, summaries } from "../collections.ts";
 
 export interface ForgetInput {
   actor: AuditDoc["actor"];
@@ -46,13 +46,30 @@ export async function forget(input: ForgetInput): Promise<ForgetResponse> {
     summaries().deleteMany(summaryFilter),
     events().deleteMany({ id: { $in: eventIds }, "scope.user": input.owner.user }),
   ]);
+  // An approved record whose memory is forgotten would still show the same words to everyone (records/routes.ts):
+  // it's withdrawn too, as discarding it would, and stays visible to its author only.
+  const now = new Date();
+  const withdrawn = await records().updateMany(
+    {
+      "scope.org": input.owner.org,
+      "scope.user": input.owner.user,
+      memoryId: { $in: targets.map((t) => t._id) },
+      status: "approved",
+    },
+    { $set: { status: "discarded", approvedAt: null, updatedAt: now } },
+  );
   const result = { dryRun: false, ids, memories: m.deletedCount, summaries: s.deletedCount, events: e.deletedCount };
   await audit({
     actor: input.actor,
     action: "memory.forget",
     targetIds: ids,
     scope: input.owner,
-    detail: { by: input.ids?.length ? "ids" : "query", summaries: result.summaries, events: result.events },
+    detail: {
+      by: input.ids?.length ? "ids" : "query",
+      summaries: result.summaries,
+      events: result.events,
+      recordsWithdrawn: withdrawn.modifiedCount,
+    },
   });
   return result;
 }

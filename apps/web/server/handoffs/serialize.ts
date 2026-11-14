@@ -60,7 +60,12 @@ export function toSharedMemory(m: MemoryDoc, correctionOf: string | null = null)
     project: m.scope.project,
     trust: m.trust,
     createdAt: m.createdAt.toISOString(),
-    provenance: { sessionID: m.provenance?.sessionID ?? null, source: m.provenance?.source ?? "unknown" },
+    provenance: {
+      sessionID: m.provenance?.sessionID ?? null,
+      source: m.provenance?.source ?? "unknown",
+      eventId: m.provenance?.eventId ?? null,
+      recordId: m.provenance?.recordId ?? null,
+    },
     correctionOf,
   };
 }

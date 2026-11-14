@@ -21,6 +21,10 @@ export interface RecordView {
   createdAt: string;
   updatedAt: string;
   approvedAt: string | null;
+  // The memory approving this record made (insights and workflow findings only), so a reviewed record and the memory a
+  // handoff shares can be matched by id. Null until an approval made one; after an edit or a discard it still names
+  // that memory, which is retired by then.
+  memoryId: string | null;
 }
 
 export const RecordUpdate = z

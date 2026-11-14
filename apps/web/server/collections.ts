@@ -65,7 +65,9 @@ export interface MemoryDoc {
     sessionID: string | null;
     messageID: string | null;
     eventId: string | null;
-    source: "prompt" | "assistant" | "tool" | "compaction" | "manual" | "seed";
+    // "record": made by approving a reviewed record (records/routes.ts), which `recordId` names.
+    source: "prompt" | "assistant" | "tool" | "compaction" | "manual" | "seed" | "record";
+    recordId?: string | null;
   };
   trust: TrustLevel;
   confidence: number;

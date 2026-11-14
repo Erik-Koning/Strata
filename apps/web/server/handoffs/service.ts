@@ -268,9 +268,13 @@ export async function approveHandoff(c: Caller, id: string, body: ApproveHandoff
       "bad_memory",
       `Memory ${bad} isn't one of your active memories in ${doc.project}, so it can't be shared.`,
     );
-  const after = await apply(doc, entry(c, "approved", { recipient: recipient.id, memories: ids.length }, now), {
-    set: { status: "approved", recipient, memoryIds: ids.map((m) => new ObjectId(m)), approvedAt: now },
-  });
+  const after = await apply(
+    doc,
+    entry(c, "approved", { recipient: recipient.id, memories: ids.length, memoryIds: ids }, now),
+    {
+      set: { status: "approved", recipient, memoryIds: ids.map((m) => new ObjectId(m)), approvedAt: now },
+    },
+  );
   await record(c, "handoff.approve", after, { recipient: recipient.id, memoryIds: ids });
   return toHandoff(after);
 }
@@ -349,7 +353,9 @@ async function activeReplacement(
   return null;
 }
 
-export async function resumeHandoff(c: Caller, id: string): Promise<ResumeResponse> {
+// `sessionID` is the reading session's, when its client says (the plugin sends its active Claude Code session): the
+// audit entry then names which session retrieved which memories.
+export async function resumeHandoff(c: Caller, id: string, sessionID: string | null = null): Promise<ResumeResponse> {
   const { doc, party } = await readable(c, id);
   if (!canResume(doc.status, party))
     throw new ApiError(409, "conflict", `This handoff is ${doc.status}: there's nothing to resume.`);
@@ -387,6 +393,7 @@ export async function resumeHandoff(c: Caller, id: string): Promise<ResumeRespon
   const handoff = toHandoff(current);
   await record(c, "handoff.read", current, {
     party,
+    sessionID,
     memories: shared.memories.map((m) => m._id),
     excluded: shared.excluded,
   });
