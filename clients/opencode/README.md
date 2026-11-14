@@ -24,7 +24,7 @@ to a client, so one key works for both Claude Code and OpenCode.
 node clients/claude-code/scripts/strata.mjs login
 ```
 
-Point the client at your server with `STRATA_URL` (default `http://localhost:8787`).
+Point the client at your server with `STRATA_URL` (default `http://localhost:9316`, the web app's dev port).
 
 ## What it captures
 

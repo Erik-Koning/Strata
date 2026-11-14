@@ -4,8 +4,10 @@
   "private": true,
   "description": "Strata for OpenCode: capture sessions, draft records on the server, review in the terminal.",
   "type": "module",
+  "main": "./src/server.js",
   "exports": {
-    ".": "./src/server.js"
+    ".": "./src/server.js",
+    "./server": "./src/server.js"
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs"

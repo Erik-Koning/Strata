@@ -3,7 +3,7 @@
 import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
 
-const OPEN = [/^\/sign-in$/, /^\/sign-up$/, /^\/api\//];
+const OPEN = [/^\/sign-in$/, /^\/sign-up$/, /^\/api\//, /^\/v1\//];
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname, search } = request.nextUrl;

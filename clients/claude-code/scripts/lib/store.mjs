@@ -35,7 +35,7 @@ export function writeJson(file, data) {
 }
 
 export const settings = () => readJson(p("config.json"), {});
-export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || "http://localhost:8787";
+export const serverUrl = () => process.env.STRATA_URL || settings().serverUrl || "http://localhost:9316";
 
 // The token is a bearer credential: user identity comes from it on the server,
 // never from anything this client claims.

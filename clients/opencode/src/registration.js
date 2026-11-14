@@ -2,7 +2,7 @@
 // transforms so they point at this plugin's real root rather than a literal ${CLAUDE_PLUGIN_ROOT}.
 import fs from "node:fs";
 import path from "node:path";
-import { log, mcpPath, pluginRoot } from "./hook.js";
+import { log, mcpPath, nodeBin, pluginRoot } from "./hook.js";
 
 const SKILL_FILE = path.join(pluginRoot(), "skills", "log-context", "SKILL.md");
 
@@ -32,7 +32,7 @@ export async function registerMcpAndSkill(ctx) {
     await ctx.mcp.transform((editor) => {
       editor.set("strata", {
         type: "local",
-        command: [process.execPath, mcpPath()],
+        command: [nodeBin(), mcpPath()],
         environment: { STRATA_ROOT: pluginRoot() },
       });
     });

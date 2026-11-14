@@ -18,6 +18,13 @@ export const hookPath = () => path.join(pluginRoot(), "scripts/hook.mjs");
 export const cliPath = () => path.join(pluginRoot(), "scripts/strata.mjs");
 export const mcpPath = () => path.join(pluginRoot(), "scripts/mcp.mjs");
 
+/**
+ * The core scripts are Node programs. OpenCode's server runs on Bun, where `process.execPath` is the
+ * OpenCode binary rather than a Node interpreter, so spawning it would re-enter OpenCode's own CLI.
+ * Use the real Node binary whenever the host is Bun.
+ */
+export const nodeBin = () => process.env.STRATA_NODE_BIN || (process.versions?.bun ? "node" : process.execPath);
+
 const SYNC_TIMEOUT_MS = { "session-start": 15_000, prompt: 10_000 };
 
 /**
@@ -27,7 +34,7 @@ const SYNC_TIMEOUT_MS = { "session-start": 15_000, prompt: 10_000 };
  */
 export function runHookSync(hook, input) {
   try {
-    const result = spawnSync(process.execPath, [hookPath(), hook], {
+    const result = spawnSync(nodeBin(), [hookPath(), hook], {
       input: JSON.stringify(input),
       encoding: "utf8",
       timeout: SYNC_TIMEOUT_MS[hook] ?? 10_000,
@@ -56,7 +63,7 @@ export function spawnHook(hook, input) {
     return;
   }
   try {
-    const child = spawn(process.execPath, [hookPath(), hook], {
+    const child = spawn(nodeBin(), [hookPath(), hook], {
       detached: true,
       stdio: ["pipe", "ignore", "ignore"],
       windowsHide: true,
@@ -75,7 +82,7 @@ export function spawnHook(hook, input) {
 export function runCli(args, { cwd, timeoutMs = 120_000 } = {}) {
   return new Promise((resolve) => {
     try {
-      const child = spawn(process.execPath, [cliPath(), ...args], {
+      const child = spawn(nodeBin(), [cliPath(), ...args], {
         cwd,
         stdio: ["ignore", "pipe", "pipe"],
         windowsHide: true,
