@@ -1,6 +1,6 @@
-// Ported from claude-mem's tag stripping: a linear scanner (no regex backtracking, so
-// a hostile "<private" x 100000 payload cannot stall a hook) that removes balanced
-// blocks of the tags below, including nested and mis-nested ones.
+// Tag stripping with a linear scanner (no regex backtracking, so a hostile
+// "<private" x 100000 payload cannot stall a hook) that removes balanced blocks
+// of the tags below, including nested and mis-nested ones.
 //
 // An unclosed tag in ordinary prose ("explain how <private> works") is left alone:
 // a tag is removed only when a real close tag exists.
@@ -10,7 +10,6 @@ const STRIPPED_TAGS = new Set([
   "system_instruction",
   "system-instruction",
   "persisted-output",
-  "claude-mem-context",
   "strata-context",
   "delivery-hub-context",
 ]);

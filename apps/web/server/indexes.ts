@@ -105,6 +105,8 @@ export async function ensureIndexes({
       { unique: true, name: "record_unique" },
     ),
     records().createIndex({ "scope.user": 1, status: 1, updatedAt: -1 }, { name: "by_author_status" }),
+    records().createIndex({ "scope.user": 1, status: 1, createdAt: -1 }, { name: "by_author" }),
+    records().createIndex({ status: 1, approvedAt: -1 }, { name: "approved" }),
     records().createIndex({ "scope.user": 1, sessionID: 1 }, { name: "by_session" }),
     draftClaims().createIndex({ doneAt: 1 }, { expireAfterSeconds: EVENT_TTL_SECONDS, name: "done_ttl" }),
     // The hub reads approved work team-wide (server/hub/team-records.ts): everything, one product's, one session's.

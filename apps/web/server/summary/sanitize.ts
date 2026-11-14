@@ -5,7 +5,7 @@
 import { JIRA_KEY, NOT_JIRA, redact, SUMMARY_LIMITS, type SummaryLinks, type SummarySummary } from "@strata/contracts";
 
 const TAG_BLOCK =
-  /<(private|system-reminder|system_instruction|system-instruction|persisted-output|claude-mem-context|strata-context)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  /<(private|system-reminder|system_instruction|system-instruction|persisted-output|strata-context)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
 const CODE_FENCE = /```[\s\S]*?(?:```|$)/g;
 const LONG_INLINE_CODE = /`[^`\n]{30,}`/g;
 

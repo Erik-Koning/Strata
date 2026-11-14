@@ -66,7 +66,6 @@ function describeHeld(held) {
   const parts = [];
   if (held.summarizing) parts.push(`${held.summarizing} being summarized`);
   if (held.needsReview) parts.push(`${held.needsReview} waiting for your review`);
-  if (held.needsLink) parts.push(`${held.needsLink} need a Jira ticket or PR link`);
   if (held.noProject) parts.push(`${held.noProject} approved, waiting for a project`);
   if (held.signedOut) parts.push(`${held.signedOut} approved, waiting for sign-in`);
   if (held.rejected) parts.push(`${held.rejected} rejected by Strata`);
@@ -141,7 +140,7 @@ const commands = {
     out(`jira:     ${git.jira.join(", ") || "none found in branch or recent commits"}`);
     out(`events:   ${pendingEvents()} waiting to send`);
     out(
-      `local:    ${totals.sessions} sessions: ${totals.draft + totals.updated} to review, ${totals.ready} approved, ${totals.synced} sent, ${totals["needs-link"]} need a link`,
+      `local:    ${totals.sessions} sessions: ${totals.draft + totals.updated} to review, ${totals.ready} approved, ${totals.synced} sent`,
     );
     if (health.summarizerError) out(`summary:  ${health.summarizerError}`);
     if (held) out(`held:     ${held}`);
@@ -176,7 +175,6 @@ const commands = {
     const sid = args[0];
     const s = sid && describeSession(sid);
     if (!s?.summary) throw new Error("no summary for that session yet");
-    if (!s.linked) throw new Error("link a Jira ticket or PR first (dashboard), or mark it as having no ticket");
     approve(sid);
     out(`Approved "${s.title}". Run /strata:sync to send it.`);
   },
@@ -293,13 +291,11 @@ const commands = {
 
   // Print the drafts that wait for the engineer; /review asks about each and calls approve.
   review() {
-    const waiting = listSessions().filter(
-      (s) => s.status === "draft" || s.status === "updated" || s.status === "needs-link",
-    );
+    const waiting = listSessions().filter((s) => s.status === "draft" || s.status === "updated");
     if (!waiting.length) return out("Nothing waiting for review.");
     for (const s of waiting) {
       const sum = s.summary;
-      out(`## ${s.title}  [${s.sessionId}]  (${s.status}${s.linked ? "" : ", needs a ticket or PR link"})`);
+      out(`## ${s.title}  [${s.sessionId}]  (${s.status})`);
       if (sum.built) out(`Built: ${sum.built}`);
       if (sum.why) out(`Why: ${sum.why}`);
       for (const [label, list] of [

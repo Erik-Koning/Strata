@@ -51,7 +51,7 @@ export function readTranscript(file, limit = 200) {
 /**
  * Claude Code sends `last_assistant_message: ""` when a turn ends mid tool call.
  * An empty value is no message at all, so fall back to the transcript's tail
- * (claude-mem does the same instead of dropping the turn).
+ * instead of dropping the turn.
  */
 export function lastAssistantFromTranscript(file) {
   if (typeof file !== "string" || !file.endsWith(".jsonl")) return "";
