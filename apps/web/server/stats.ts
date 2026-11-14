@@ -2,7 +2,7 @@
 import { MEMORY_KINDS, MEMORY_STATUSES, type MemoryKind, type MemoryStatus } from "@strata/contracts";
 import { ObjectId } from "mongodb";
 import { DEFAULT_ORG } from "./api-auth.ts";
-import { type AuditDoc, apiKeys, audits, events, type MemoryDoc, memories } from "./collections.ts";
+import { type AuditDoc, apiKeys, audits, events, type MemoryDoc, memories, records } from "./collections.ts";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -167,3 +167,25 @@ export async function setStatus(userId: string, id: string, status: "active" | "
   );
   return result.modifiedCount === 1;
 }
+
+// Whether this person uses the plugin themselves: one of their API keys has been used by a client. My Day is theirs;
+// people who only read Strata (an executive, say) don't get it.
+export async function usesPlugin(userId: string): Promise<boolean> {
+  return Boolean(await apiKeys().findOne({ userId, lastUsedAt: { $ne: null } }, { projection: { _id: 1 } }));
+}
+
+// What's waiting on this person in My Day: their drafts, and memories their sessions suggested.
+export async function waitingOn(userId: string): Promise<number> {
+  const [drafts, candidates] = await Promise.all([
+    records().countDocuments({ "scope.user": userId, status: "draft" }),
+    memories().countDocuments({ "scope.org": DEFAULT_ORG, "scope.user": userId, status: "candidate" }),
+  ]);
+  return drafts + candidates;
+}
+
+export const listCandidates = (userId: string): Promise<MemoryDoc[]> =>
+  memories()
+    .find({ "scope.org": DEFAULT_ORG, "scope.user": userId, status: "candidate" })
+    .sort({ _id: -1 })
+    .limit(100)
+    .toArray();
