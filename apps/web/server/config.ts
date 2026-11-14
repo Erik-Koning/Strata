@@ -8,6 +8,10 @@ const Settings = z.object({
   // A service token with every scope: tests, scripts, the OpenCode sandbox. Optional: people use API keys.
   MEMORY_API_TOKEN: z.string().min(24).optional(),
   MEMORY_AI_PROVIDER: z.enum(["stub", "openai", "anthropic"]).default("stub"),
+  // The model the provider asks; each provider has its own default (server/ai/provider.ts).
+  MEMORY_AI_MODEL: z.string().min(1).max(200).optional(),
+  // Read only when MEMORY_AI_PROVIDER=anthropic. Without it, the stub answers.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
   BETTER_AUTH_SECRET: z.string().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().optional(),
   PORT: z.coerce.number().int().positive().default(9316),
@@ -31,6 +35,8 @@ export interface Config {
   mongoUri: string;
   serviceToken: string | null;
   aiProvider: "stub" | "openai" | "anthropic";
+  aiModel: string | null;
+  anthropicKey: string | null;
   authSecret: string;
   baseURL: string;
   // The email settings, or which of the four are missing (all four when email isn't set up). Checked when mail is
@@ -64,6 +70,8 @@ export function config(): Config {
     mongoUri: env.MONGODB_URI,
     serviceToken: env.MEMORY_API_TOKEN ?? null,
     aiProvider: env.MEMORY_AI_PROVIDER,
+    aiModel: env.MEMORY_AI_MODEL ?? null,
+    anthropicKey: env.ANTHROPIC_API_KEY ?? null,
     authSecret,
     baseURL: env.BETTER_AUTH_URL ?? `http://localhost:${env.PORT}`,
     mail,

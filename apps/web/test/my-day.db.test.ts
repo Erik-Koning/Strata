@@ -10,6 +10,7 @@ process.env.MEMORY_AI_PROVIDER = "stub";
 const { db, closeMongo } = await import("../server/db.ts");
 const { ensureIndexes } = await import("../server/indexes.ts");
 const { postEvents } = await import("../server/memory/routes.ts");
+const { draftPending } = await import("../server/memory/ingest.ts");
 const { createKey } = await import("../server/keys.ts");
 const { audits, memories, records } = await import("../server/collections.ts");
 const { ApiError } = await import("../server/http.ts");
@@ -26,6 +27,8 @@ const send = async (key: string, batch: unknown[]) => {
     }),
   );
   expect(res.status).toBe(202);
+  // Drafting runs after the answer: wait for it, as the plugin's next look would.
+  await draftPending();
 };
 const event = (sessionID: string, kind: string, payload: Record<string, unknown>) => ({
   v: 1,
@@ -56,6 +59,7 @@ beforeAll(async () => {
   await ensureIndexes();
 });
 afterAll(async () => {
+  await draftPending();
   await dropTestDatabase(db(), name);
   await closeMongo();
 });

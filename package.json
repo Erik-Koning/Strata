@@ -20,6 +20,7 @@
     "db:seed": "pnpm --filter @strata/web run db:seed",
     "invite": "pnpm --filter @strata/web run invite",
     "deploy:web": "node scripts/deploy-web.ts",
+    "hub:backfill": "pnpm --filter @strata/web run hub:backfill",
     "mail:test": "pnpm --filter @strata/web run mail:test",
     "sst": "sst"
   },

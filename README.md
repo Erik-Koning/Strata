@@ -94,8 +94,8 @@ author's alone until approved. The summary path sends only a summary the enginee
 - secrets and `<private>` blocks are stripped before anything is queued, and the server redacts again;
 - a tool event carries its name, outcome, duration, command class, exit code and a fingerprint, never its input or
   output; a shell command's text never leaves the machine;
-- raw prompt, reply and transcript text is cleared once the session has been drafted, and once the local summary is
-  written on the summary path;
+- raw prompt, reply and transcript events stay in `memory_events` until the 30-day TTL, as my-day keeps them; the
+  local summary path deletes its own queue text once the summary is written;
 - the local summarizer runs headless with no tools, no MCP, no slash commands, its own empty working directory, a
   small model, and a daily cap;
 - the `SessionStart` overview is built from local summaries and kept for the session, so a resume gets the same bytes;
@@ -187,7 +187,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 - [x] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
 - [x] MCP tool `strata_record` logs an insight, workflow finding, pain point or context gap as a `finding` event
 - [x] Approved insights and workflow findings copied into memories, so the next session recalls them
-- [x] Prompt, reply and transcript text deleted as soon as a session is drafted
+- [ ] Delete prompt, reply and transcript text as soon as a session is drafted; for now it stays until the 30-day
+      `memory_events` TTL, matching my-day
 - [ ] Choose the embeddings model: OpenAI, as the brief proposes, or Voyage AI
 
 **Capture for work records**
@@ -253,15 +254,25 @@ cluster is production: `pnpm test:db` works in a throwaway database it removes a
 `pnpm db:seed` write to the real one.
 
 Open the link to make your account (accounts are by invitation; invite everyone else from **People**), then open
-**Connect**: make an API key, install the plugin, and start a Claude Code session.
+**Connect** and follow its steps: install the plugin, point it at the app, sign in.
 
 ```
 /plugin marketplace add Erik-Koning/Strata
 /plugin install strata@strata
 ```
 
-Set `MEMORY_API_URL` and `MEMORY_API_TOKEN` (the key) in `~/.claude/settings.json` under `env`, or answer the
-plugin's two questions when you enable it. More in [`clients/claude-code/README.md`](clients/claude-code/README.md).
+The plugin finds the app at `STRATA_URL` (set it in `~/.claude/settings.json` under `env`, or in your shell). Then run
+`/strata:login` in Claude Code: it opens the app's `/activate` page, you approve the sign-in there, and the plugin keeps
+its token in `~/.strata/auth.json`. It needs no API key; the keys on **Connect** are for scripts and other clients.
+
+To run the plugin from this checkout against the dev server, with a sign-in kept apart from your everyday one:
+
+```sh
+STRATA_URL=http://localhost:9316 STRATA_HOME=~/.strata-dev claude --plugin-dir clients/claude-code
+```
+
+`STRATA_HOME` is where the plugin keeps its sign-in, settings and local drafts (`~/.strata` by default). The API the
+plugin talks to is described in [`clients/claude-code/docs/api-contract.md`](clients/claude-code/docs/api-contract.md).
 
 ## Deploy
 

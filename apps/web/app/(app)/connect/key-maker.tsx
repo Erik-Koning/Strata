@@ -6,9 +6,8 @@ import { type KeyState, makeKey } from "./actions.ts";
 
 export function KeyMaker({ origin }: { origin: string }) {
   const [state, action, pending] = useActionState<KeyState, FormData>(makeKey, { key: null, name: "", error: null });
-  const settings = state.key
-    ? JSON.stringify({ env: { MEMORY_API_URL: origin, MEMORY_API_TOKEN: state.key } }, null, 2)
-    : null;
+  // A key is a bearer token for scripts; the Claude Code plugin signs in with /strata:login instead.
+  const check = state.key ? `curl -H "Authorization: Bearer ${state.key}" ${origin}/v1/me` : null;
   return (
     <div className="grid gap-4">
       <form action={action} className="flex flex-wrap items-end gap-3">
@@ -22,7 +21,7 @@ export function KeyMaker({ origin }: { origin: string }) {
           <KeyRound size={16} aria-hidden /> {pending ? "Making…" : "Make a key"}
         </button>
       </form>
-      {state.key && settings ? (
+      {state.key && check ? (
         <div className="rounded-[12px] border border-accent/35 bg-accent-soft p-4">
           <p className="flex items-center gap-2 font-medium text-[14px] text-accent-text">
             <ShieldAlert size={16} aria-hidden /> Copy it now: “{state.name}” is shown only this once.
@@ -32,12 +31,12 @@ export function KeyMaker({ origin }: { origin: string }) {
             <CopyButton text={state.key} label="Copy key" />
           </div>
           <p className="mt-4 mb-2 text-[14px] text-ink-2">
-            Or paste this into <span className="kbd">~/.claude/settings.json</span>, merged with what's there:
+            Send it as a bearer token. This checks it works, and answers with who the key belongs to:
           </p>
           <div className="relative">
-            <pre className="ledger overflow-x-auto rounded-[10px] px-4 py-3">{settings}</pre>
+            <pre className="ledger overflow-x-auto rounded-[10px] px-4 py-3 pr-24">{check}</pre>
             <div className="absolute top-2 right-2">
-              <CopyButton text={settings} />
+              <CopyButton text={check} />
             </div>
           </div>
         </div>
