@@ -1,16 +1,21 @@
-import { Boxes, Info, PackageCheck } from "lucide-react";
+import { ArrowRight, Boxes, Info, PackageCheck } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { YourAgent } from "../../components/overview/agent.tsx";
 import { ProductNewsList } from "../../components/overview/product-news.tsx";
 import { AdminCard, GapList, OwnSessions, TimeCard } from "../../components/overview/side.tsx";
 import { WaitingForYou } from "../../components/overview/waiting.tsx";
 import { WorkList } from "../../components/overview/work.tsx";
+import { StatusText } from "../../components/relay/status.tsx";
+import { Ago } from "../../components/time.tsx";
 import { DEFAULT_ORG } from "../../server/api-auth.ts";
+import { listHandoffs } from "../../server/handoffs/service.ts";
 import { homeFor, NEWS_DAYS, TIME_DAYS } from "../../server/hub/overview.ts";
 import { frozen } from "../../server/memory/frozen.ts";
 import { requireViewer } from "../../server/viewer.ts";
 import { PageHeader } from "./page-header.tsx";
+import { requireCaller } from "./relay/caller.ts";
 
 export const metadata: Metadata = { title: "Overview" };
 
@@ -22,6 +27,13 @@ export default async function OverviewPage() {
   const viewer = await requireViewer();
   const home = await homeFor(viewer);
   if (!home) redirect("/sign-in");
+  const caller = await requireCaller();
+  const [inbox, sent] = await Promise.all([listHandoffs(caller, "inbox"), listHandoffs(caller, "outbox")]);
+  // Handed to me first, then mine, newest first within each: the four that most want a look.
+  const handoffs = [
+    ...inbox.map((h) => ({ ...h, box: "inbox" as const })),
+    ...sent.map((h) => ({ ...h, box: "sent" as const })),
+  ].slice(0, 4);
   const { layout, waiting, engineer, lead, agent } = home;
   const block = agent.project ? await frozen({ org: DEFAULT_ORG, user: viewer.userId, project: agent.project }) : null;
 
@@ -38,6 +50,43 @@ export default async function OverviewPage() {
       />
 
       <WaitingForYou waiting={waiting} />
+
+      <section className="card mb-6" aria-labelledby="relay-title">
+        <header className="flex items-center justify-between border-line border-b px-5 py-3.5">
+          <h2 id="relay-title" className="font-semibold text-[15px]">
+            Handoffs
+          </h2>
+          <Link href="/relay" className="btn btn-quiet btn-sm">
+            All handoffs <ArrowRight size={14} aria-hidden />
+          </Link>
+        </header>
+        {handoffs.length ? (
+          <ul className="divide-y divide-line">
+            {handoffs.map((h) => (
+              <li key={h._id}>
+                <Link href={`/relay?id=${h._id}`} className="block px-5 py-3 transition-colors hover:bg-surface-2">
+                  <span className="block truncate font-medium text-[14px]">{h.title}</span>
+                  <span className="mt-1 flex items-center gap-2 text-[12px] text-ink-3">
+                    <StatusText status={h.status} />
+                    <span className="min-w-0 truncate">
+                      {h.box === "inbox"
+                        ? `from ${h.sender.name}`
+                        : h.recipient
+                          ? `to ${h.recipient.name}`
+                          : "not sent"}
+                    </span>
+                    <Ago at={h.updatedAt} className="ml-auto flex-none" />
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-5 py-6 text-[14px] text-ink-3">
+            Nothing handed on yet. Run <code className="kbd">/strata:handoff</code> in Claude Code to draft one.
+          </p>
+        )}
+      </section>
 
       {engineer ? (
         <div className={GRID}>

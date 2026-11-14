@@ -1,172 +1,96 @@
 @import "tailwindcss";
 
-/* Strata, in violet. The colours are the explainer video's (docs/explainer): lavender paper, one violet for what's
-   live and the one commit per view, fuchsia only in the mark. The material is Ridenet's fairing kit
-   (ridenet-monorepo, docs/design/fairing-kit.md), at Strata's scale: one key light from the upper left, so what you
-   press is raised and what reads or receives is sunken; cards with a lip; a page ruled like drafting paper. Hover
-   leans into the press, the click finishes it fast, the release is slow.
+/* Strata, in violet. The colour is the explainer video's (docs/explainer): one violet for what's live and the one
+   commit per view, fuchsia only in the mark. The material is quiet: dark-first graphite with a violet cast, surfaces
+   told apart by hairlines rather than shadow, amber for what's only a candidate, a cool blue for "handed on".
 
-   Type: Geist for reading, Geist Mono wherever the exact bytes matter, Saira wide caps for legends and labels,
-   Martian Mono for part labels (`01 / RECALL`). Every class name and token name is the one the pages already use. */
+   Type: Geist for reading, Geist Mono wherever the exact bytes matter, Martian Mono for part labels (`01 / RECALL`),
+   Saira wide caps kept for legends that want them. Every class name and token name is the one the pages already use. */
 
 :root {
-  /* Paper and surfaces */
-  --bg: #eeebf7;
-  --surface: #f6f4fc;
-  --surface-2: #e7e2f3;
-  --sunk: #e3ddf1;
-  --ink: #15121f;
-  --ink-2: #3b3750;
-  --ink-3: #5e5a76;
-  --line: rgb(36 22 84 / 11%);
-  --line-strong: rgb(36 22 84 / 20%);
-  --rule: rgb(36 22 84 / 7%);
+  /* One warm-light theme. Paper canvas, a slightly deeper sidebar of the same paper, white working surfaces,
+     charcoal type. Violet is Strata and its actions; green appears only on an outcome the tests proved. */
+  --bg: #f6f5f2;
+  --sidebar: #edece8;
+  --surface: #ffffff;
+  --surface-2: #f2f1ed;
+  --surface-3: #e7e5e0;
+  --sunk: #faf9f7;
+  --ink: #1e1c22;
+  --ink-2: #4a4750;
+  --ink-3: #77737c;
+  --line: rgb(30 28 34 / 9%);
+  --line-strong: rgb(30 28 34 / 15%);
+  --rule: rgb(30 28 34 / 6%);
 
-  /* Violet: what's live, and the one commit per view */
-  --accent: #6d28d9;
-  --accent-hover: #7c3aed;
+  --accent: #7253d8;
+  --accent-hover: #6141c9;
   --accent-ink: #ffffff;
-  --accent-soft: #e9e0fd;
-  --accent-text: #5b21b6;
-  --fuchsia: #c026d3;
+  --accent-soft: #f0ecfb;
+  --accent-text: #5a3bc2;
+  --fuchsia: #a63bc0;
 
-  /* Caution and danger: legends and pips, never fills */
-  --amber: #8f4a04;
-  --amber-soft: #fbedd2;
-  --danger: #b4123a;
-  --danger-soft: #fde3e8;
-  --focus: #5b21b6;
+  --verified: #3e7d5e;
+  --verified-soft: #eaf3ee;
+  --verified-text: #2e6a4c;
 
-  /* The key light at 10:30, and the polymer it falls on */
-  --fx-sx: 0.707;
-  --fx-sy: 0.707;
-  --fx-la: 135deg;
-  --fx-k: 1;
-  --fx-c-hi: #fbfaff;
-  --fx-c-lo: #e2dcf1;
-  --fx-hi: #ffffff;
-  --fx-lo: rgb(84 62 156 / 30%);
-  --fx-lo-far: rgb(84 62 156 / 22%);
-  --fx-amb: rgb(36 18 88 / 14%);
-  --fx-rim: rgb(255 255 255 / 85%);
-  --fx-crease: rgb(36 18 88 / 16%);
-  --fx-grid: rgb(76 52 160 / 5.5%);
-  --fx-pool: #f9f7ff;
-  --fx-solid-hi: #7c3aed;
-  --fx-solid-lo: #5b21b6;
-  --fx-solid-shade: rgb(30 8 70 / 50%);
-  --fx-solid-lift: rgb(255 255 255 / 14%);
-  --fx-lume-glow: rgb(139 92 246 / 45%);
+  --amber: #91580f;
+  --amber-soft: #f7eddc;
+  --danger: #b0303f;
+  --danger-soft: #faeaec;
+  --focus: #7253d8;
 
-  /* Motion: press fast, release slow, lean in between */
-  --fx-press-in: 34ms;
-  --fx-release: 600ms;
-  --fx-ease-release: cubic-bezier(0.3, 0.7, 0.4, 1);
-  --fx-lean-dur: 280ms;
-  --fx-ease-lean: cubic-bezier(0.25, 0.8, 0.35, 1);
-
+  --shadow: 0 1px 2px rgb(30 28 34 / 5%), 0 0 0 1px rgb(30 28 34 / 6%);
+  --shadow-lift: 0 1px 2px rgb(30 28 34 / 4%), 0 10px 28px -14px rgb(30 28 34 / 16%), 0 0 0 1px rgb(30 28 34 / 6%);
+  --shadow-pop: 0 28px 72px -24px rgb(30 28 34 / 32%), 0 0 0 1px rgb(30 28 34 / 8%);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --relay-blue: #3a62c2;
+  --relay-blue-soft: #e8eefa;
   color-scheme: light;
 }
 
+/* Optional dark theme (data-theme="dark"): the same system, never mixed with the light one. */
 :root[data-theme="dark"] {
-  --bg: #120f1b;
-  --surface: #18142a;
-  --surface-2: #211c33;
-  --sunk: #0e0b16;
-  --ink: #ece8f7;
-  --ink-2: #c2bbda;
-  --ink-3: #9d96b8;
-  --line: rgb(236 232 247 / 10%);
-  --line-strong: rgb(236 232 247 / 18%);
-  --rule: rgb(236 232 247 / 6%);
-
-  --accent: #7c3aed;
-  --accent-hover: #8b5cf6;
+  --bg: #17161a;
+  --sidebar: #131215;
+  --surface: #1f1e23;
+  --surface-2: #26252b;
+  --surface-3: #302e35;
+  --sunk: #1b1a1e;
+  --ink: #efedf2;
+  --ink-2: #bcb8c4;
+  --ink-3: #8d8996;
+  --line: rgb(239 237 242 / 8%);
+  --line-strong: rgb(239 237 242 / 14%);
+  --rule: rgb(239 237 242 / 5%);
+  --accent: #8f74e6;
+  --accent-hover: #a08aea;
   --accent-ink: #ffffff;
-  --accent-soft: rgb(139 92 246 / 17%);
-  --accent-text: #c4b5fd;
-  --fuchsia: #e879f9;
-
-  --amber: #f5b851;
-  --amber-soft: rgb(245 184 81 / 12%);
-  --danger: #ff8a9b;
-  --danger-soft: rgb(255 122 145 / 13%);
-  --focus: #c4b5fd;
-
-  --fx-k: 0.75;
-  --fx-c-hi: #1d1830;
-  --fx-c-lo: #0f0c18;
-  --fx-hi: rgb(196 176 255 / 6%);
-  --fx-lo: rgb(2 0 10 / 62%);
-  --fx-lo-far: rgb(2 0 10 / 50%);
-  --fx-amb: rgb(2 0 10 / 55%);
-  --fx-rim: rgb(205 188 255 / 10%);
-  --fx-crease: rgb(2 0 10 / 60%);
-  --fx-grid: rgb(170 150 255 / 4.5%);
-  --fx-pool: #1a1530;
-  --fx-solid-hi: #8b5cf6;
-  --fx-solid-lo: #6d28d9;
-  --fx-solid-shade: rgb(8 0 24 / 55%);
-  --fx-lume-glow: rgb(167 139 250 / 50%);
-
+  --accent-soft: rgb(143 116 230 / 16%);
+  --accent-text: #c3b4f5;
+  --verified: #66b98d;
+  --verified-soft: rgb(102 185 141 / 13%);
+  --verified-text: #93d2b0;
+  --amber: #e9b265;
+  --amber-soft: rgb(233 178 101 / 12%);
+  --danger: #f4909c;
+  --danger-soft: rgb(244 144 156 / 12%);
+  --focus: #c3b4f5;
+  --shadow: 0 0 0 1px rgb(239 237 242 / 7%);
+  --shadow-lift: 0 0 0 1px rgb(239 237 242 / 8%);
+  --shadow-pop: 0 28px 72px -24px rgb(0 0 0 / 70%), 0 0 0 1px rgb(239 237 242 / 8%);
+  --relay-blue: #9db4f5;
+  --relay-blue-soft: rgb(157 180 245 / 14%);
   color-scheme: dark;
-}
-
-/* The depth recipes. Every one has the same six shadow slots, so a rest can ease into a lean and a lean into a well. */
-:root {
-  --fx-nil: 0 0 0 0 transparent;
-  --fx-nil-in: inset 0 0 0 0 transparent;
-  --fx-rim-in: inset calc(var(--fx-sx) * 1px) calc(var(--fx-sy) * 1px) 0 0 var(--fx-rim);
-  --fx-rim-lip: calc(var(--fx-sx) * 1px) calc(var(--fx-sy) * 1px) 0 0 var(--fx-rim);
-  --fx-contact: calc(var(--fx-sx) * 1px) calc(var(--fx-sy) * 2px) 3px 0 var(--fx-amb);
-  --fx-crease-in: inset calc(var(--fx-sx) * 2px) calc(var(--fx-sy) * 2px) 1px -1px var(--fx-crease);
-
-  /* raised: what you press */
-  --fx-swell: var(--fx-nil-in), var(--fx-nil-in), var(--fx-rim-in),
-    calc(var(--fx-sx) * -4px * var(--fx-k)) calc(var(--fx-sy) * -4px * var(--fx-k)) calc(10px * var(--fx-k)) 0 var(--fx-hi),
-    calc(var(--fx-sx) * 5px * var(--fx-k)) calc(var(--fx-sy) * 5px * var(--fx-k)) calc(12px * var(--fx-k)) 0 var(--fx-lo),
-    var(--fx-contact);
-  --fx-swell-s: var(--fx-nil-in), var(--fx-nil-in), var(--fx-rim-in),
-    calc(var(--fx-sx) * -2.5px * var(--fx-k)) calc(var(--fx-sy) * -2.5px * var(--fx-k)) calc(6px * var(--fx-k)) 0 var(--fx-hi),
-    calc(var(--fx-sx) * 3px * var(--fx-k)) calc(var(--fx-sy) * 3px * var(--fx-k)) calc(7px * var(--fx-k)) 0 var(--fx-lo),
-    var(--fx-contact);
-  /* leaning: hover starts the press */
-  --fx-lean: inset calc(var(--fx-sx) * 1.5px) calc(var(--fx-sy) * 1.5px) 1px -1px var(--fx-crease),
-    inset calc(var(--fx-sx) * 2px * var(--fx-k)) calc(var(--fx-sy) * 2px * var(--fx-k)) calc(5px * var(--fx-k)) 0
-    color-mix(in srgb, var(--fx-lo) 50%, transparent), var(--fx-rim-in),
-    calc(var(--fx-sx) * -2px * var(--fx-k)) calc(var(--fx-sy) * -2px * var(--fx-k)) calc(6px * var(--fx-k)) 0 var(--fx-hi),
-    calc(var(--fx-sx) * 2.5px * var(--fx-k)) calc(var(--fx-sy) * 2.5px * var(--fx-k)) calc(7px * var(--fx-k)) 0 var(--fx-lo),
-    var(--fx-contact);
-  /* sunken: what reads or receives (fields, badges, readouts), and a part held down */
-  --fx-well: var(--fx-crease-in),
-    inset calc(var(--fx-sx) * 3px * var(--fx-k)) calc(var(--fx-sy) * 3px * var(--fx-k)) calc(7px * var(--fx-k)) 0 var(--fx-lo),
-    inset calc(var(--fx-sx) * -3px * var(--fx-k)) calc(var(--fx-sy) * -3px * var(--fx-k)) calc(7px * var(--fx-k)) 0 var(--fx-hi),
-    var(--fx-nil), var(--fx-nil), var(--fx-rim-lip);
-  --fx-well-s: var(--fx-crease-in),
-    inset calc(var(--fx-sx) * 2px * var(--fx-k)) calc(var(--fx-sy) * 2px * var(--fx-k)) calc(5px * var(--fx-k)) 0 var(--fx-lo),
-    inset calc(var(--fx-sx) * -2px * var(--fx-k)) calc(var(--fx-sy) * -2px * var(--fx-k)) calc(5px * var(--fx-k)) 0 var(--fx-hi),
-    var(--fx-nil), var(--fx-nil), var(--fx-rim-lip);
-  --fx-well-solid: var(--fx-crease-in), inset calc(var(--fx-sx) * 3px) calc(var(--fx-sy) * 3px) 7px 0 var(--fx-solid-shade),
-    inset calc(var(--fx-sx) * -2px) calc(var(--fx-sy) * -2px) 5px 0 var(--fx-solid-lift), var(--fx-nil), var(--fx-nil),
-    var(--fx-rim-lip);
-  --fx-flush: var(--fx-nil-in), var(--fx-nil-in), var(--fx-nil-in),
-    calc(var(--fx-sx) * -1px) calc(var(--fx-sy) * -1px) 1px 0 var(--fx-hi),
-    calc(var(--fx-sx) * 1px) calc(var(--fx-sy) * 1px) 1px 0 var(--fx-lo), var(--fx-nil);
-  --fx-flat: var(--fx-nil-in), var(--fx-nil-in), var(--fx-nil-in), var(--fx-nil), var(--fx-nil), var(--fx-nil);
-
-  --fx-face-convex: linear-gradient(var(--fx-la), var(--fx-c-hi), var(--fx-c-lo));
-  --fx-face-concave: linear-gradient(var(--fx-la), var(--fx-c-lo), var(--fx-c-hi));
-  --fx-face-field: linear-gradient(var(--fx-la), color-mix(in oklab, var(--fx-c-lo) 40%, var(--fx-c-hi)), var(--fx-c-hi));
-  --fx-face-solid: radial-gradient(120% 120% at 27% 27%, var(--fx-solid-hi), var(--accent) 52%, var(--fx-solid-lo));
-
-  /* What a page's own `shadow-[var(--shadow)]` means: a latched part (the current page, the chosen tab), sunk. */
-  --shadow: var(--fx-well-s);
 }
 
 @theme inline {
   --color-bg: var(--bg);
+  --color-sidebar: var(--sidebar);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-sunk: var(--sunk);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
@@ -178,29 +102,25 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
   --color-fuchsia: var(--fuchsia);
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-verified-text: var(--verified-text);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-label: var(--font-saira), "Eurostile", ui-sans-serif, system-ui, sans-serif;
   --font-part: var(--font-martian), ui-monospace, SFMono-Regular, monospace;
 }
 
-/* The page: polymer ruled with the drafting grid, a soft pool of light from the key. */
-html {
+html,
+body {
   background: var(--bg);
   color: var(--ink);
 }
 body {
-  background:
-    linear-gradient(var(--fx-grid) 1px, transparent 1px) 0 0 / 56px 56px,
-    linear-gradient(90deg, var(--fx-grid) 1px, transparent 1px) 0 0 / 56px 56px,
-    radial-gradient(120% 70% at 18% 0%, var(--fx-pool), var(--bg) 60%),
-    var(--bg);
-  background-attachment: fixed;
-  color: var(--ink);
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.55;
@@ -217,253 +137,174 @@ h3 {
 }
 :focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 3px;
-  border-radius: 8px;
+  outline-offset: 2px;
+  border-radius: 6px;
 }
 
 @layer components {
   /* Part labels: Martian Mono caps, `01 / RECALL`. */
   .eyebrow {
-    font-family: var(--font-part);
-    font-size: 11px;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-family: var(--font-sans);
+    font-size: 12.5px;
+    font-weight: 500;
+    letter-spacing: -0.003em;
     color: var(--ink-3);
   }
-
-  /* A card: the border is a 4 px lip (the convex face shows through it), the padding box the flush face. */
   .card {
-    border: 4px solid transparent;
-    border-radius: 22px;
-    background:
-      linear-gradient(var(--surface), var(--surface)) padding-box,
-      var(--fx-face-convex) border-box;
-    box-shadow:
-      inset calc(var(--fx-sx) * 1px) calc(var(--fx-sy) * 1px) 2px var(--fx-lo),
-      inset calc(var(--fx-sx) * -1px) calc(var(--fx-sy) * -1px) 2px var(--fx-hi),
-      calc(var(--fx-sx) * -4px * var(--fx-k)) calc(var(--fx-sy) * -4px * var(--fx-k)) calc(10px * var(--fx-k)) 0 var(--fx-hi),
-      calc(var(--fx-sx) * 5px * var(--fx-k)) calc(var(--fx-sy) * 5px * var(--fx-k)) calc(12px * var(--fx-k)) 0 var(--fx-lo),
-      var(--fx-contact);
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
   }
-
-  /* Everything you press: moulded, raised. Hover leans in; the click presses, fast; the release is slow. */
   .btn {
-    --d-rest: var(--fx-swell);
-    --d-lean: var(--fx-lean);
-    --d-press: var(--fx-well);
-    --face-a: var(--fx-c-hi);
-    --face-b: var(--fx-c-lo);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 40px;
-    padding: 0 18px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: linear-gradient(var(--fx-la), var(--face-a), var(--face-b));
-    box-shadow: var(--d-rest);
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
     color: var(--ink);
-    font-family: var(--font-label);
-    font-variation-settings: "wdth" 118;
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.11em;
-    line-height: 1.2;
-    text-transform: uppercase;
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
     white-space: nowrap;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    transition:
-      box-shadow var(--fx-release) var(--fx-ease-release),
-      transform var(--fx-release) var(--fx-ease-release),
-      color 160ms ease;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 80ms ease;
   }
-  @media (hover: hover) {
-    .btn:hover:not(:disabled, [aria-disabled="true"], :active) {
-      box-shadow: var(--d-lean);
-      background: linear-gradient(
-        var(--fx-la),
-        color-mix(in oklab, var(--face-a) 55%, var(--face-b)),
-        color-mix(in oklab, var(--face-b) 75%, var(--face-a))
-      );
-      transform: translate(calc(var(--fx-sx) * 0.35px), calc(var(--fx-sy) * 0.35px)) scale(0.994);
-      transition-duration: var(--fx-lean-dur);
-      transition-timing-function: var(--fx-ease-lean);
-    }
+  .btn:hover {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--ink) 20%, transparent);
   }
   .btn:active:not(:disabled, [aria-disabled="true"]) {
-    box-shadow: var(--d-press);
-    background: linear-gradient(var(--fx-la), var(--face-b), var(--face-a));
-    transform: translate(calc(var(--fx-sx) * 0.6px), calc(var(--fx-sy) * 0.6px)) scale(0.985);
-    transition-duration: var(--fx-press-in);
+    transform: translateY(1px);
   }
-  /* Latched: a key that's on stays pressed in, without the travel. */
+  /* Latched: a key that's on (the chosen tab, the current page). */
   .btn:is([aria-pressed="true"], [aria-current="page"]) {
-    box-shadow: var(--d-press);
-    background: linear-gradient(var(--fx-la), var(--face-b), var(--face-a));
+    background: var(--surface-3);
+    border-color: var(--line-strong);
+    color: var(--ink);
   }
   .btn:disabled,
   .btn[aria-disabled="true"] {
-    box-shadow: var(--fx-flush);
-    background: var(--bg);
-    color: var(--ink-3);
+    opacity: 0.55;
     cursor: not-allowed;
   }
   .btn svg {
     flex: none;
   }
-
-  /* The one commit per view: the violet insert. */
   .btn-primary {
-    --face-a: var(--fx-solid-hi);
-    --face-b: var(--fx-solid-lo);
-    --d-press: var(--fx-well-solid);
-    background: var(--fx-face-solid);
+    background: var(--accent);
+    border-color: transparent;
     color: var(--accent-ink);
   }
-  .btn-primary:disabled {
-    background: color-mix(in oklab, var(--accent) 45%, var(--bg));
-    color: var(--accent-ink);
+  .btn-primary:hover {
+    background: var(--accent-hover);
   }
-
-  /* Destructive: moulded like the rest, its legend in danger. Danger is never a fill. */
+  /* Destructive: its legend in danger. Danger is never a fill. */
   .btn-danger {
     color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
   }
-
-  /* Ghost: flat on the page until the pointer leans on it. */
+  .btn-danger:hover {
+    background: var(--danger-soft);
+    border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  }
   .btn-quiet {
-    --d-rest: var(--fx-flat);
+    border-color: transparent;
     background: transparent;
     color: var(--ink-2);
   }
-  @media (hover: hover) {
-    .btn-quiet:hover:not(:disabled, :active) {
-      color: var(--ink);
-    }
+  .btn-quiet:hover {
+    background: var(--surface-2);
+    color: var(--ink);
   }
-
   .btn-sm {
-    --d-rest: var(--fx-swell-s);
-    --d-press: var(--fx-well-s);
-    min-height: 32px;
-    padding: 0 12px;
-    font-size: 10.5px;
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: 7px;
   }
-  .btn-sm.btn-quiet {
-    --d-rest: var(--fx-flat);
-  }
-
-  /* A field: a well you write into, a hairline across its floor. */
   .input {
     width: 100%;
-    min-height: 42px;
-    padding: 0 16px;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background:
-      linear-gradient(var(--line-strong), var(--line-strong)) no-repeat center bottom 6px / calc(100% - 32px) 1px,
-      var(--fx-face-field);
-    box-shadow: var(--fx-well);
+    min-height: 40px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line-strong);
+    background: var(--sunk);
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: 15px;
-    transition: box-shadow var(--fx-lean-dur) var(--fx-ease-lean);
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+  }
+  .input:focus {
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   .input::placeholder {
     color: var(--ink-3);
     opacity: 1;
   }
-  .input:focus,
-  .input:focus-visible {
-    outline: 2px solid var(--focus);
-    outline-offset: 3px;
-  }
   .input[aria-invalid="true"] {
-    background:
-      linear-gradient(var(--danger), var(--danger)) no-repeat center bottom 6px / calc(100% - 32px) 1.5px,
-      var(--fx-face-field);
+    border-color: color-mix(in srgb, var(--danger) 60%, transparent);
   }
   .input:disabled,
   .input[readonly] {
-    box-shadow: var(--fx-flush);
     background: var(--bg);
     color: var(--ink-2);
-  }
-  textarea.input {
-    padding: 12px 16px;
-    min-height: 96px;
-    border-radius: 18px;
-    background: var(--fx-face-field);
-    resize: vertical;
   }
   select.input {
     padding-right: 36px;
   }
-
-  /* Field labels: Saira wide caps. */
+  textarea.input {
+    padding: 10px 12px;
+    min-height: 96px;
+    resize: vertical;
+  }
   .label {
     display: block;
-    margin-bottom: 8px;
-    font-family: var(--font-label);
-    font-variation-settings: "wdth" 118;
-    font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--ink-2);
   }
-
-  /* A badge: it reads, so it's sunk. Wide caps unless it carries someone's own words (chip-mono). */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 24px;
-    padding: 0 10px;
-    border-radius: 999px;
-    background: var(--fx-face-concave);
-    box-shadow: var(--fx-well-s);
+    min-height: 22px;
+    padding: 0 7px;
+    border-radius: 6px;
+    background: var(--surface-2);
     color: var(--ink-2);
-    font-family: var(--font-label);
-    font-variation-settings: "wdth" 118;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    line-height: 1;
-    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 500;
     white-space: nowrap;
   }
   .chip-mono {
     font-family: var(--font-mono);
-    font-variation-settings: normal;
     font-size: 11.5px;
     font-weight: 400;
-    letter-spacing: 0;
-    text-transform: none;
   }
-  /* Live and trusted: a violet legend, its pip lit. */
   .status-active {
-    background: linear-gradient(var(--fx-la), color-mix(in oklab, var(--accent-soft) 70%, var(--fx-c-lo)), var(--accent-soft));
+    background: var(--accent-soft);
     color: var(--accent-text);
   }
-  .status-active .dot:not(.dot-hollow) {
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 20%, transparent), 0 0 8px var(--fx-lume-glow);
-  }
-  /* Only a candidate: a caution legend, never a fill. */
   .status-candidate {
+    background: transparent;
     color: var(--amber);
-    box-shadow: var(--fx-well-s), inset 0 0 0 1px color-mix(in srgb, var(--amber) 45%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--amber) 55%, transparent);
+    border: 0;
   }
-  /* Set aside: flush with the page. */
   .status-archived,
   .status-superseded {
-    background: var(--bg);
-    box-shadow: var(--fx-flush);
+    background: transparent;
     color: var(--ink-3);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
   }
   .dot {
     width: 7px;
@@ -476,30 +317,50 @@ h3 {
     background: transparent;
     box-shadow: inset 0 0 0 1.5px currentColor;
   }
-
-  /* A readout: sunk, ruled, in the exact bytes. */
   .ledger {
     font-family: var(--font-mono);
     font-size: 12.5px;
     line-height: 22px;
-    border-radius: 16px;
     background-color: var(--sunk);
     background-image: repeating-linear-gradient(to bottom, transparent 0 21px, var(--rule) 21px 22px);
     background-position: 0 10px;
-    box-shadow: var(--fx-well);
     color: var(--ink);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }
-
-  /* A key cap: raised, small. */
   .kbd {
     font-family: var(--font-mono);
     font-size: 12.5px;
-    padding: 2px 7px;
-    border-radius: 7px;
-    background: var(--fx-face-convex);
-    box-shadow: var(--fx-swell-s);
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  /* A titled section inside a page: a hairline-bordered panel with a quiet header bar. */
+  .panel {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+  }
+  .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -522,14 +383,7 @@ h3 {
 /* Relay: handoff statuses. One cool blue for "approved, waiting to be picked up"; amber for work in someone's hands;
    violet (the accent) for done; muted outlines for a private draft and a revoked one. Test evidence: verified is filled violet, a
    claim is an amber outline. */
-:root {
-  --relay-blue: #2456b8;
-  --relay-blue-soft: #e2e9f7;
-}
-:root[data-theme="dark"] {
-  --relay-blue: #8fb0ff;
-  --relay-blue-soft: rgb(143 176 255 / 13%);
-}
+
 @layer components {
   .pill-draft {
     background: transparent;
@@ -545,8 +399,8 @@ h3 {
     color: var(--amber);
   }
   .pill-completed {
-    background: var(--accent-soft);
-    color: var(--accent-text);
+    background: var(--verified-soft);
+    color: var(--verified-text);
   }
   .pill-revoked {
     background: transparent;
@@ -554,8 +408,8 @@ h3 {
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent);
   }
   .badge-verified {
-    background: var(--accent-soft);
-    color: var(--accent-text);
+    background: var(--verified-soft);
+    color: var(--verified-text);
     font-family: var(--font-mono);
     font-size: 10.5px;
     letter-spacing: 0.06em;
@@ -570,6 +424,286 @@ h3 {
   }
   .relay-row[aria-current="page"] {
     background: var(--surface);
-    box-shadow: var(--shadow), inset 2px 0 0 var(--accent);
+    box-shadow: var(--shadow);
   }
+  .relay-row[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* The continuity track: four stages joined by a rail that fills as the work moves on. */
+  .flow-node {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--surface);
+    color: var(--ink-3);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    position: relative;
+    z-index: 1;
+  }
+  .flow-node[data-state="done"] {
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: none;
+  }
+  .flow-node[data-state="current"] {
+    background: var(--surface);
+    color: var(--accent-text);
+    box-shadow: inset 0 0 0 1.5px var(--accent), 0 0 0 4px var(--accent-soft);
+  }
+  .flow-node[data-state="stopped"] {
+    color: var(--danger);
+    box-shadow: inset 0 0 0 1.5px var(--danger);
+  }
+  .flow-node[data-state="warn"] {
+    background: var(--amber-soft);
+    color: var(--amber);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--amber) 70%, transparent);
+  }
+  .flow-node[data-state="pending"] {
+    background: var(--bg);
+  }
+  .flow-rail {
+    position: absolute;
+    height: 1px;
+    background: var(--line-strong);
+  }
+  .flow-rail[data-filled="true"] {
+    background: var(--accent);
+  }
+  .drawer-backdrop {
+    background: rgb(30 28 34 / 22%);
+  }
+}
+
+
+/* Relay's sequence: one sheet, three steps, one line through them. The line is solid violet where context moved,
+   dashed where it hasn't yet, and red where a revocation cut it. It draws itself once on load, left to right. */
+@layer components {
+  .seq-sheet {
+    background: var(--surface);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lift);
+    overflow: hidden;
+  }
+  .seq {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .seq-step {
+    position: relative;
+    min-width: 0;
+  }
+  .seq-step[data-muted="true"] .seq-body {
+    opacity: 0.62;
+  }
+  .seq-head {
+    display: flex;
+    align-items: center;
+    height: 36px;
+  }
+  .seq-node {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    flex: none;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 0 0 6px var(--surface);
+  }
+  .seq-seg {
+    display: none;
+  }
+  .seq-body {
+    padding: 14px 0 0;
+  }
+
+  /* Narrow: steps stack, joined by a vertical line down the left. */
+  @media (max-width: 1023px) {
+    .seq {
+      padding: 24px 20px 8px;
+    }
+    .seq-step {
+      display: grid;
+      grid-template-columns: 36px minmax(0, 1fr);
+      column-gap: 16px;
+      padding-bottom: 28px;
+    }
+    .seq-head {
+      align-items: flex-start;
+    }
+    .seq-body {
+      padding: 4px 0 0;
+    }
+    .seq-step:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 17.5px;
+      top: 40px;
+      bottom: 4px;
+      border-left: 1.5px dashed var(--line-strong);
+    }
+    .seq-step:has(.seq-out[data-seg="on"])::before {
+      border-left: 2px solid var(--accent);
+    }
+  }
+
+  /* Wide: three columns, the line running across their tops. */
+  @media (min-width: 1024px) {
+    .seq {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 30px 0 30px;
+    }
+    .seq-step {
+      padding: 0 28px;
+    }
+    .seq-step + .seq-step .seq-body {
+      border-left: 1px solid var(--line);
+      margin-left: -28px;
+      padding-left: 28px;
+    }
+    .seq-seg {
+      display: block;
+      height: 0;
+      border-top: 1.5px dashed var(--line-strong);
+      transform-origin: left center;
+    }
+    .seq-into {
+      display: none;
+    }
+    /* Runs from this node across both gutters to the next node, which sits on top of it. */
+    .seq-out {
+      flex: 1;
+      position: relative;
+      margin-right: -56px;
+    }
+    .seq-seg[data-seg="on"] {
+      border-top: 2px solid var(--accent);
+      animation: seq-draw 700ms cubic-bezier(0.3, 0, 0.2, 1) both;
+    }
+    .seq-step:nth-child(2) .seq-seg[data-seg="on"] {
+      animation-delay: 650ms;
+    }
+    .seq-out[data-seg="on"]::after {
+      content: "";
+      position: absolute;
+      right: 14px;
+      top: -5px;
+      width: 8px;
+      height: 8px;
+      border-top: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+      transform: rotate(45deg);
+    }
+    .seq-seg[data-seg="cut"] {
+      border-top-color: color-mix(in srgb, var(--danger) 55%, transparent);
+    }
+    .seq-body {
+      padding-top: 18px;
+    }
+  }
+  @keyframes seq-draw {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .seq-result {
+    --tone: var(--ink-3);
+    --tone-soft: var(--surface-2);
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px 28px 22px;
+    background: var(--tone-soft);
+    border-top: 1px solid color-mix(in srgb, var(--tone) 18%, transparent);
+  }
+  .seq-result[data-tone="verified"] {
+    --tone: var(--verified);
+    --tone-soft: var(--verified-soft);
+  }
+  .seq-result[data-tone="warn"] {
+    --tone: var(--amber);
+    --tone-soft: var(--amber-soft);
+  }
+  .seq-result[data-tone="danger"] {
+    --tone: var(--danger);
+    --tone-soft: var(--danger-soft);
+  }
+  .seq-result[data-tone="accent"] {
+    --tone: var(--accent);
+    --tone-soft: var(--accent-soft);
+  }
+  .seq-result-icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    margin-top: 2px;
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--tone);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone) 25%, transparent);
+  }
+  .seq-result-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--tone) 80%, var(--ink));
+  }
+  @media (max-width: 1023px) {
+    .seq-result {
+      padding: 18px 20px;
+    }
+  }
+
+  /* Evidence links under the sheet: quiet text buttons that open the inspector at a section. */
+  .evidence-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-2);
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .evidence-link:hover {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .evidence-link .count {
+    color: var(--ink-3);
+  }
+  .evidence-section + .evidence-section {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+  }
+}
+
+/* Unlayered: some browser extensions inject a global `.dot` rule. */
+.chip > .dot,
+.dot.dot {
+  position: static;
+  width: 7px;
+  height: 7px;
 }

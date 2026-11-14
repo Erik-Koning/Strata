@@ -1,3 +1,4 @@
+import { CircleCheck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KindChip } from "../../../components/chips.tsx";
@@ -42,9 +43,8 @@ export default async function MyDayPage() {
   return (
     <>
       <PageHeader
-        eyebrow="My Day"
-        title={drafts.length || candidates.length ? "What's waiting for you" : "You're all caught up"}
-        lede="What your sessions drafted. Nobody else can see a draft. Approving one shares it with everyone in your organisation, and an approved insight or workflow finding also goes to your agents. Discarding keeps it out of anything shared."
+        title={drafts.length || candidates.length ? "What needs your attention" : "You're all caught up"}
+        lede="Only you can see what your sessions drafted. Approve it to share it with your organisation, or discard it to keep it out."
       />
 
       <section aria-labelledby="drafts-title" className="mb-8">
@@ -92,13 +92,13 @@ export default async function MyDayPage() {
             ))}
           </ol>
         ) : (
-          <div className="card px-6 py-10 text-center">
-            <p className="font-semibold text-[15px]">No drafts waiting</p>
-            <p className="mx-auto mt-1.5 max-w-md text-[14px] text-ink-3">
-              When a session ends, its summary lands here, with any insight, workflow finding, pain point or context gap
-              the agent logged along the way.
-            </p>
-          </div>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[12px] bg-surface px-5 py-3.5 text-[14px] text-ink-2 shadow-[var(--shadow)]">
+            <CircleCheck size={16} className="flex-none text-verified" aria-hidden />
+            <span className="min-w-0 flex-1">No drafts waiting. A session's summary lands here when it ends.</span>
+            <Link href="/relay" className="font-medium text-accent-text underline-offset-4 hover:underline">
+              See your handoffs
+            </Link>
+          </p>
         )}
       </section>
 
@@ -110,7 +110,7 @@ export default async function MyDayPage() {
           Things your sessions suggested remembering. Kept ones go to your agents; they stay yours alone. To forget one
           entirely, use{" "}
           <Link href="/memories" className="text-accent-text underline-offset-4 hover:underline">
-            Memories
+            Knowledge
           </Link>
           .
         </p>
@@ -135,7 +135,10 @@ export default async function MyDayPage() {
             ))}
           </ul>
         ) : (
-          <p className="card px-5 py-4 text-[14px] text-ink-3">None waiting.</p>
+          <p className="flex items-center gap-3 rounded-[12px] bg-surface px-5 py-3.5 text-[14px] text-ink-2 shadow-[var(--shadow)]">
+            <CircleCheck size={16} className="flex-none text-verified" aria-hidden />
+            Nothing to review. Everything your agent suggested has been decided.
+          </p>
         )}
       </section>
 

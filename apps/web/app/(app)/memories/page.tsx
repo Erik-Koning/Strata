@@ -1,5 +1,5 @@
 import { MEMORY_KINDS, type MemoryKind, type MemoryStatus } from "@strata/contracts";
-import { Search } from "lucide-react";
+import { Forward, Lock, Search, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listMemories, overview } from "../../../server/stats.ts";
@@ -8,13 +8,13 @@ import { PageHeader } from "../page-header.tsx";
 import { AddMemory } from "./add-memory.tsx";
 import { MemoryList, type MemoryRow } from "./memory-list.tsx";
 
-export const metadata: Metadata = { title: "Memories" };
+export const metadata: Metadata = { title: "Knowledge" };
 
 const STATUSES: { value: MemoryStatus | "all"; label: string }[] = [
-  { value: "all", label: "Active and candidates" },
-  { value: "active", label: "Active" },
-  { value: "candidate", label: "Candidates" },
+  { value: "candidate", label: "Needs review" },
+  { value: "active", label: "Remembered" },
   { value: "archived", label: "Archived" },
+  { value: "all", label: "All open" },
 ];
 
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
@@ -61,11 +61,38 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
   return (
     <>
       <PageHeader
-        eyebrow="Memories"
-        title="What's remembered"
-        lede="Active memories are given to new sessions. Candidates came from somewhere other than your own words, and wait for you to keep them."
+        title="Knowledge"
+        lede="What your agents learned. You decide what they keep."
+        actions={<AddMemory projects={stats.projects} />}
       />
-      <AddMemory projects={stats.projects} />
+
+      <ul
+        aria-label="How knowledge is shared"
+        className="mb-8 grid gap-px overflow-hidden rounded-[12px] bg-line sm:grid-cols-3"
+      >
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Lock size={14} className="text-ink-3" aria-hidden /> Private to you
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">Everything here is yours. No teammate can read it.</p>
+        </li>
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Forward size={14} className="text-accent" aria-hidden /> Shared only by you
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">
+            A memory reaches a teammate only when you tick it in a handoff you approve.
+          </p>
+        </li>
+        <li className="bg-surface px-5 py-4">
+          <p className="flex items-center gap-2 font-medium text-[14px] text-ink">
+            <Undo2 size={14} className="text-ink-3" aria-hidden /> Yours to change
+          </p>
+          <p className="mt-1 text-[13px] text-ink-3 leading-snug">
+            Keep, archive or forget any item. Revoking a handoff takes back what it shared.
+          </p>
+        </li>
+      </ul>
 
       <form
         action="/memories"
@@ -110,18 +137,24 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         </button>
       </form>
 
-      <nav aria-label="Status" className="mb-5 flex flex-wrap gap-1.5">
-        {STATUSES.map((s) => (
-          <Link
-            key={s.value}
-            href={href({ status: s.value, page: 1 })}
-            aria-current={status === s.value ? "page" : undefined}
-            className={`chip min-h-9 px-3 text-[13px] ${status === s.value ? "bg-ink text-bg" : "hover:bg-sunk"}`}
-          >
-            {s.label}
-          </Link>
-        ))}
-        <span className="ml-auto self-center text-[13px] text-ink-3">{total.toLocaleString()} found</span>
+      <nav aria-label="Status" className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="inline-flex flex-wrap gap-0.5 rounded-[9px] border border-line bg-sunk p-0.5">
+          {STATUSES.map((s) => (
+            <Link
+              key={s.value}
+              href={href({ status: s.value, page: 1 })}
+              aria-current={status === s.value ? "page" : undefined}
+              className={`inline-flex min-h-8 items-center rounded-[7px] px-3 font-medium text-[13px] transition-colors max-sm:min-h-11 ${
+                status === s.value
+                  ? "bg-surface-3 text-ink shadow-[inset_0_0_0_1px_var(--line-strong)]"
+                  : "text-ink-3 hover:text-ink"
+              }`}
+            >
+              {s.label}
+            </Link>
+          ))}
+        </span>
+        <span className="ml-auto text-[12.5px] text-ink-3 tabular-nums">{total.toLocaleString()} found</span>
       </nav>
 
       {memoryRows.length ? (

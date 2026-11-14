@@ -9,7 +9,7 @@ export function Tests({ handoff }: { handoff: Handoff }) {
   const runs = [...handoff.tests].reverse();
   return (
     <section aria-labelledby="tests-title">
-      <h3 id="tests-title" className="eyebrow">
+      <h3 id="tests-title" className="eyebrow scroll-mt-6">
         Tests
       </h3>
       {handoff.testCommands.length ? (
@@ -39,9 +39,9 @@ export function Tests({ handoff }: { handoff: Handoff }) {
                       {pass ? <CircleCheck size={14} aria-hidden /> : <CircleX size={14} aria-hidden />}
                       {pass ? "Pass" : "Fail"}
                     </span>
-                    <code className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink">{t.command}</code>
+                    <code className="min-w-[10ch] flex-1 truncate font-mono text-[12.5px] text-ink">{t.command}</code>
                     <EvidenceBadge verified={t.verified} />
-                    <span className="flex w-full flex-wrap gap-x-3 text-[12px] text-ink-3 sm:w-auto">
+                    <span className="flex w-full flex-wrap gap-x-3 text-[12px] text-ink-3 xl:w-auto">
                       <span>exit {t.exitCode ?? "?"}</span>
                       {shortSha(t.commit) ? <span className="font-mono">@ {shortSha(t.commit)}</span> : null}
                       {duration(t.durationMs) ? <span>{duration(t.durationMs)}</span> : null}

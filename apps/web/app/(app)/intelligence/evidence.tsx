@@ -2,17 +2,7 @@
 // The evidence drawer: any citation or record on the page opens it, and it shows the record as stored, where it came
 // from, its session's links and what the session captured (counts, never content), related records, and why the
 // viewer is allowed to see it.
-import {
-  FileText,
-  FolderGit2,
-  GitBranch,
-  GitCommitHorizontal,
-  LoaderCircle,
-  Lock,
-  ShieldCheck,
-  Ticket,
-  X,
-} from "lucide-react";
+import { FolderGit2, GitBranch, GitCommitHorizontal, LoaderCircle, Lock, ShieldCheck, Ticket, X } from "lucide-react";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Ago } from "../../../components/time.tsx";
 import type { Evidence, SourceCard } from "../../../server/intelligence/types.ts";
@@ -107,57 +97,57 @@ function EvidencePanel({
       <div
         aria-hidden
         onClick={onClose}
-        className={`fixed inset-0 z-30 bg-ink/20 backdrop-blur-[1px] transition-opacity duration-200 lg:bg-transparent lg:backdrop-blur-none ${
+        className={`fixed inset-0 z-30 bg-black/55 transition-opacity duration-200 lg:bg-black/30 ${
           ref ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
-      <aside
-        aria-label="Evidence"
-        aria-hidden={!ref}
-        inert={!ref}
-        className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-[460px] flex-col border-line border-l bg-surface shadow-[var(--shadow)] transition-transform duration-200 ease-out ${
-          ref ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
-        <header className="flex items-center gap-3 border-line border-b px-5 py-3.5">
-          <span className="grid size-8 place-items-center rounded-[9px] bg-accent-soft text-accent-text">
-            <FileText size={16} aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="eyebrow">Evidence</p>
-            <p className="truncate font-mono text-[12.5px] text-ink-2">{ref ?? ""}</p>
+      {/* Clipped by a fixed frame, so the closed panel parked off-screen never widens the page. */}
+      <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden">
+        <aside
+          aria-label="Evidence"
+          aria-hidden={!ref}
+          inert={!ref}
+          className={`pointer-events-auto absolute inset-y-0 right-0 flex w-full max-w-[480px] flex-col border-line border-l bg-surface shadow-[var(--shadow-pop)] transition-transform duration-200 ease-out ${
+            ref ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <header className="flex items-center gap-3 border-line border-b px-5 py-3.5">
+            <div className="min-w-0 flex-1">
+              <p className="eyebrow">Evidence</p>
+              <p className="truncate font-mono text-[12.5px] text-ink-2">{ref ?? ""}</p>
+            </div>
+            <button
+              ref={closeRef}
+              type="button"
+              className="btn btn-quiet btn-sm"
+              onClick={onClose}
+              aria-label="Close evidence"
+            >
+              <X size={16} aria-hidden />
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
+            {state.status === "loading" ? (
+              <div className="space-y-3" role="status" aria-label="Loading evidence">
+                <div className="h-4 w-28 animate-pulse rounded bg-surface-2" />
+                <div className="h-24 animate-pulse rounded-[10px] bg-surface-2" />
+                <div className="h-4 w-40 animate-pulse rounded bg-surface-2" />
+                <div className="h-32 animate-pulse rounded-[10px] bg-surface-2" />
+                <span className="sr-only">
+                  <LoaderCircle aria-hidden /> Loading
+                </span>
+              </div>
+            ) : state.status === "error" ? (
+              <div className="rounded-[12px] border border-line p-4 text-[14px]">
+                <p className="font-medium">Can't show this record</p>
+                <p className="mt-1 text-ink-3">{state.error}</p>
+              </div>
+            ) : (
+              <EvidenceBody evidence={state.evidence} onOpen={onOpen} />
+            )}
           </div>
-          <button
-            ref={closeRef}
-            type="button"
-            className="btn btn-quiet btn-sm"
-            onClick={onClose}
-            aria-label="Close evidence"
-          >
-            <X size={16} aria-hidden />
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">
-          {state.status === "loading" ? (
-            <div className="space-y-3" role="status" aria-label="Loading evidence">
-              <div className="h-4 w-28 animate-pulse rounded bg-surface-2" />
-              <div className="h-24 animate-pulse rounded-[10px] bg-surface-2" />
-              <div className="h-4 w-40 animate-pulse rounded bg-surface-2" />
-              <div className="h-32 animate-pulse rounded-[10px] bg-surface-2" />
-              <span className="sr-only">
-                <LoaderCircle aria-hidden /> Loading
-              </span>
-            </div>
-          ) : state.status === "error" ? (
-            <div className="rounded-[12px] border border-line p-4 text-[14px]">
-              <p className="font-medium">Can't show this record</p>
-              <p className="mt-1 text-ink-3">{state.error}</p>
-            </div>
-          ) : (
-            <EvidenceBody evidence={state.evidence} onOpen={onOpen} />
-          )}
-        </div>
-      </aside>
+        </aside>
+      </div>
     </>
   );
 }

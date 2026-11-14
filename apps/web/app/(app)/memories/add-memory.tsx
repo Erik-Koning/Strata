@@ -14,11 +14,16 @@ export function AddMemory({ projects }: { projects: string[] }) {
     }
   }, [state.saved]);
   return (
-    <details ref={details} className="group mb-6">
-      <summary className="btn btn-primary w-fit cursor-pointer list-none">
-        <Plus size={16} aria-hidden /> Add a memory
+    <details ref={details} className="group sm:relative">
+      <summary className="btn btn-primary btn-sm w-fit cursor-pointer list-none">
+        <Plus size={14} aria-hidden /> Add a memory
       </summary>
-      <form ref={form} action={action} className="card mt-3 grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_200px_200px]">
+      {/* Opens as a sheet under the button, over the page, so the list below doesn't jump. */}
+      <form
+        ref={form}
+        action={action}
+        className="card absolute inset-x-4 z-30 mt-2 grid gap-4 p-5 shadow-[var(--shadow-pop)] sm:inset-x-auto sm:right-0 sm:w-[min(680px,calc(100vw-3rem))] sm:grid-cols-[minmax(0,1fr)_180px_180px]"
+      >
         <div className="sm:col-span-3">
           <label className="label" htmlFor="text">
             What should your agents remember?
@@ -54,7 +59,7 @@ export function AddMemory({ projects }: { projects: string[] }) {
           </datalist>
         </div>
         <div className="flex items-end">
-          <button type="submit" className="btn btn-primary w-full min-h-[42px]" disabled={pending}>
+          <button type="submit" className="btn btn-primary min-h-10 w-full" disabled={pending}>
             {pending ? "Saving…" : "Save memory"}
           </button>
         </div>
