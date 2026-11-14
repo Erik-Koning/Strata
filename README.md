@@ -94,8 +94,8 @@ author's alone until approved. The summary path sends only a summary the enginee
 - secrets and `<private>` blocks are stripped before anything is queued, and the server redacts again;
 - a tool event carries its name, outcome, duration, command class, exit code and a fingerprint, never its input or
   output; a shell command's text never leaves the machine;
-- raw prompt, reply and transcript text is cleared once the session has been drafted, and once the local summary is
-  written on the summary path;
+- raw prompt, reply and transcript events stay in `memory_events` until the 30-day TTL, as my-day keeps them; the
+  local summary path deletes its own queue text once the summary is written;
 - the local summarizer runs headless with no tools, no MCP, no slash commands, its own empty working directory, a
   small model, and a daily cap;
 - the `SessionStart` overview is built from local summaries and kept for the session, so a resume gets the same bytes;
@@ -187,7 +187,8 @@ can read. They aren't in the team's task graph until `.a6g/brief.md` takes them.
 - [x] `/api/records`: list, read, edit, approve, discard; only the author sees a draft
 - [x] MCP tool `strata_record` logs an insight, workflow finding, pain point or context gap as a `finding` event
 - [x] Approved insights and workflow findings copied into memories, so the next session recalls them
-- [x] Prompt, reply and transcript text deleted as soon as a session is drafted
+- [ ] Delete prompt, reply and transcript text as soon as a session is drafted; for now it stays until the 30-day
+      `memory_events` TTL, matching my-day
 - [ ] Choose the embeddings model: OpenAI, as the brief proposes, or Voyage AI
 
 **Capture for work records**
