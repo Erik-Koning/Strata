@@ -116,7 +116,7 @@ mongo_wipe() {
 with_env() { (set -a; . "$RUN/app.env"; set +a; "$@"); }
 
 app_up() {
-  if curl -fsS -o /dev/null --max-time 3 "$URL"; then echo "env: app already up at $URL"; return 0; fi
+  if curl -fs -o /dev/null --max-time 3 "$URL" 2>/dev/null; then echo "env: app already up at $URL"; return 0; fi
   ensure_app_env || return 1
   local kind
   if has_script dev; then
@@ -144,7 +144,7 @@ app_up() {
     kind="placeholder (nothing is built yet)"
   fi
   for _ in $(seq 1 120); do
-    curl -fsS -o /dev/null --max-time 2 "$URL" && { echo "env: $kind up at $URL"; return 0; }
+    curl -fs -o /dev/null --max-time 2 "$URL" 2>/dev/null && { echo "env: $kind up at $URL"; return 0; }
     sleep 2
   done
   echo "env: the app didn't answer at $URL in 4 minutes; see $RUN/app.log" >&2
@@ -188,7 +188,7 @@ reset() {
 }
 status() {
   local rc=0
-  if curl -fsS -o /dev/null --max-time 3 "$URL"; then echo "env: app up at $URL"; else echo "env: app down ($URL)"; rc=1; fi
+  if curl -fs -o /dev/null --max-time 3 "$URL" 2>/dev/null; then echo "env: app up at $URL"; else echo "env: app down ($URL)"; rc=1; fi
   if mongo_running; then
     if mongo_ready; then echo "env: MongoDB up at $MONGODB_URI ($MONGO_CONTAINER)"; else echo "env: MongoDB starting ($MONGO_CONTAINER)"; fi
   else
