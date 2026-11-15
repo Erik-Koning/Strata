@@ -1,6 +1,7 @@
 // The digest's controls: the week, paged back and forth by link, and the products it covers, picked in a GET form, so
 // both work without script and every view has an address to bookmark.
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Form from "next/form";
 import Link from "next/link";
 import { type DigestWeek, digestHref } from "../../server/hub/digest.ts";
 
@@ -48,7 +49,7 @@ export function ProductPicker({
 }) {
   const chosen = new Set(picked);
   return (
-    <form action="/digest" key={picked.join(" ")} className="card mb-6 p-4 sm:p-5" aria-labelledby="digest-products">
+    <Form action="/digest" key={picked.join(" ")} className="card mb-6 p-4 sm:p-5" aria-labelledby="digest-products">
       <fieldset>
         <legend id="digest-products" className="label">
           Products
@@ -86,6 +87,6 @@ export function ProductPicker({
         Following products, so the digest keeps your picks and arrives by email each week, comes later. For now, pick
         them here and bookmark the page.
       </p>
-    </form>
+    </Form>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { GapActions } from "../../../components/gaps/gap-actions.tsx";
 import { Answer, Owner, SeenChips, SeenWhen } from "../../../components/gaps/gap-parts.tsx";
@@ -81,7 +82,7 @@ export default async function GapsPage({ searchParams }: PageProps<"/gaps">) {
           </Link>
         </nav>
 
-        <form
+        <Form
           action="/gaps"
           aria-label="Filter gaps"
           className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:w-[560px]"
@@ -111,7 +112,7 @@ export default async function GapsPage({ searchParams }: PageProps<"/gaps">) {
           <button type="submit" className="btn min-h-11">
             Apply
           </button>
-        </form>
+        </Form>
       </div>
 
       {list.length ? (

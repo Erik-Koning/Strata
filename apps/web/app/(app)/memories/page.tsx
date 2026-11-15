@@ -1,6 +1,7 @@
 import { MEMORY_KINDS, type MemoryKind, type MemoryStatus } from "@strata/contracts";
 import { Forward, Lock, Search, Undo2 } from "lucide-react";
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { listMemories, overview } from "../../../server/stats.ts";
 import { requireViewer } from "../../../server/viewer.ts";
@@ -94,7 +95,7 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         </li>
       </ul>
 
-      <form
+      <Form
         action="/memories"
         className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_200px_auto]"
         aria-label="Search and filter memories"
@@ -135,7 +136,7 @@ export default async function MemoriesPage({ searchParams }: PageProps<"/memorie
         <button type="submit" className="btn min-h-[42px]">
           Apply
         </button>
-      </form>
+      </Form>
 
       <nav aria-label="Status" className="mb-4 flex flex-wrap items-center gap-3">
         <span className="inline-flex flex-wrap gap-0.5 rounded-[9px] border border-line bg-sunk p-0.5">

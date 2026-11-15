@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowLeftRight, MoveRight } from "lucide-react";
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ContextColumn } from "../../../../../components/history/context.tsx";
@@ -99,10 +100,9 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
       </header>
 
       {/* The comparison itself: Before and After, always visible, and the form that changes them without the rail. */}
-      <form
+      <Form
         key={`${before?.sha ?? "root"}..${after.sha}`}
         autoComplete="off"
-        method="get"
         action={`/products/${encodeURIComponent(product.id)}/history`}
         className="card mb-5 grid items-end gap-3 px-4 py-3.5 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto]"
         aria-label="Compare two commits"
@@ -165,7 +165,7 @@ export default async function ProductHistoryPage({ params, searchParams }: PageP
             </span>
           ) : null}
         </p>
-      </form>
+      </Form>
 
       <div className="grid items-start gap-4 lg:grid-cols-[228px_minmax(0,1fr)] xl:grid-cols-[228px_minmax(0,1fr)_296px]">
         <div className="max-lg:order-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:rounded-[var(--radius)]">

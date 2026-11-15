@@ -310,14 +310,17 @@ export default async function RelayPage({ searchParams }: PageProps<"/relay">) {
   const params = await searchParams;
   const creating = one(params.new) === "1";
   const chosen = creating ? null : (one(params.id) ?? null);
-  const [inbox, sent, projects]: [HandoffListItem[], HandoffListItem[], string[]] = await Promise.all([
-    listHandoffs(caller, "inbox"),
-    listHandoffs(caller, "outbox"),
-    creating ? overview(caller.userId).then((o) => o.projects) : Promise.resolve([]),
-  ]);
+  // A handoff picked by its link loads alongside the lists; only an automatic pick has to wait for them.
+  const [inbox, sent, projects, picked]: [HandoffListItem[], HandoffListItem[], string[], Detail | null] =
+    await Promise.all([
+      listHandoffs(caller, "inbox"),
+      listHandoffs(caller, "outbox"),
+      creating ? overview(caller.userId).then((o) => o.projects) : Promise.resolve([]),
+      chosen ? load(caller, chosen) : Promise.resolve(null),
+    ]);
   // An automatic pick shows on wide screens only: on a phone the list comes first until you choose.
   const id = creating ? null : (chosen ?? pick(inbox, sent));
-  const detail = id ? await load(caller, id) : null;
+  const detail = picked ?? (id ? await load(caller, id) : null);
   const open = Boolean(chosen || creating);
 
   return (

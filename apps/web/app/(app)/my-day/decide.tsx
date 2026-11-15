@@ -2,10 +2,19 @@
 // Deciding about one draft or one suggested memory. Every decision goes through a server action that acts only on the
 // caller's own.
 import { Check, LoaderCircle, Pencil } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { ConfirmButton } from "../../../components/confirm-button.tsx";
 import { Markdown } from "../../../components/markdown.tsx";
 import { approve, decideCandidate, discard, type Result, save } from "./actions.ts";
+
+// What a decision did, shown the moment it's clicked. It stays until the page drops the item, or goes if it's refused.
+function Done({ text }: { text: string }) {
+  return (
+    <p className="flex items-center gap-1.5 font-medium text-[13.5px] text-ink-2" aria-live="polite">
+      <Check size={15} aria-hidden className="text-accent" /> {text}
+    </p>
+  );
+}
 
 function Problem({ error }: { error: string | null }) {
   if (!error) return null;
@@ -22,8 +31,10 @@ export function Draft({ id, text, label }: { id: string; text: string; label: st
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
-  const run = (work: () => Promise<Result>, after?: () => void) =>
+  const [done, setDone] = useOptimistic<string | null>(null);
+  const run = (work: () => Promise<Result>, after?: () => void, shows?: string) =>
     start(async () => {
+      if (shows) setDone(shows);
       const result = await work();
       setError(result.error);
       if (!result.error) after?.();
@@ -53,58 +64,68 @@ export function Draft({ id, text, label }: { id: string; text: string; label: st
         <Markdown className="break-words text-[14.5px] leading-relaxed">{value}</Markdown>
       )}
       <Problem error={error} />
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="btn btn-primary btn-sm min-h-11 sm:min-h-9"
-          disabled={pending}
-          onClick={() => run(() => approve(id, editing && value !== text ? value : undefined))}
-        >
-          {pending ? <LoaderCircle size={14} className="animate-spin" aria-hidden /> : <Check size={14} aria-hidden />}
-          Approve and share
-        </button>
-        {editing ? (
-          <>
-            <button
-              type="button"
-              className="btn btn-sm min-h-11 sm:min-h-9"
-              disabled={pending}
-              onClick={() =>
-                run(
-                  () => save(id, value),
-                  () => setSaved(true),
-                )
-              }
-            >
-              Save draft
-            </button>
-            <button
-              type="button"
-              className="btn btn-quiet btn-sm min-h-11 sm:min-h-9"
-              disabled={pending}
-              onClick={() => {
-                setEditing(false);
-                setValue(text);
-                setError(null);
-              }}
-            >
-              Cancel
-            </button>
-            {saved ? (
-              <span className="text-[12.5px] text-ink-3" aria-live="polite">
-                Saved. Still only yours.
-              </span>
-            ) : null}
-          </>
-        ) : (
-          <button type="button" className="btn btn-sm min-h-11 sm:min-h-9" onClick={() => setEditing(true)}>
-            <Pencil size={14} aria-hidden /> Edit
+      {done ? (
+        <Done text={done} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-primary btn-sm min-h-11 sm:min-h-9"
+            disabled={pending}
+            onClick={() =>
+              run(() => approve(id, editing && value !== text ? value : undefined), undefined, "Approved and shared")
+            }
+          >
+            {pending ? (
+              <LoaderCircle size={14} className="animate-spin" aria-hidden />
+            ) : (
+              <Check size={14} aria-hidden />
+            )}
+            Approve and share
           </button>
-        )}
-        <span className="ml-auto">
-          <ConfirmButton label="Discard" confirm="Discard draft" danger action={() => discard(id)} />
-        </span>
-      </div>
+          {editing ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-sm min-h-11 sm:min-h-9"
+                disabled={pending}
+                onClick={() =>
+                  run(
+                    () => save(id, value),
+                    () => setSaved(true),
+                  )
+                }
+              >
+                Save draft
+              </button>
+              <button
+                type="button"
+                className="btn btn-quiet btn-sm min-h-11 sm:min-h-9"
+                disabled={pending}
+                onClick={() => {
+                  setEditing(false);
+                  setValue(text);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </button>
+              {saved ? (
+                <span className="text-[12.5px] text-ink-3" aria-live="polite">
+                  Saved. Still only yours.
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <button type="button" className="btn btn-sm min-h-11 sm:min-h-9" onClick={() => setEditing(true)}>
+              <Pencil size={14} aria-hidden /> Edit
+            </button>
+          )}
+          <span className="ml-auto">
+            <ConfirmButton label="Discard" confirm="Discard draft" danger action={() => discard(id)} />
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -112,10 +133,13 @@ export function Draft({ id, text, label }: { id: string; text: string; label: st
 export function Candidate({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const [done, setDone] = useOptimistic<string | null>(null);
   const decide = (keep: boolean) =>
     start(async () => {
+      setDone(keep ? "Kept" : "Set aside");
       setError((await decideCandidate(id, keep)).error);
     });
+  if (done) return <Done text={done} />;
   return (
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex gap-2">

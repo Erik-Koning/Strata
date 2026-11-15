@@ -1,6 +1,8 @@
 // A product's graph, drawn: inline SVG at the size it's laid out at (layout.ts), in the theme's tokens, so it follows
 // light and dark with no script. Every box is a link to what it stands for. Narrower than the drawing, it scrolls
 // sideways in its own frame rather than shrinking the words.
+import Link from "next/link";
+import type { ReactNode } from "react";
 import type { GraphEdgeKind, GraphNodeKind, ProductGraph } from "../../server/hub/graph.ts";
 import { EDGE_LABELS, fitText, layoutGraph, type PlacedNode, VIEW_H, VIEW_W } from "./layout.ts";
 
@@ -85,16 +87,25 @@ export const lookOf = (node: Pick<PlacedNode, "kind" | "stale" | "resolved">): L
 const capsOf = (node: PlacedNode): string =>
   node.stale ? "MAY BE STALE" : node.kind === "gap" && node.resolved ? "ANSWERED GAP" : KIND_CAPS[node.kind];
 
+// A box inside the app opens without reloading the page; one that leaves it (a ticket, a pull request) opens a tab.
+function NodeLink({ node, children }: { node: PlacedNode; children: ReactNode }) {
+  return node.external ? (
+    <a href={node.href} aria-label={node.title} target="_blank" rel="noopener noreferrer">
+      {children}
+    </a>
+  ) : (
+    <Link href={node.href} aria-label={node.title}>
+      {children}
+    </Link>
+  );
+}
+
 function NodeBox({ node }: { node: PlacedNode }) {
   const look = lookOf(node);
   const nameSize = node.kind === "product" ? 12 : 11;
   const top = node.y - node.h / 2;
   return (
-    <a
-      href={node.href}
-      aria-label={node.title}
-      {...(node.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-    >
+    <NodeLink node={node}>
       <title>{node.title}</title>
       <rect
         x={node.x - node.w / 2}
@@ -130,7 +141,7 @@ function NodeBox({ node }: { node: PlacedNode }) {
       >
         {fitText(node.label, node.w, nameSize, look.mono)}
       </text>
-    </a>
+    </NodeLink>
   );
 }
 

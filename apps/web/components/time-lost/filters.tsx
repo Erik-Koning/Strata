@@ -1,4 +1,5 @@
 // The time page's filters: the range as links, the product as a GET form, so both work without script.
+import Form from "next/form";
 import Link from "next/link";
 import { DEFAULT_RANGE, RANGES, type TimeFilters, timeHref } from "../../server/hub/time-page.ts";
 
@@ -26,7 +27,7 @@ export function TimeFilterBar({
           );
         })}
       </nav>
-      <form action="/time" aria-label="Filter by product" className="flex min-w-0 flex-1 gap-2 sm:max-w-md">
+      <Form action="/time" aria-label="Filter by product" className="flex min-w-0 flex-1 gap-2 sm:max-w-md">
         <label className="min-w-0 flex-1">
           <span className="sr-only">Product</span>
           <select
@@ -47,7 +48,7 @@ export function TimeFilterBar({
         <button type="submit" className="btn min-h-[42px] max-md:min-h-11">
           Apply
         </button>
-      </form>
+      </Form>
     </div>
   );
 }

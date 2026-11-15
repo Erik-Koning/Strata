@@ -2,6 +2,7 @@
 // The graph's filters, all in the address so a view can be linked to: scope, product, kinds, range, minimum connections
 // and, for memories, status. Every choice is a link, or a select that goes to one; without script the selects submit
 // as a GET form.
+import Form from "next/form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -80,7 +81,7 @@ export function FilterBar({
           ))}
         </nav>
 
-        <form
+        <Form
           ref={form}
           action="/graph"
           aria-label="Narrow the graph"
@@ -134,7 +135,7 @@ export function FilterBar({
               Apply
             </button>
           </noscript>
-        </form>
+        </Form>
       </div>
 
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">

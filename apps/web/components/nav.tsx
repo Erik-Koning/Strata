@@ -6,6 +6,7 @@ import {
   Cable,
   CalendarCheck,
   Forward,
+  LoaderCircle,
   MessageCircleQuestionMark,
   Network,
   Newspaper,
@@ -15,7 +16,7 @@ import {
   ShieldCheck,
   Timer,
 } from "lucide-react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -52,8 +53,19 @@ const ADMIN: Item = { href: "/admin", label: "People", icon: ShieldCheck };
 const isCurrent = (href: string, path: string) =>
   href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`);
 
+// The link's icon, or a spinner from the click until the page arrives, so a slow page never looks like a dead click.
+function NavIcon({ icon: Icon, current }: { icon: Item["icon"]; current: boolean }) {
+  const { pending } = useLinkStatus();
+  const tone = current || pending ? "text-accent" : "text-ink-3";
+  return pending ? (
+    <LoaderCircle size={16} strokeWidth={1.75} aria-hidden className={`animate-spin ${tone}`} />
+  ) : (
+    <Icon size={16} strokeWidth={1.75} aria-hidden className={tone} />
+  );
+}
+
 function NavLink({ item, current, waiting = 0 }: { item: Item; current: boolean; waiting?: number }) {
-  const { href, label, icon: Icon } = item;
+  const { href, label, icon } = item;
   return (
     <Link
       href={href}
@@ -63,7 +75,7 @@ function NavLink({ item, current, waiting = 0 }: { item: Item; current: boolean;
         current ? "bg-surface text-ink shadow-[var(--shadow)]" : "text-ink-2 hover:bg-surface/60 hover:text-ink"
       }`}
     >
-      <Icon size={16} strokeWidth={1.75} aria-hidden className={current ? "text-accent" : "text-ink-3"} />
+      <NavIcon icon={icon} current={current} />
       <span className={current ? "whitespace-nowrap" : "whitespace-nowrap max-md:sr-only"}>{label}</span>
       {waiting ? (
         <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-accent px-1.5 font-semibold text-[11px] text-accent-ink leading-5 max-md:absolute max-md:top-0.5 max-md:right-0.5 max-md:min-w-4 max-md:px-1 max-md:text-[10px] max-md:leading-4">
